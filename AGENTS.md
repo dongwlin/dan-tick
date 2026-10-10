@@ -50,6 +50,7 @@ npm run build:dev          # vue-tsc + 非压缩的 development build
 ## 4. 新代码的架构与风格约束
 
 - Go 后端按需采用 **Bun + `modernc.org/sqlite` + Bun Migrations**、zerolog、`robfig/cron/v3`、`go-keyring`、`net/http` 和 testify。优先具体类型与清晰的 Service / 业务边界，不引入 Gin、本地 REST Server、分布式调度或没有实际需求的 Repository 接口。
+- Go 应用源码以根目录仅保留 `main.go` 为目标；现有 `greetservice.go` 是待移除的模板文件。新后端业务代码按职责放在 `internal/`，不预建空包。模型复用、Binding Input、事务和依赖方向以 [Go 桌面应用架构约定](docs/specs/profiles/backend/wails-desktop/Go%20桌面应用架构约定.md) 为准；数据库初稿见 [后端数据模型设计](docs/后端数据模型设计.md)。`build/` 的平台模板 Go 文件不属于根目录限制。
 - 调度器只负责触发计划；执行防重、持久化、漏发判定和恢复由业务逻辑与 SQLite 事务承担。任务使用明确时区（PRD 默认 `Asia/Shanghai`）；错过计划默认不补发，手动执行不改变定时计划。同一账号的多个任务共享发送频率限制。
 - B 站接口成功不能只看 HTTP 200，需校验业务响应；发送结果不确定时默认不自动重试。HTTP 请求要有超时、取消能力，避免在停任务或退出后继续发送。
 - 凭证只进入系统安全存储；不可用时明确失败，不回退到明文配置。不要记录 Cookie、将其放入普通前端 Store / Query 缓存、持久化 Web 存储或路由；B 站鉴权与请求统一在 Go 后端完成。
