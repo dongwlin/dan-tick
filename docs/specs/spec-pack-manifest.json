@@ -18,15 +18,16 @@
       "source_commit": "47bda713adf55becd34dbc4997ffd565848aa99a"
     },
     "Wails 桌面后端 Pack": {
-      "copied_at": "2026-10-10T14:30:24Z",
+      "copied_at": "2026-10-10T15:00:38Z",
       "files": {
-        "packs/Wails 桌面后端 Pack.md": "99edadda4eb436ebbe0b8e2c68b7d3a056637c4bd6f1b3c3b68062ed8f9a1774",
-        "profiles/backend/wails-desktop/Go 桌面应用技术栈.md": "7ac2e3f0b6088ddf9f0e5c5e505fe28d4c0b1c9c79b15db8d8491a6e68c161bb",
+        "packs/Wails 桌面后端 Pack.md": "36dd79e3ff9e0f2103dfb2715b94de8b48bebc4e86728ca7db63c33354156bf2",
+        "profiles/backend/wails-desktop/Go 桌面应用技术栈.md": "242963f53d6665140628a6e4a813fb32ce73cd9bc55e6d5e2f679462c9efca4d",
+        "profiles/backend/wails-desktop/Go 桌面应用架构约定.md": "57462acb39c347d0a2a981f86221c0655ee01ab7d263fb066e6252807f1e3672",
         "profiles/backend/wails-desktop/Go 桌面应用测试规范.md": "e5ce0e63b108f15599a6252f6a5dcbc67e171b0eb807d150178a3dee78a7ed44",
         "profiles/backend/wails-desktop/Go 桌面调度规范.md": "25a25cddd85ef1cf06e44a41adca8e7e57b5eaece445fdbdd198706f4a5d4046",
-        "profiles/backend/wails-desktop/Wails 服务与生命周期规范.md": "1f5d6c614f9cb7ebe87c012fc8f41c8630a88acf3a71921b73a4acb3139b0c7e"
+        "profiles/backend/wails-desktop/Wails 服务与生命周期规范.md": "952aa409095b608051d82f42b2b21eba61bfdbd0e808e415f3a30d15bceec676"
       },
-      "source_commit": "47bda713adf55becd34dbc4997ffd565848aa99a"
+      "source_commit": "7296ab28b387ed06f030e0e84ee247ab9189ea1b"
     }
   },
   "version": 1
