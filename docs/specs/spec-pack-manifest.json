@@ -1,0 +1,33 @@
+{
+  "packs": {
+    "Vue SPA Pack": {
+      "copied_at": "2026-10-10T14:30:24Z",
+      "files": {
+        "packs/Vue SPA Pack.md": "8bd50b6f4180a8483081647eae66cce21ce3d36fdc8c1d4d616e0a456b94cf40",
+        "packs/亚克力设计 Pack.md": "418709a937c990418b7f4cad7f71c07667bb3fbd38d497634408e1965e7612b9",
+        "profiles/design/acrylic/亚克力设计系统规范.md": "2c9e009a5dd979384307db04b17d6bea3ccf2853baf4bac327562f62d94ac909",
+        "profiles/frontend/base/前端 SPA 基础技术栈.md": "3594331bac274e7166ff5ed65a71a3a54bf3ac8fdf695e185b88542d9692d4c1",
+        "profiles/frontend/vue-spa/Vue SPA 技术栈.md": "f026ce0bc0384a4d1816bf10dba3964ff98fd9f39caf2f8bb86089ac4c822aac",
+        "profiles/frontend/vue-spa/Vue SPA 架构约定.md": "5a10d742934f8aadc337b9142643e56419567135eab61f8734b991be4a6c728d",
+        "profiles/frontend/vue-spa/Vue SPA 测试约定.md": "b3f203b69c8eb9eac116bb84d8b84435d38435bab22d41e1f88194393f5322ad",
+        "standards/backend/HTTP API 设计规范.md": "9e9a053eb12a73ab07e697a67f41e68d5e68f5a14e6b3018c58e9990791c509e",
+        "standards/frontend/前端交互与可访问性规范.md": "36c763e839b4f5a0c5d0f564db8064da022aae6f322ac377299b4578a0587fbf",
+        "standards/frontend/前端应用架构规范.md": "7392cb93b4d26d16fff8e63aa8eb5748aabbbc4147881f47448840ecccc644ec",
+        "standards/frontend/前端测试规范.md": "7ccf16becef5d7d69f8037b6e97946cd7457fdcfcd8ff1abbcfa0b3a1a2fcec1"
+      },
+      "source_commit": "47bda713adf55becd34dbc4997ffd565848aa99a"
+    },
+    "Wails 桌面后端 Pack": {
+      "copied_at": "2026-10-10T14:30:24Z",
+      "files": {
+        "packs/Wails 桌面后端 Pack.md": "99edadda4eb436ebbe0b8e2c68b7d3a056637c4bd6f1b3c3b68062ed8f9a1774",
+        "profiles/backend/wails-desktop/Go 桌面应用技术栈.md": "7ac2e3f0b6088ddf9f0e5c5e505fe28d4c0b1c9c79b15db8d8491a6e68c161bb",
+        "profiles/backend/wails-desktop/Go 桌面应用测试规范.md": "e5ce0e63b108f15599a6252f6a5dcbc67e171b0eb807d150178a3dee78a7ed44",
+        "profiles/backend/wails-desktop/Go 桌面调度规范.md": "25a25cddd85ef1cf06e44a41adca8e7e57b5eaece445fdbdd198706f4a5d4046",
+        "profiles/backend/wails-desktop/Wails 服务与生命周期规范.md": "1f5d6c614f9cb7ebe87c012fc8f41c8630a88acf3a71921b73a4acb3139b0c7e"
+      },
+      "source_commit": "47bda713adf55becd34dbc4997ffd565848aa99a"
+    }
+  },
+  "version": 1
+}
