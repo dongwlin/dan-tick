@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0b0e" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>dan-tick · 弹幕任务控制台</title>
+    <script>
+      const theme = localStorage.getItem('dan-tick-prototype-theme')
+      document.documentElement.dataset.theme = theme === 'light' || theme === 'dark' ? theme : 'dark'
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
