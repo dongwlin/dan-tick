@@ -4,6 +4,7 @@
 
 - dan-tick 是面向 Windows、Linux 的 B 站直播弹幕定时发送桌面应用：本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
+- 开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它用于安排实施步骤，不覆盖 PRD 与技术选型的权威性；UI 原型可以独立继续迭代。
 - **正式应用当前仍是 Wails 3 模板，并未实现 PRD 的业务功能。** `prototype/` 已有独立的 Vanilla TypeScript UI 演示，全部使用模拟状态，与 `frontend/` 正式 Vue 前端分开。技术栈选型中的 Bun、SQLite、Cron、Pinia、Tailwind、路由、表单和测试框架等是后续落地方案，不代表正式应用已安装这些依赖或已有对应目录。按功能渐进引入，不为未来需求创建空架构。
 - `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 仍是 Vue 模板说明，应以代码和工程配置为准。
 
