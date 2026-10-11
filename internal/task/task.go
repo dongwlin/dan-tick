@@ -438,7 +438,9 @@ func validate(input CreateInput, now time.Time) (CreateInput, error) {
 		if len(input.Messages) == 0 || input.IntervalSeconds == nil || *input.IntervalSeconds <= 0 ||
 			(input.MaxCount == nil && input.MaxDurationSeconds == nil) ||
 			(input.MaxCount != nil && *input.MaxCount <= 0) ||
-			(input.MaxDurationSeconds != nil && *input.MaxDurationSeconds <= 0) {
+			(input.MaxDurationSeconds != nil && *input.MaxDurationSeconds <= 0) ||
+			*input.IntervalSeconds > int64((1<<63-1)/int64(time.Second)) ||
+			(input.MaxDurationSeconds != nil && *input.MaxDurationSeconds > int64((1<<63-1)/int64(time.Second))) {
 			return input, fmt.Errorf("%w: loop requires messages, positive interval and a positive stop condition", ErrInvalidTask)
 		}
 	default:

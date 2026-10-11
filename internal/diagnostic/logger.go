@@ -34,6 +34,7 @@ var (
 	DesktopRunFailed       = Event{name: "desktop.run_failed", component: "desktop", result: "failed", errorCategory: "desktop_runtime", level: zerolog.ErrorLevel}
 	ExecutionStarted       = Event{name: "execution.started", component: "executor", result: "running", level: zerolog.InfoLevel}
 	ExecutionCompleted     = Event{name: "execution.completed", component: "executor", result: "completed", level: zerolog.InfoLevel}
+	ExecutionStopped       = Event{name: "execution.stopped", component: "executor", result: "stopped", level: zerolog.InfoLevel}
 	ExecutionFailed        = Event{name: "execution.failed", component: "executor", result: "failed", level: zerolog.WarnLevel}
 	ExecutionPersistFailed = Event{name: "execution.persist_failed", component: "executor", result: "failed", errorCategory: "persistence", level: zerolog.ErrorLevel}
 	SendAccepted           = Event{name: "send.resolved", component: "executor", result: "accepted", level: zerolog.InfoLevel}
@@ -83,11 +84,26 @@ func (l *Logger) Record(event Event) {
 // whitelisted error category. Message contents and arbitrary provider errors
 // cannot become log fields, even if passed by mistake.
 func (l *Logger) RecordExecution(event Event, executionID, taskID int64, category string) {
+	l.recordExecution(event, executionID, taskID, 0, category)
+}
+
+// RecordSendAttempt adds the positive attempt sequence to a predefined send
+// event. It never accepts message text or raw upstream diagnostics.
+func (l *Logger) RecordSendAttempt(event Event, executionID, taskID int64, sequence int, category string) {
+	switch event {
+	case SendAccepted, SendRejected, SendNotSent, SendUnknown:
+		if sequence > 0 {
+			l.recordExecution(event, executionID, taskID, sequence, category)
+		}
+	}
+}
+
+func (l *Logger) recordExecution(event Event, executionID, taskID int64, sequence int, category string) {
 	if executionID <= 0 || taskID <= 0 {
 		return
 	}
 	switch event {
-	case ExecutionStarted, ExecutionCompleted, ExecutionFailed,
+	case ExecutionStarted, ExecutionCompleted, ExecutionStopped, ExecutionFailed,
 		ExecutionPersistFailed, SendAccepted, SendRejected, SendNotSent, SendUnknown:
 	default:
 		return
@@ -98,10 +114,13 @@ func (l *Logger) RecordExecution(event Event, executionID, taskID int64, categor
 		Str("result", event.result).
 		Int64("execution_id", executionID).
 		Int64("task_id", taskID)
+	if sequence > 0 {
+		e = e.Int("attempt_sequence", sequence)
+	}
 	if event.errorCategory != "" {
 		e = e.Str("error_category", event.errorCategory)
 	} else if event == SendRejected || event == SendNotSent ||
-		event == SendUnknown || event == ExecutionFailed {
+		event == SendUnknown || event == ExecutionFailed || event == ExecutionStopped {
 		e = e.Str("error_category", safeSendCategory(category))
 	}
 	e.Send()
@@ -112,7 +131,8 @@ func safeSendCategory(category string) string {
 	case "credential_missing", "credential_unavailable", "credential_corrupt",
 		"authentication", "rate_limited", "bad_request", "too_long",
 		"rejected", "invalid_input", "timeout", "cancelled", "transport",
-		"http_status", "invalid_response", "uncertain", "send_failure":
+		"http_status", "invalid_response", "uncertain", "send_failure",
+		"user_stopped", "wait_failure":
 		return category
 	default:
 		return "send_failure"

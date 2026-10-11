@@ -51,6 +51,30 @@ func singleInput(roomID int64) CreateInput {
 
 func ptr[T any](value T) *T { return &value }
 
+func TestLoopDurationAndIntervalMustFitTimeDuration(t *testing.T) {
+	s, db := newTestService(t)
+	roomID := addRoom(t, db, "5432")
+	large := int64((1<<63-1)/int64(time.Second)) + 1
+	for _, tc := range []struct {
+		name     string
+		interval int64
+		duration *int64
+	}{
+		{"interval overflow", large, nil},
+		{"duration overflow", 15, &large},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := singleInput(roomID)
+			input.Kind = Loop
+			input.IntervalSeconds = &tc.interval
+			input.MaxCount = ptr(int64(2))
+			input.MaxDurationSeconds = tc.duration
+			_, err := s.Create(context.Background(), input)
+			require.ErrorIs(t, err, ErrInvalidTask)
+		})
+	}
+}
+
 func TestCreateAndReadTasks(t *testing.T) {
 	s, db := newTestService(t)
 	ctx := context.Background()

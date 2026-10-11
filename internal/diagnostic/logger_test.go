@@ -85,6 +85,9 @@ func TestExecutionEventFieldsAreRestricted(t *testing.T) {
 	logger.RecordExecution(ExecutionFailed, 8, 12, "timeout")
 	logger.RecordExecution(AppStarting, 8, 12, "credential_missing")
 	logger.RecordExecution(SendAccepted, 0, 12, "")
+	logger.RecordSendAttempt(SendAccepted, 8, 12, 2, "")
+	logger.RecordSendAttempt(SendRejected, 8, 12, -1, "rate_limited")
+	logger.RecordSendAttempt(AppFailed, 8, 12, 3, "send_failure")
 	logger.Close()
 
 	data, err := os.ReadFile(filepath.Join(dir, activeName))
@@ -92,7 +95,7 @@ func TestExecutionEventFieldsAreRestricted(t *testing.T) {
 	require.NotContains(t, string(data), "private")
 	require.NotContains(t, string(data), "cookie")
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	require.Len(t, lines, 3)
+	require.Len(t, lines, 4)
 	for i, line := range lines {
 		var record map[string]any
 		require.NoError(t, json.Unmarshal([]byte(line), &record))
@@ -105,6 +108,10 @@ func TestExecutionEventFieldsAreRestricted(t *testing.T) {
 		}
 		if i == 2 {
 			require.Equal(t, "timeout", record["error_category"])
+		}
+		if i == 3 {
+			require.EqualValues(t, 2, record["attempt_sequence"])
+			require.Equal(t, "accepted", record["result"])
 		}
 	}
 }

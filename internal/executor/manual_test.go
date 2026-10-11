@@ -261,21 +261,34 @@ func TestRunManualConflictAndInvalidTaskDoNotSend(t *testing.T) {
 	require.ErrorIs(t, err, task.ErrNotFound)
 }
 
-func TestRunManualRefusesLoopUntilD2(t *testing.T) {
+func TestLoopCancellationDuringWaitAfterFirstHTTP(t *testing.T) {
 	db := testDB(t)
 	created := addSingleTask(t, db)
 	_, err := db.ExecContext(context.Background(), `
 		UPDATE tasks SET kind = 'loop', interval_seconds = 15, max_count = 2 WHERE id = ?`, created.ID)
 	require.NoError(t, err)
 	sender, closeServer := testSender(t, func(w http.ResponseWriter, r *http.Request) {
-		t.Error("loop should not send a partial execution")
+		_, _ = w.Write([]byte(`{"code":0}`))
 	}, fakeCredentials{})
 	defer closeServer()
-	_, err = testExecutor(db, sender, nil).RunManual(context.Background(), created.ID)
-	require.ErrorIs(t, err, ErrUnsupportedKind)
+	s := testExecutor(db, sender, nil)
+	// The first request succeeds, but a cancelled wait must prevent a
+	// second HTTP request rather than sleeping for the real account interval.
+	ctx, cancel := context.WithCancel(context.Background())
+	s.wait = func(ctx context.Context, d time.Duration) error {
+		cancel()
+		return ctx.Err()
+	}
+	result, err := s.RunManual(ctx, created.ID)
+	require.NoError(t, err)
+	require.Equal(t, "stopped", result.Status)
+	require.Equal(t, 1, result.SentCount)
+	require.Equal(t, "cancelled", result.ErrorCode)
 	var count int
 	require.NoError(t, db.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM executions").Scan(&count))
-	require.Zero(t, count)
+	require.Equal(t, 1, count)
+	require.NoError(t, db.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM send_attempts").Scan(&count))
+	require.Equal(t, 1, count)
 }
 
 func TestRunManualPendingFailureRollsBackAndPreventsHTTP(t *testing.T) {
