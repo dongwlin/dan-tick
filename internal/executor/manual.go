@@ -17,6 +17,7 @@ import (
 )
 
 var ErrNotRunning = errors.New("execution is not active in this process")
+var ErrExecutorClosed = errors.New("executor is shutting down")
 
 // sendingGate is supplied by the shared danmaku.Sender in production. It is
 // deliberately not a Client: manual runs must not bypass account-wide limits.
@@ -36,6 +37,8 @@ type Service struct {
 
 	mu     sync.Mutex
 	active map[int64]*activeRun
+	closed bool
+	done   sync.WaitGroup
 }
 
 func NewService(db *bun.DB, sender *danmaku.Sender, log *diagnostic.Logger) *Service {
@@ -82,6 +85,31 @@ func (s *Service) StopExecution(executionID int64) error {
 	return nil
 }
 
+// Shutdown rejects new executions, cancels all locally owned runs (including
+// admitted scheduled work), and waits for them to persist their final state.
+// Call this after stopping Cron and before closing SQLite.
+func (s *Service) Shutdown(ctx context.Context) error {
+	s.mu.Lock()
+	s.closed = true
+	for _, run := range s.active {
+		run.stopped = true
+		run.cancel()
+	}
+	s.mu.Unlock()
+
+	finished := make(chan struct{})
+	go func() {
+		s.done.Wait()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func (s *Service) wasStopped(run *activeRun) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -108,6 +136,10 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 	// Protect the small window between committing an execution and registering
 	// its local cancel handle. A StopExecution call cannot miss a live run here.
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return ManualResult{}, ErrExecutorClosed
+	}
 	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		loaded, name, err := loadPlan(ctx, tx, taskID)
 		if err != nil {
@@ -141,6 +173,7 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 			s.active = make(map[int64]*activeRun)
 		}
 		s.active[executionID] = run
+		s.done.Add(1)
 	}
 	s.mu.Unlock()
 	if err != nil {
@@ -153,6 +186,7 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 		s.mu.Lock()
 		delete(s.active, executionID)
 		s.mu.Unlock()
+		s.done.Done()
 	}()
 	s.record(diagnostic.ExecutionQueued, executionID, taskID, "")
 	return s.execute(runCtx, run, executionID, taskID, plan, started)

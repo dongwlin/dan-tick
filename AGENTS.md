@@ -5,17 +5,17 @@
 - dan-tick 是面向 Windows、Linux 的 B 站直播弹幕定时发送桌面应用：本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
 - 开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它用于安排实施步骤，不覆盖 PRD 与技术选型的权威性；UI 原型可以独立继续迭代。
-- **正式外壳已按 F3 迁移，业务页面尚未迁移，尚不能通过界面发送弹幕。** 已接入 Bun、SQLite、首次 Migration 与基础存储测试；`prototype/` 仍是独立的 Vanilla TypeScript 模拟 UI，与正式 Vue 前端分开。Cron 内核已通过 E1～E3 完成领取、注册与恢复测试，E4 已提供 SQLite 执行历史查询，但尚未装配进正式应用；前端已建立 Vue Router 4（Hash History）、正式图标侧栏和自绘标题栏、Tailwind v4 主题视觉基础、Reka UI / Lucide 交互原语以及 Vitest 行为测试；Pinia、业务表单等尚未接入。按功能渐进引入，不为未来需求创建空架构。
+- **正式外壳已按 F3 迁移，业务页面尚未迁移，尚不能通过界面发送弹幕。** 已接入 Bun、SQLite、首次 Migration 与基础存储测试；`prototype/` 仍是独立的 Vanilla TypeScript 模拟 UI，与正式 Vue 前端分开。F1-a 已将 Cron 调度、启动恢复与共享 Sender / Executor 装配进 Wails 生命周期，直播间 / 任务 Binding 留待 F1-b；E4 已提供 SQLite 执行历史查询。前端已建立 Vue Router 4（Hash History）、正式图标侧栏和自绘标题栏、Tailwind v4 主题视觉基础、Reka UI / Lucide 交互原语以及 Vitest 行为测试；Pinia、业务表单等尚未接入。按功能渐进引入，不为未来需求创建空架构。
 - `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 说明正式 Vue 前端的工具链与构建流程。
 
 ## 2. 现有结构与调用边界
 
 | 路径 | 目前职责 |
 | --- | --- |
-| `main.go` | 启动时打开并迁移数据库、退出时关闭连接；Wails 应用、窗口、Service 注册、事件及前端嵌入 |
+| `main.go` | 启动时打开并迁移数据库、退出时关闭连接；Wails 应用、窗口、生命周期钩子及前端嵌入 |
+| `internal/app/` | Keyring、共享 Sender / Executor / Scheduler 的业务组合根及启动 / 退出收尾 |
 | `internal/storage/` | 用户数据目录中的 SQLite 连接、Bun Migration、首版六张表及真实数据库测试 |
 | `internal/history/` | E4 执行历史的分页列表、详情及发送尝试查询；不读取当前任务定义重建历史 |
-| `greetservice.go` | 示例 `GreetService`，不是弹幕业务服务 |
 | `frontend/src/main.ts`、`src/app/`、`src/pages/` | Vue 入口、应用装配（根组件与集中路由表，Vue Router 4 Hash History）及占位页面；使用 `<script setup lang="ts">` 和 Composition API |
 | `frontend/src/style.css`、`src/app/theme.ts` | Tailwind v4 CSS-first 语义令牌、亚克力材质及深浅 / 跟随系统 UI 主题；仅保存 `dan-tick-theme` 偏好，存储故障提供可见反馈 |
 | `frontend/src/components/UiButton.vue` | 当前跨页面复用的按钮 / RouterLink 样式，保留原生动作与导航语义；Reka RadioGroup 当前直接用于设置页 |
@@ -28,7 +28,7 @@
 | `Taskfile.yml`、`build/` | Wails 3 / Task 的开发、构建和各平台打包配置；`build/config.yml` 为 Wails 开发配置 |
 | `docs/PRD.md`、`docs/技术栈选型.md`、`docs/specs/` | 产品规则、项目决策与引入的工程规范 |
 
-- Go 模块名为 `github.com/dongwlin/dan-tick`（见 `go.mod`），模板前端通过生成的 `frontend/bindings/github.com/dongwlin/dan-tick` 调用 Go Service，并通过 Wails Events 接收时间事件。不要手动编辑 `frontend/bindings/` 或 `frontend/dist/`；它们由 Wails / Vite 生成且当前未提交。
+- Go 模块名为 `github.com/dongwlin/dan-tick`（见 `go.mod`）；正式 Wails 模板演示 Service / 时间事件已移除，业务 Binding 将在 F1-b 接入。不要手动编辑 `frontend/bindings/` 或 `frontend/dist/`；它们由 Wails / Vite 生成且当前未提交。
 - 业务落地后，**Go 是权威业务状态来源**：处理调度、数据库、HTTP 发送、频率限制、凭证、进程生命周期；前端只承担配置、展示与交互。前端调用使用 **Wails Service Binding**，Go 主动通知使用 **Wails Events**，不要为桌面业务另建 HTTP API。
 - 未来前端按 Feature 聚合业务，Page 负责组合及解析路由参数，共享组件不能反向依赖 Feature；保持小模块扁平，有实际复用需求再提取。当前还没有这些业务目录，创建时依照 `docs/specs/` 的架构规范。
 - `build/` 中也保留了 macOS、iOS 和 Android 的模板打包文件，但 PRD 首版目标平台仅为 Windows、Linux；不要把模板存在等同于要求支持这些平台。
@@ -65,8 +65,8 @@ pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
 
 ## 4. 新代码的架构与风格约束
 
-- Go 后端已采用 **Bun + `modernc.org/sqlite` + Bun Migrations** 与 testify，已按业务需求接入 zerolog、`robfig/cron/v3`、`go-keyring` 和 `net/http`；正式桌面应用的调度与执行装配尚未完成。优先具体类型与清晰的 Service / 业务边界，不引入 Gin、本地 REST Server、分布式调度或没有实际需求的 Repository 接口。
-- Go 应用源码以根目录仅保留 `main.go` 为目标；现有 `greetservice.go` 是待移除的模板文件。新后端业务代码按职责放在 `internal/`，不预建空包。模型复用、Binding Input、事务和依赖方向以 [Go 桌面应用架构约定](docs/specs/profiles/backend/wails-desktop/Go%20桌面应用架构约定.md) 为准；数据库初稿见 [后端数据模型设计](docs/后端数据模型设计.md)。`build/` 的平台模板 Go 文件不属于根目录限制。
+- Go 后端已采用 **Bun + `modernc.org/sqlite` + Bun Migrations** 与 testify，已按业务需求接入 zerolog、`robfig/cron/v3`、`go-keyring` 和 `net/http`；F1-a 已完成正式桌面应用的调度与执行装配，业务 Binding 尚待 F1-b。优先具体类型与清晰的 Service / 业务边界，不引入 Gin、本地 REST Server、分布式调度或没有实际需求的 Repository 接口。
+- Go 应用源码根目录仅保留 `main.go`，模板 `greetservice.go` 已在 F1-a 移除。新后端业务代码按职责放在 `internal/`，不预建空包。模型复用、Binding Input、事务和依赖方向以 [Go 桌面应用架构约定](docs/specs/profiles/backend/wails-desktop/Go%20桌面应用架构约定.md) 为准；数据库初稿见 [后端数据模型设计](docs/后端数据模型设计.md)。`build/` 的平台模板 Go 文件不属于根目录限制。
 - 调度器只负责触发计划；执行防重、持久化、漏发判定和恢复由业务逻辑与 SQLite 事务承担。任务使用明确时区（PRD 默认 `Asia/Shanghai`）；错过计划默认不补发，手动执行不改变定时计划。同一账号的多个任务共享发送频率限制。
 - B 站接口成功不能只看 HTTP 200，需校验业务响应；发送结果不确定时默认不自动重试。HTTP 请求要有超时、取消能力，避免在停任务或退出后继续发送。
 - 凭证只进入系统安全存储；不可用时明确失败，不回退到明文配置。不要记录 Cookie、将其放入普通前端 Store / Query 缓存、持久化 Web 存储或路由；B 站鉴权与请求统一在 Go 后端完成。

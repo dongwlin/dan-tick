@@ -28,6 +28,7 @@ func (s *Service) RunScheduled(ctx context.Context, executionID int64) (ManualRe
 	if err != nil {
 		return ManualResult{ExecutionID: executionID}, err
 	}
+	defer s.done.Done()
 	return s.executeScheduled(run)
 }
 
@@ -41,6 +42,7 @@ func (s *Service) StartScheduled(ctx context.Context, executionID int64, onDone 
 		return err
 	}
 	go func() {
+		defer s.done.Done()
 		result, err := s.executeScheduled(run)
 		if onDone != nil {
 			onDone(result, err)
@@ -70,6 +72,11 @@ func (s *Service) prepareScheduled(ctx context.Context, executionID int64) (*sch
 	// As with manual runs, a committed takeover must already have its local
 	// cancellation handle when StopExecution can inspect it.
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		stop()
+		return nil, ErrExecutorClosed
+	}
 	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		var trigger, status string
 		err := tx.QueryRowContext(ctx, `
@@ -123,6 +130,7 @@ func (s *Service) prepareScheduled(ctx context.Context, executionID int64) (*sch
 			s.active = make(map[int64]*activeRun)
 		}
 		s.active[executionID] = run
+		s.done.Add(1)
 	}
 	s.mu.Unlock()
 	if err != nil {

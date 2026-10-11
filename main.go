@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/dongwlin/dan-tick/internal/app"
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
 	"github.com/dongwlin/dan-tick/internal/history"
 	"github.com/dongwlin/dan-tick/internal/storage"
@@ -21,16 +22,6 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-func init() {
-	// Register a custom event whose associated data type is string.
-	// This is not required, but the binding generator will pick up registered events
-	// and provide a strongly typed JS/TS API for them.
-	application.RegisterEvent[string]("time")
-}
-
-// main function serves as the application's entry point. It initializes the application, creates a window,
-// and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
-// logs any error that might occur.
 func main() {
 	os.Exit(start())
 }
@@ -99,17 +90,17 @@ func run(logger *diagnostic.Logger) error {
 		<-cleanupDone // stop all queries before closing SQLite
 	}()
 
-	// Create a new Wails application by providing the necessary options.
-	// Variables 'Name' and 'Description' are for application metadata.
-	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
-	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
-	// 'Mac' options tailor the application when running an macOS.
+	runtime := app.New(db, logger)
+	defer runtime.Close() // Also handles startup or Wails.Run failures.
+	if err := runtime.Start(context.Background()); err != nil {
+		return fmt.Errorf("start scheduled work: %w", err)
+	}
+
+	// Start the desktop UI only after the persisted scheduler has recovered.
+	// Business bindings will be registered here when their real use cases land.
 	app := application.New(application.Options{
 		Name:        "dan-tick",
 		Description: "B 站直播弹幕定时发送桌面工具",
-		Services: []application.Service{
-			application.NewService(&GreetService{}),
-		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
@@ -117,12 +108,11 @@ func run(logger *diagnostic.Logger) error {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 	})
+	// Wails may terminate without returning from Run on some platforms.
+	// Keep the business shutdown before database close in both exit paths.
+	app.OnShutdown(runtime.Close)
 
-	// Create a new window with the necessary options.
-	// 'Title' is the title of the window.
-	// 'Mac' options tailor the window when running on macOS.
-	// 'BackgroundColour' is the background colour of the window.
-	// 'URL' is the URL that will be loaded into the webview.
+	// The F3 window remains independent of the long-lived Go scheduler.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "dan-tick",
 		Width:     1280,
@@ -138,16 +128,6 @@ func run(logger *diagnostic.Logger) error {
 		BackgroundColour: application.NewRGB(6, 7, 15),
 		URL:              "/",
 	})
-
-	// Create a goroutine that emits an event containing the current time every second.
-	// The frontend can listen to this event and update the UI accordingly.
-	go func() {
-		for {
-			now := time.Now().Format(time.RFC1123)
-			app.Event.Emit("time", now)
-			time.Sleep(time.Second)
-		}
-	}()
 
 	// Run the application. This blocks until the application has been exited.
 	err = app.Run()
