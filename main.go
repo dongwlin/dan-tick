@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"embed"
-
+	"fmt"
 	"log"
 	"time"
 
+	"github.com/dongwlin/dan-tick/internal/storage"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -28,6 +30,17 @@ func init() {
 // and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
 // logs any error that might occur.
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
+	db, err := storage.Open(context.Background(), storage.DefaultPath())
+	if err != nil {
+		return fmt.Errorf("open application database: %w", err)
+	}
+	defer db.Close()
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -78,10 +91,9 @@ func main() {
 	}()
 
 	// Run the application. This blocks until the application has been exited.
-	err := app.Run()
-
-	// If an error occurred while running the application, log it and exit.
+	err = app.Run()
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("run application: %w", err)
 	}
+	return nil
 }

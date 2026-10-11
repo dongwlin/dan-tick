@@ -5,14 +5,15 @@
 - dan-tick 是面向 Windows、Linux 的 B 站直播弹幕定时发送桌面应用：本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
 - 开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它用于安排实施步骤，不覆盖 PRD 与技术选型的权威性；UI 原型可以独立继续迭代。
-- **正式应用当前仍是 Wails 3 模板，并未实现 PRD 的业务功能。** `prototype/` 已有独立的 Vanilla TypeScript UI 演示，全部使用模拟状态，与 `frontend/` 正式 Vue 前端分开。技术栈选型中的 Bun、SQLite、Cron、Pinia、Tailwind、路由、表单和测试框架等是后续落地方案，不代表正式应用已安装这些依赖或已有对应目录。按功能渐进引入，不为未来需求创建空架构。
+- **正式应用仍以 Wails 3 模板为主，尚不能发送弹幕。** 已接入 Bun、SQLite、首次 Migration 与基础存储测试；`prototype/` 仍是独立的 Vanilla TypeScript 模拟 UI，与正式 Vue 前端分开。Cron、Pinia、Tailwind、路由与前端表单 / 测试框架等尚未接入。按功能渐进引入，不为未来需求创建空架构。
 - `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 仍是 Vue 模板说明，应以代码和工程配置为准。
 
 ## 2. 现有结构与调用边界
 
 | 路径 | 目前职责 |
 | --- | --- |
-| `main.go` | Wails 应用初始化、窗口、Service 注册、事件发送；通过 `//go:embed all:frontend/dist` 打包前端 |
+| `main.go` | 启动时打开并迁移数据库、退出时关闭连接；Wails 应用、窗口、Service 注册、事件及前端嵌入 |
+| `internal/storage/` | 用户数据目录中的 SQLite 连接、Bun Migration、首版六张表及真实数据库测试 |
 | `greetservice.go` | 示例 `GreetService`，不是弹幕业务服务 |
 | `frontend/src/main.ts`、`App.vue`、`components/HelloWorld.vue` | Vue 入口及模板页面；使用 `<script setup lang="ts">` 和 Composition API |
 | `frontend/public/`、`frontend/index.html` | 当前模板的全局样式、图片、字体及 HTML 入口 |
@@ -47,11 +48,11 @@ npm run build:dev          # vue-tsc + 非压缩的 development build
 
 - Wails 构建任务会通过 `build/Taskfile.yml` 安装前端依赖、生成 Binding、构建前端，并可能运行 `go mod tidy`；构建后检查有无意外的 `go.mod` / `go.sum` 变化。
 - Go 变更：对修改的 Go 文件执行 `gofmt`，并按需运行 `go test ./...`、`go vet ./...`；并发敏感代码还需运行 `go test -race ./...`（环境支持时）。**独立运行 Go 命令前须有 `frontend/dist/`**，否则 `main.go` 的 `go:embed` 会报错。可以先通过 Wails 构建生成前端产物。
-- **目前没有测试文件、CI 工作流、前端 `test` / `lint` / 独立 `typecheck` 脚本，也没有已接入的 ESLint / Prettier 配置。** 类型检查包含在 `npm run build` 中；不要编造 `npm run test`、`npm run lint` 或把 specs 中规划的检查当作当前可运行命令。工具落地时再补相应脚本与 CI。
+- **已有 `internal/storage/storage_test.go` 的 Go 集成测试，但尚无 CI 工作流、前端 `test` / `lint` / 独立 `typecheck` 脚本，也没有已接入的 ESLint / Prettier 配置。** 类型检查包含在 `npm run build` 中；不要编造 `npm run test`、`npm run lint` 或把 specs 中规划的检查当作当前可运行命令。工具落地时再补相应脚本与 CI。
 
 ## 4. 新代码的架构与风格约束
 
-- Go 后端按需采用 **Bun + `modernc.org/sqlite` + Bun Migrations**、zerolog、`robfig/cron/v3`、`go-keyring`、`net/http` 和 testify。优先具体类型与清晰的 Service / 业务边界，不引入 Gin、本地 REST Server、分布式调度或没有实际需求的 Repository 接口。
+- Go 后端已采用 **Bun + `modernc.org/sqlite` + Bun Migrations** 与 testify；zerolog、`robfig/cron/v3`、`go-keyring`、`net/http` 等按实际用例后续接入。优先具体类型与清晰的 Service / 业务边界，不引入 Gin、本地 REST Server、分布式调度或没有实际需求的 Repository 接口。
 - Go 应用源码以根目录仅保留 `main.go` 为目标；现有 `greetservice.go` 是待移除的模板文件。新后端业务代码按职责放在 `internal/`，不预建空包。模型复用、Binding Input、事务和依赖方向以 [Go 桌面应用架构约定](docs/specs/profiles/backend/wails-desktop/Go%20桌面应用架构约定.md) 为准；数据库初稿见 [后端数据模型设计](docs/后端数据模型设计.md)。`build/` 的平台模板 Go 文件不属于根目录限制。
 - 调度器只负责触发计划；执行防重、持久化、漏发判定和恢复由业务逻辑与 SQLite 事务承担。任务使用明确时区（PRD 默认 `Asia/Shanghai`）；错过计划默认不补发，手动执行不改变定时计划。同一账号的多个任务共享发送频率限制。
 - B 站接口成功不能只看 HTTP 200，需校验业务响应；发送结果不确定时默认不自动重试。HTTP 请求要有超时、取消能力，避免在停任务或退出后继续发送。

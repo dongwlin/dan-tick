@@ -2,7 +2,7 @@
 
 ## 1. 范围
 
-本文细化 [后端数据模型设计](后端数据模型设计.md) 的 MVP 落地规则，作为首版 Bun Model、SQL Migration 和数据库事务实现的依据。**当前仅为设计，仓库尚未创建业务数据库或迁移代码。**
+本文细化 [后端数据模型设计](后端数据模型设计.md) 的 MVP 落地规则。六张业务表、索引及外键已由 `internal/storage/migrations/20261011000100_initial_schema.tx.up.sql` 首次落地；应用在启动时通过 `internal/storage` 打开并迁移数据库。任务保存、执行与恢复等业务事务仍待后续单元实现。
 
 保持六张业务表：`rooms`、`tasks`、`task_messages`、`executions`、`send_attempts`、`app_settings`。不为单账号创建账号表，不为每个任务单独创建计划表，也不引入 Repository 框架、状态事件表或常驻任务队列表。
 
@@ -22,7 +22,7 @@
 
 所有业务表使用 SQLite `STRICT` 表，避免类型亲和性导致意外写入；当前选定的 `modernc.org/sqlite` 支持此语法，正式引入依赖时以实际版本验证。Go 写入时间统一转换 UTC 毫秒；Bun Model 使用明确的整数毫秒字段或显式转换，不依赖驱动自动解析 `time.Time`。精度不要求纳秒；不得将文本时间与整数时间混存。
 
-下列 SQL 是**目标 Schema 草案**，供后续生成首个事务型 Migration；不是已执行的迁移脚本。只在数据库层放稳定、低成本的约束；跨表的业务校验、内容长度限制、Cron 计算与状态迁移由 Go 负责。
+下列 SQL 对应**已落地的首个 Migration**；后续以版本化 SQL 文件为准。只在数据库层放稳定、低成本的约束；跨表的业务校验、内容长度限制、Cron 计算与状态迁移由 Go 负责。
 
 ## 3. 目标建表 SQL
 
@@ -198,7 +198,7 @@ SQLite 只允许一个写事务同时提交。首版采用一个 Bun / `database
 
 ## 6. Migration 与数据库初始化
 
-推荐后续按实际接入顺序落地：
+数据库初始化已按以下方案落地；异常恢复与调度等后续阶段仍按开发计划实现：
 
 1. `internal/storage` 负责打开数据库、配置连接、运行迁移和关闭资源。数据库位于系统用户数据目录；失败时停止依赖数据库的调度和 Wails Service 初始化，不自动删除或重建用户数据库。
 2. SQL 迁移文件放在 `internal/storage/migrations/`，按时间戳和目的命名，例如 `20261010000100_initial_schema.tx.up.sql` / `20261010000100_initial_schema.tx.down.sql`。使用 Bun `migrate.NewMigrations`、`Discover`、`Migrator.Init` 和 `Migrator.Migrate`（或实际版本提供的等价 API），在编译期通过 `go:embed` 内嵌 SQL。多条 SQL 用 `--bun:split` 分隔；采用 `.tx.up.sql`，让一组 Schema DDL 在一个事务内执行。不要在应用运行时使用 `NewCreateTable` / 自动同步 Model 来代替版本迁移。
@@ -218,4 +218,4 @@ SQLite 只允许一个写事务同时提交。首版采用一个 Bun / `database
 - 重启后处理遗留活跃实例与 `pending` 尝试，不产生额外 HTTP；大量错过的计划只保留代表性记录。
 - 逻辑删除后的历史关联、30 天历史清理及执行尝试级联删除；外键在实际数据库连接上被执行。
 
-通过真实的临时 SQLite + Bun 集成测试验证上述风险，不为每个 `CHECK` 或每个字段建立重复测试。当前只有设计文档，本阶段不增加数据库依赖、测试文件或空包。
+通过真实的临时 SQLite + Bun 集成测试验证上述风险，不为每个 `CHECK` 或每个字段建立重复测试。基础迁移已有 `internal/storage/storage_test.go` 覆盖；其余业务一致性与恢复场景由后续开发单元实现。
