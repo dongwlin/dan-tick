@@ -77,6 +77,38 @@ func TestLoggerConcurrentWritesProduceWholeLines(t *testing.T) {
 	}
 }
 
+func TestExecutionEventFieldsAreRestricted(t *testing.T) {
+	dir := t.TempDir()
+	logger := New(dir)
+	logger.RecordExecution(ExecutionStarted, 8, 12, "")
+	logger.RecordExecution(SendUnknown, 8, 12, "cookie=private session")
+	logger.RecordExecution(ExecutionFailed, 8, 12, "timeout")
+	logger.RecordExecution(AppStarting, 8, 12, "credential_missing")
+	logger.RecordExecution(SendAccepted, 0, 12, "")
+	logger.Close()
+
+	data, err := os.ReadFile(filepath.Join(dir, activeName))
+	require.NoError(t, err)
+	require.NotContains(t, string(data), "private")
+	require.NotContains(t, string(data), "cookie")
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	require.Len(t, lines, 3)
+	for i, line := range lines {
+		var record map[string]any
+		require.NoError(t, json.Unmarshal([]byte(line), &record))
+		require.EqualValues(t, 8, record["execution_id"])
+		require.EqualValues(t, 12, record["task_id"])
+		require.NotContains(t, record, "message")
+		if i == 1 {
+			require.Equal(t, "unknown", record["result"])
+			require.Equal(t, "send_failure", record["error_category"])
+		}
+		if i == 2 {
+			require.Equal(t, "timeout", record["error_category"])
+		}
+	}
+}
+
 func TestRollingWriterEnforcesSizeAndFileCount(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Date(2026, 10, 11, 9, 0, 0, 0, time.UTC)
