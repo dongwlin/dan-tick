@@ -8,11 +8,13 @@ require (
 	github.com/uptrace/bun v1.2.18
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.18
 	github.com/wailsapp/wails/v3 v3.0.0-beta.25
+	github.com/zalando/go-keyring v0.2.7
 	modernc.org/sqlite v1.46.1
 )
 
 require (
 	github.com/coder/websocket v1.8.14 // indirect
+	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
