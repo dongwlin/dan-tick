@@ -14,6 +14,8 @@ pnpm install --frozen-lockfile
 
 [`pnpm-lock.yaml`](pnpm-lock.yaml) 必须提交，不提交 `node_modules/`、`dist/` 或 `bindings/`。当前直接依赖固定为 Vue 3.5.43、TypeScript 6.0.3、Vite 8.3.2、`@vitejs/plugin-vue` 6.0.9、`vue-tsc` 3.3.12、`@types/node` 24.19.1 和 `@wailsio/runtime` 3.0.0-beta.25；Runtime 与 Go 后端的 Wails 版本同步维护。
 
+质量工具固定为 `@eslint/js` 10.0.1、ESLint 10.12.0、`typescript-eslint` 8.71.0、`@vue/eslint-config-typescript` 14.9.0、`eslint-plugin-vue` 10.11.1、`eslint-plugin-vuejs-accessibility` 2.6.0、`globals` 17.13.0、`eslint-config-prettier` 10.1.8 和 Prettier 3.9.9。安装保留 7 天发布时间策略，不为使用更新版本关闭限制。
+
 ## 开发与构建
 
 桌面开发需要 Go、Wails 3 CLI 和目标平台的 Wails 构建依赖。在仓库根目录执行：
@@ -37,22 +39,35 @@ pnpm run build
 
 可执行脚本如下：
 
-| 命令 | 用途 |
-| --- | --- |
-| `pnpm run dev` | 运行 Vite 开发服务器 |
-| `pnpm run build` | 检查 Vue 源码、检查 Vite 配置，再构建 production 产物 |
-| `pnpm run build:dev` | 执行同样的类型检查，再构建未压缩的 development 产物 |
-| `pnpm run preview` | 预览已生成的前端产物 |
+| 命令                    | 用途                                                            |
+| ----------------------- | --------------------------------------------------------------- |
+| `pnpm run dev`          | 运行 Vite 开发服务器                                            |
+| `pnpm run typecheck`    | 独立检查 Vue 源码、生成 Binding 和 Vite 配置的类型              |
+| `pnpm run lint`         | 执行 ESLint 检查，warning 也会使检查失败                        |
+| `pnpm run lint:fix`     | 自动修复可修复的 ESLint 问题，剩余错误或 warning 仍会使检查失败 |
+| `pnpm run format`       | 用 Prettier 格式化正式前端                                      |
+| `pnpm run format:check` | 检查正式前端是否符合 Prettier 格式约定                          |
+| `pnpm run build`        | 执行 `typecheck`，再构建 production 产物                        |
+| `pnpm run build:dev`    | 执行 `typecheck`，再构建未压缩的 development 产物               |
+| `pnpm run preview`      | 预览已生成的前端产物                                            |
 
-Vite 默认监听 `127.0.0.1:9245`，可以用 `WAILS_VITE_PORT` 调整。普通浏览器能预览页面，但 Wails Service / Events 的桌面行为需要在真实 Wails 窗口中验证。`build` 和 `build:dev` 使用 `vue-tsc` 检查 [`tsconfig.json`](tsconfig.json) 中的源码与生成 Binding，使用 `tsc` 检查 [`tsconfig.node.json`](tsconfig.node.json) 中的 `vite.config.ts`；独立 `typecheck`、Lint 和前端测试脚本将在后续工程单元引入。
+Vite 默认监听 `127.0.0.1:9245`，可以用 `WAILS_VITE_PORT` 调整。普通浏览器能预览页面，但 Wails Service / Events 的桌面行为需要在真实 Wails 窗口中验证。`typecheck` 使用 `vue-tsc --noEmit` 检查 [`tsconfig.json`](tsconfig.json) 中的源码与生成 Binding，使用 `tsc --project tsconfig.node.json` 检查 [`tsconfig.node.json`](tsconfig.node.json) 中的 `vite.config.ts`。`build` 和 `build:dev` 保留该类型检查步骤；前端 `test` 脚本与 CI 尚未接入。
+
+## 代码质量与格式
+
+[`eslint.config.mjs`](eslint.config.mjs) 使用 ESLint Flat Config，启用 JavaScript recommended、TypeScript `recommendedTypeChecked`、Vue recommended 和 Vue 可访问性 recommended。类型感知检查覆盖源码、Vue SFC 与 Vite 配置，并要求避免重复导入、统一类型导入和禁止非空断言。`lint` 与 `lint:fix` 均使用 `--max-warnings 0`。
+
+格式化由 Prettier 独立执行，`eslint-config-prettier` 放在 ESLint 配置最后关闭冲突规则。[`.prettierrc.json`](.prettierrc.json) 约定单引号、无分号、2 空格缩进、100 字符行宽、LF 和 `trailingComma: all`。检查与格式化只作用于正式 `frontend/`，不扩展到独立原型或根目录文档。ESLint 忽略依赖、生成 Binding、`dist/` 与 `coverage/`；[`.prettierignore`](.prettierignore) 另外保留 pnpm 锁文件、第三方 SVG 与字体许可证原文。
+
+提交前运行 `pnpm run lint`、`pnpm run format:check` 和 `pnpm run build`；需要修复时先运行 `lint:fix` 或 `format`，再重新检查。依赖 / 生成物不手动修复，Binding 缺失时先运行上面的 Wails 生成命令。
 
 ## 配置与导入路径
 
 [`vite.config.ts`](vite.config.ts) 保留 Vue 和 Wails Binding 插件，以及本地开发地址与端口。TypeScript 和 Vite 使用相同的导入别名：
 
-| 别名 | 目标 |
-| --- | --- |
-| `@/*` | `src/*` |
+| 别名          | 目标         |
+| ------------- | ------------ |
+| `@/*`         | `src/*`      |
 | `@bindings/*` | `bindings/*` |
 
 Vue 组件采用 `<script setup lang="ts">` 与 Composition API。Binding 由 Wails 生成，不手动编辑；当前生成命令扫描根 Go 包，Service 迁入 `internal/` 时需同步调整扫描范围和导入路径。
@@ -61,4 +76,4 @@ Vue 组件采用 `<script setup lang="ts">` 与 Composition API。Binding 由 Wa
 
 新增或升级依赖时，先确认真实使用场景，以及 Node、Vue、TypeScript、Vite 与 Wails 的兼容性。使用 pnpm 更新 `package.json` 与锁文件，保留固定的直接版本和 7 天发布时间限制，不用临时关闭安装策略来追新版本。工具链升级同时更新 `.node-version`、`engines`、`packageManager` 与相关文档。
 
-升级后验证 `pnpm install --frozen-lockfile`、`pnpm run build`、`pnpm run build:dev` 和仓库根目录的 `wails3 build`。Wails 构建可能运行 `go mod tidy`，完成后检查 `go.mod` / `go.sum`，并用 `git diff --check`、`git status --short` 确认没有生成文件或无关变更。
+升级后验证 `pnpm install --frozen-lockfile`、`pnpm run lint`、`pnpm run format:check`、`pnpm run typecheck`、`pnpm run build`、`pnpm run build:dev` 和仓库根目录的 `wails3 build`。Wails 构建可能运行 `go mod tidy`，完成后检查 `go.mod` / `go.sum`，并用 `git diff --check`、`git status --short` 确认没有生成文件或无关变更。

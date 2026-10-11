@@ -20,6 +20,7 @@
 | `frontend/public/`、`frontend/index.html` | 当前模板的全局样式、图片、字体及 HTML 入口 |
 | `frontend/package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`.node-version` | 前端脚本、固定工具链、依赖锁文件及 pnpm 安装策略 |
 | `frontend/vite.config.ts`、`tsconfig.json`、`tsconfig.node.json` | Vite + Wails Binding 插件、源码与构建配置的 TypeScript 检查 |
+| `frontend/eslint.config.mjs`、`.prettierrc.json`、`.prettierignore` | 正式前端 ESLint Flat Config、格式约定与依赖 / 生成物忽略规则 |
 | `prototype/` | 独立 UI 原型；详细职责和运行命令见 `prototype/AGENTS.md`、`prototype/README.md` |
 | `Taskfile.yml`、`build/` | Wails 3 / Task 的开发、构建和各平台打包配置；`build/config.yml` 为 Wails 开发配置 |
 | `docs/PRD.md`、`docs/技术栈选型.md`、`docs/specs/` | 产品规则、项目决策与引入的工程规范 |
@@ -44,13 +45,19 @@ wails3 build               # 构建当前平台桌面应用
 
 # 仅前端检查 / 构建（需要已生成 Wails bindings）
 cd frontend
+pnpm run typecheck         # 独立检查 Vue 源码和 Vite 配置的类型
+pnpm run lint              # ESLint 检查；不允许 warning
+pnpm run format:check      # Prettier 格式检查
+pnpm run lint:fix          # 修复 ESLint 可自动修复的问题
+pnpm run format            # 按统一约定格式化正式前端
 pnpm run build             # Vue 源码和 Vite 配置类型检查 + production build
 pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
 ```
 
 - Wails 构建任务会通过 `build/Taskfile.yml` 安装前端依赖、生成 Binding、构建前端，并可能运行 `go mod tidy`；构建后检查有无意外的 `go.mod` / `go.sum` 变化。
 - Go 变更：对修改的 Go 文件执行 `gofmt`，并按需运行 `go test ./...`、`go vet ./...`；并发敏感代码还需运行 `go test -race ./...`（环境支持时）。**独立运行 Go 命令前须有 `frontend/dist/`**，否则 `main.go` 的 `go:embed` 会报错。可以先通过 Wails 构建生成前端产物。
-- **已有 `internal/storage/storage_test.go` 的 Go 集成测试，但尚无 CI 工作流、前端 `test` / `lint` / 独立 `typecheck` 脚本，也没有已接入的 ESLint / Prettier 配置。** `pnpm run build` 和 `pnpm run build:dev` 均通过 `vue-tsc` 检查 Vue 源码、通过 `tsc` 检查 `vite.config.ts`；不要编造 `pnpm run test`、`pnpm run lint` 或把 specs 中规划的检查当作当前可运行命令。工具落地时再补相应脚本与 CI。
+- **已有 Go 集成测试与正式前端 ESLint / Prettier / 独立 `typecheck` 脚本，但尚无 CI 工作流或前端 `test` 脚本。** `typecheck` 通过 `vue-tsc` 检查 Vue 源码与生成 Binding、通过 `tsc` 检查 `vite.config.ts`；`build` 和 `build:dev` 均先执行 `typecheck`。不要编造 `pnpm run test` 或把 specs 中规划的检查当作当前可运行命令；测试与 CI 随对应开发单元接入。
+- ESLint 采用 Flat Config，启用 JavaScript、TypeScript 类型感知、Vue 与 Vue 可访问性推荐规则，以及重复导入、类型导入和非空断言检查；`lint` / `lint:fix` 使用 `--max-warnings 0`。Prettier 独立执行，`eslint-config-prettier` 最后关闭冲突规则，不通过 ESLint 执行格式化。检查限定 `frontend/`，忽略依赖、生成 Binding、构建与覆盖率产物；Prettier 另外忽略锁文件、第三方 SVG 和许可证。
 
 ## 4. 新代码的架构与风格约束
 
@@ -61,7 +68,7 @@ pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
 - 凭证只进入系统安全存储；不可用时明确失败，不回退到明文配置。不要记录 Cookie、将其放入普通前端 Store / Query 缓存、持久化 Web 存储或路由；B 站鉴权与请求统一在 Go 后端完成。
 - 前端目标选型：**Vue Router 4 Hash History**、Tailwind CSS v4、Reka UI、`lucide-vue-next` 与亚克力设计系统；Pinia 只管理必要的客户端共享状态，TanStack Query 缓存从 Binding 获取的业务数据，Events 触发相关查询失效，不复制 Go 业务状态。简单表单用本地 Vue 状态，任务编辑使用 vee-validate + Zod；后端仍负责最终校验。
 - 样式兼顾 Windows / Linux WebView 可用性；原生毛玻璃不可用时提供可读的实色回退。交互优先复用 Reka UI 并遵循 `docs/specs/` 的可访问性规范。
-- **现有命名证据有限**：Vue 组件文件是 `App.vue`、`HelloWorld.vue` 这样的 PascalCase，Go 文件遵循 Go 命名与 `gofmt`；模板 TS 代码的引号、空格尚不统一。新代码以引入的规范及其相邻模块为准，不要把模板偶然风格提升为项目硬性规则，也不要借功能变更全面重排现有代码。
+- **现有命名证据有限**：Vue 组件文件是 `App.vue`、`HelloWorld.vue` 这样的 PascalCase，Go 文件遵循 Go 命名与 `gofmt`。正式前端的 Prettier 约定为单引号、无分号、2 空格缩进、100 字符行宽、LF 和 `trailingComma: all`；其他命名与组织按引入的规范及相邻模块，不要把模板偶然风格提升为项目硬性规则，也不要借功能变更全面重排无关代码。
 
 ## 5. 变更工作流与测试策略
 
@@ -75,7 +82,7 @@ pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
 
 - `git diff --check`、`git status --short`：确认无空白错误、生成文件、凭证或无关改动。
 - Go 代码改动：`gofmt` 后执行受影响测试；准备好前端构建产物后运行 `go test ./...`、`go vet ./...`，并发敏感场景酌情加 `-race`。
-- 前端代码改动：生成 / 更新 Binding 后在 `frontend/` 运行 `pnpm run build`；影响 Wails 集成或桌面行为时再执行 `wails3 build` 和相关平台手动检查。
+- 前端代码改动：生成 / 更新 Binding 后在 `frontend/` 运行 `pnpm run lint`、`pnpm run format:check` 和 `pnpm run build`；可用 `pnpm run typecheck` 独立检查类型，构建仍包含该检查。影响 Wails 集成或桌面行为时再执行 `wails3 build` 和相关平台手动检查。
 - 纯文档改动：核对 Markdown 链接、路径与命令的真实性即可。无法运行的检查需说明原因，不得报告为通过。保留用户未提交改动；未经要求不自行提交、重置或清理。
 
 ## 6. Git 分支与提交

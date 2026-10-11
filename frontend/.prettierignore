@@ -1,0 +1,10 @@
+# Dependencies and generated files are maintained by pnpm / Wails / Vite.
+node_modules/
+bindings/
+dist/
+coverage/
+pnpm-lock.yaml
+
+# Preserve third-party assets and their license text.
+public/*.svg
+Inter Font License.txt
