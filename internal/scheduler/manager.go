@@ -10,6 +10,7 @@ import (
 
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
 	"github.com/dongwlin/dan-tick/internal/schedule"
+	"github.com/dongwlin/dan-tick/internal/settings"
 	"github.com/dongwlin/dan-tick/internal/task"
 	"github.com/robfig/cron/v3"
 	"github.com/uptrace/bun"
@@ -36,6 +37,7 @@ type Manager struct {
 	tasks    *task.Service
 	claim    *ClaimService
 	recovery *RecoveryService
+	settings *settings.Service
 	cron     *cron.Cron
 	onReady  func(context.Context, ClaimResult) error
 	onError  func(error)
@@ -70,6 +72,7 @@ func NewManager(db *bun.DB, log *diagnostic.Logger,
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Manager{db: db, tasks: task.NewService(db), claim: NewClaimService(db, log),
 		recovery: NewRecoveryService(db, log),
+		settings: settings.NewService(db),
 		cron:     cron.New(cron.WithLocation(time.UTC)), onReady: onReady, onError: onError,
 		log: log, now: time.Now, ctx: ctx, cancel: cancel,
 		entries: make(map[int64]registration)}
@@ -124,6 +127,38 @@ func (m *Manager) LastError() error {
 	return m.lastError
 }
 
+// SetSchedulingEnabled persists the global switch and synchronizes Cron under
+// the same manager lock used by task registration. Pausing prevents NEW claims
+// but does not stop executions that have already been handed to the executor.
+// On resume, overdue occurrences are reconciled as missed before registering
+// future wakeups. A post-commit sync failure remains retryable via Resume.
+func (m *Manager) SetSchedulingEnabled(ctx context.Context, enabled bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closed {
+		return ErrSchedulerClosed
+	}
+	if err := m.settings.SetSchedulingEnabled(ctx, enabled); err != nil {
+		return err
+	}
+	if !enabled {
+		m.clearLocked()
+		m.lastError = nil
+		return nil
+	}
+	if m.started {
+		if _, err := m.recovery.RecoverAfterWake(ctx); err != nil {
+			m.clearLocked()
+			return fmt.Errorf("%w: %w", ErrScheduleSync,
+				m.syncFailed(fmt.Errorf("recover on scheduling resume: %w", err)))
+		}
+	}
+	if err := m.rebuildLocked(ctx); err != nil {
+		return fmt.Errorf("%w: %w", ErrScheduleSync, err)
+	}
+	return nil
+}
+
 // Rebuild replaces all registrations with a fresh SQLite snapshot. It is the
 // recovery path after a task's DB commit succeeded but Cron sync failed.
 // On failure the previous jobs are removed (fail closed) and the caller can
@@ -158,6 +193,14 @@ func (m *Manager) rebuildLocked(ctx context.Context) error {
 		return ErrSchedulerClosed
 	}
 	m.clearLocked()
+	enabled, err := settings.SchedulingEnabled(ctx, m.db)
+	if err != nil {
+		return m.syncFailed(err)
+	}
+	if !enabled {
+		m.lastError = nil
+		return nil
+	}
 	rows, err := m.db.QueryContext(ctx, `
 		SELECT t.id, t.next_due_at FROM tasks t
 		JOIN rooms r ON r.id = t.room_id
@@ -209,9 +252,16 @@ func (m *Manager) SyncTask(ctx context.Context, taskID int64) error {
 		return ErrSchedulerClosed
 	}
 	m.removeLocked(taskID)
+	enabled, err := settings.SchedulingEnabled(ctx, m.db)
+	if err != nil {
+		return m.syncFailed(err)
+	}
+	if !enabled {
+		return nil
+	}
 	var plan pendingPlan
 	var due sql.NullInt64
-	err := m.db.QueryRowContext(ctx, `
+	err = m.db.QueryRowContext(ctx, `
 		SELECT t.id, t.next_due_at FROM tasks t
 		JOIN rooms r ON r.id = t.room_id
 		WHERE t.id = ? AND t.enabled = 1 AND t.deleted_at IS NULL

@@ -12,6 +12,7 @@ import (
 
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
 	"github.com/dongwlin/dan-tick/internal/schedule"
+	"github.com/dongwlin/dan-tick/internal/settings"
 	"github.com/uptrace/bun"
 )
 
@@ -51,12 +52,19 @@ func (s *ClaimService) Claim(ctx context.Context, taskID, scheduledAt int64) (Cl
 	now := s.now().UTC()
 	var result ClaimResult
 	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		enabled, err := settings.SchedulingEnabled(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if !enabled {
+			return nil
+		}
 		var kind schedule.Kind
 		var timezone, localTime, name, roomID string
 		var localDate sql.NullString
 		var weekdays sql.NullInt64
 		var due sql.NullInt64
-		err := tx.QueryRowContext(ctx, `
+		err = tx.QueryRowContext(ctx, `
 			SELECT t.schedule_kind, t.timezone, t.local_date, t.local_time,
 				t.weekdays, t.next_due_at, t.name, r.platform_room_id
 			FROM tasks t JOIN rooms r ON r.id = t.room_id

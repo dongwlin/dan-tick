@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dongwlin/dan-tick/internal/schedule"
+	"github.com/dongwlin/dan-tick/internal/settings"
 	"github.com/dongwlin/dan-tick/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,6 +51,36 @@ func singleInput(roomID int64) CreateInput {
 }
 
 func ptr[T any](value T) *T { return &value }
+
+func TestTaskDefaultTimezoneAffectsOnlyNewSchedules(t *testing.T) {
+	s, db := newTestService(t)
+	ctx := context.Background()
+	roomID := addRoom(t, db, "zone-test")
+	first, err := s.Create(ctx, singleInput(roomID))
+	require.NoError(t, err)
+	require.Equal(t, "Asia/Shanghai", first.Timezone)
+
+	preferences := settings.NewService(db)
+	require.NoError(t, preferences.SetDefaultTimezone(ctx, "America/New_York"))
+	second, err := s.Create(ctx, singleInput(roomID))
+	require.NoError(t, err)
+	require.Equal(t, "America/New_York", second.Timezone)
+	require.NotEqual(t, *first.NextDueAt, *second.NextDueAt)
+
+	// A name edit that omits the timezone keeps this task's saved zone,
+	// even if the global default has changed since it was created.
+	input := singleInput(roomID)
+	input.Name = "renamed"
+	updated, err := s.Update(ctx, first.ID, input)
+	require.NoError(t, err)
+	require.Equal(t, first.Timezone, updated.Timezone)
+	require.Equal(t, first.NextDueAt, updated.NextDueAt)
+
+	input.Schedule.Timezone = "UTC"
+	updated, err = s.Update(ctx, first.ID, input)
+	require.NoError(t, err)
+	require.Equal(t, "UTC", updated.Timezone, "explicit user timezone overrides the default")
+}
 
 func TestLoopDurationAndIntervalMustFitTimeDuration(t *testing.T) {
 	s, db := newTestService(t)

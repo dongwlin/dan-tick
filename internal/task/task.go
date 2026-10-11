@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dongwlin/dan-tick/internal/schedule"
+	"github.com/dongwlin/dan-tick/internal/settings"
 	"github.com/uptrace/bun"
 )
 
@@ -31,8 +32,9 @@ const (
 	Loop   Kind = "loop"
 )
 
-// CreateInput contains only user-editable fields. Zero-value Timezone uses
-// Asia/Shanghai; Weekdays uses Monday bit 0 through Sunday bit 6.
+// CreateInput contains only user-editable fields. An omitted timezone uses
+// the saved default on create and keeps the prior timezone on update.
+// Weekdays uses Monday bit 0 through Sunday bit 6.
 type CreateInput struct {
 	RoomID             int64
 	Name               string
@@ -91,6 +93,13 @@ func NewService(db *bun.DB) *Service {
 // transaction.
 func (s *Service) Create(ctx context.Context, input CreateInput) (Task, error) {
 	now := s.now().UTC()
+	if input.Schedule.Timezone == "" {
+		zone, err := settings.DefaultZone(ctx, s.db)
+		if err != nil {
+			return Task{}, err
+		}
+		input.Schedule.Timezone = zone
+	}
 	input, due, err := prepare(input, now)
 	if err != nil {
 		return Task{}, err
@@ -137,13 +146,16 @@ func (s *Service) Update(ctx context.Context, id int64, input CreateInput) (Task
 		return Task{}, ErrNotFound
 	}
 	now := s.now().UTC()
-	input, err := validate(input, now)
-	if err != nil {
-		return Task{}, err
-	}
 	var updated Task
-	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		previous, err := getTask(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if input.Schedule.Timezone == "" {
+			input.Schedule.Timezone = previous.Timezone
+		}
+		input, err = validate(input, now)
 		if err != nil {
 			return err
 		}
@@ -424,9 +436,6 @@ func validate(input CreateInput, now time.Time) (CreateInput, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" || !printable(input.Name) {
 		return input, fmt.Errorf("%w: name", ErrInvalidTask)
-	}
-	if input.Schedule.Timezone == "" {
-		input.Schedule.Timezone = "Asia/Shanghai"
 	}
 	input.Messages = cleanMessages(input.Messages)
 	switch input.Kind {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
 	"github.com/dongwlin/dan-tick/internal/schedule"
+	"github.com/dongwlin/dan-tick/internal/settings"
 	"github.com/uptrace/bun"
 )
 
@@ -92,7 +93,8 @@ func (s *RecoveryService) RecoverAfterWake(ctx context.Context) (RecoverySummary
 
 // ReconcileLate is used inside a live Cron callback. Only a callback more
 // than CallbackGrace late may consume the occurrence as missed; a punctual
-// callback is still claimed by E1. Stale callbacks are idempotent no-ops.
+// callback is still claimed by E1. Paused scheduling and stale callbacks are
+// no-ops; explicit startup/wake reconciliation still advances overdue plans.
 func (s *RecoveryService) ReconcileLate(ctx context.Context, taskID, due int64) (bool, error) {
 	now := s.now().UTC()
 	if taskID <= 0 || due <= 0 {
@@ -102,7 +104,16 @@ func (s *RecoveryService) ReconcileLate(ctx context.Context, taskID, due int64) 
 		return false, nil
 	}
 	var events recoveryEvents
+	reconciled := false
 	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		enabled, err := settings.SchedulingEnabled(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if !enabled {
+			return nil
+		}
+		reconciled = true
 		return s.reconcileDue(ctx, tx, now, &pendingPlan{id: taskID, due: due}, &events)
 	})
 	if err != nil {
@@ -110,7 +121,7 @@ func (s *RecoveryService) ReconcileLate(ctx context.Context, taskID, due int64) 
 		return false, err
 	}
 	s.record(events)
-	return true, nil
+	return reconciled, nil
 }
 
 func (s *RecoveryService) interruptAbandoned(ctx context.Context, tx bun.Tx, now int64, events *recoveryEvents) error {

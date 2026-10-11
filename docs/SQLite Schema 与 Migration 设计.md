@@ -143,6 +143,7 @@ CREATE TABLE app_settings (
 - `sent_count` 统计确认被服务端接受的逻辑消息数；`failed_count` 统计最终未确认成功的逻辑消息数（包括未知结果），不把一条消息的每次失败重试重复计数。具体错误类别写 `error_code`，可展示的 `error_message` 必须先脱敏，不能保存 Cookie 或完整请求头。
 - “立即执行任务”使用 `manual` 执行实例，不占用计划唯一键、不推进 `next_due_at`。独立输入的“测试发送”只返回本次结果，首版不创建任务执行记录，仍共享账号级限流。
 - `app_settings` 只存普通文本设置，可由 Go 按键解释其值；不存登录凭证，也不为每个设置创建一列。
+- E6 的设置键为 `default_timezone`（IANA 字符串，缺失时为 `Asia/Shanghai`）和 `scheduling_enabled`（严格使用文本 `true` / `false`，缺失时为 `true`），由 `internal/settings` 校验并写入，不修改既有 Schema。调度总开关与 `tasks.enabled` 独立；暂停不移除任务计划游标，启动 / 恢复会将暂停期间错过的计划按 E3 规则收尾，恢复时不补发，已交接执行不因此被停止。Cookie 和安全凭证仍只存在 Keyring。
 
 ## 4. 外键、唯一约束与索引
 
