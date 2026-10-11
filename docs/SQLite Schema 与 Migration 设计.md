@@ -2,9 +2,9 @@
 
 ## 1. 范围
 
-本文细化 [后端数据模型设计](后端数据模型设计.md) 的 MVP 落地规则。六张业务表、索引及外键已由 `internal/storage/migrations/20261011000100_initial_schema.tx.up.sql` 首次落地；应用在启动时通过 `internal/storage` 打开并迁移数据库。任务创建与有序消息保存已经落地，编辑、执行与恢复仍待后续单元实现。
+本文细化 [后端数据模型设计](后端数据模型设计.md) 的 MVP 落地规则。六张业务表、索引及外键已由 `internal/storage/migrations/20261011000100_initial_schema.tx.up.sql` 首次落地；应用在启动时通过 `internal/storage` 打开并迁移数据库。任务创建、编辑、启用 / 禁用、逻辑删除与消息持久化已经落地，执行与恢复仍待后续单元实现。
 
-保持六张业务表：`rooms`、`tasks`、`task_messages`、`executions`、`send_attempts`、`app_settings`。B3 已实现创建任务与消息的原子保存及读取；任务编辑、执行与恢复等业务事务仍待后续单元实现。不为单账号创建账号表，不为每个任务单独创建计划表，也不引入 Repository 框架、状态事件表或常驻任务队列表。
+保持六张业务表：`rooms`、`tasks`、`task_messages`、`executions`、`send_attempts`、`app_settings`。B3 / B4 已实现任务与消息的创建、读取、编辑、状态变更及逻辑删除；执行与恢复等业务事务仍待后续单元实现。不为单账号创建账号表，不为每个任务单独创建计划表，也不引入 Repository 框架、状态事件表或常驻任务队列表。
 
 ## 2. SQLite 类型与通用约定
 

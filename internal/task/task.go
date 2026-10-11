@@ -21,6 +21,7 @@ var (
 	ErrInvalidTask     = errors.New("invalid task configuration")
 	ErrRoomUnavailable = errors.New("target room is not available")
 	ErrNotFound        = errors.New("task not found")
+	ErrTaskBusy        = errors.New("task has an active execution")
 )
 
 type Kind string
@@ -87,7 +88,7 @@ func NewService(db *bun.DB) *Service {
 
 // Create validates the complete configuration, then saves the task and all
 // messages atomically. No external lookup or scheduler operation runs in the
-// transaction. B4 will add editing and task status changes.
+// transaction.
 func (s *Service) Create(ctx context.Context, input CreateInput) (Task, error) {
 	now := s.now().UTC()
 	input, due, err := prepare(input, now)
@@ -96,23 +97,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Task, error) {
 	}
 	var created Task
 	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		var active bool
-		if err := tx.QueryRowContext(ctx,
-			"SELECT EXISTS(SELECT 1 FROM rooms WHERE id = ? AND deleted_at IS NULL)", input.RoomID,
-		).Scan(&active); err != nil {
-			return fmt.Errorf("check task room: %w", err)
+		if err := checkRoom(ctx, tx, input.RoomID); err != nil {
+			return err
 		}
-		if !active {
-			return ErrRoomUnavailable
-		}
-		var localDate any
-		if input.Schedule.Kind == schedule.Once {
-			localDate = input.Schedule.LocalDate
-		}
-		var weekdays any
-		if input.Schedule.Kind == schedule.Weekly {
-			weekdays = input.Schedule.Weekdays
-		}
+		localDate, weekdays := planColumns(input.Schedule)
 		var id int64
 		err := tx.QueryRowContext(ctx, `
 			INSERT INTO tasks (room_id, name, kind, enabled, interval_seconds,
@@ -127,12 +115,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Task, error) {
 		if err != nil {
 			return fmt.Errorf("insert task: %w", err)
 		}
-		for position, content := range input.Messages {
-			if _, err := tx.ExecContext(ctx, `
-				INSERT INTO task_messages (task_id, position, content)
-				VALUES (?, ?, ?)`, id, position, content); err != nil {
-				return fmt.Errorf("insert task message %d: %w", position, err)
-			}
+		if err := insertMessages(ctx, tx, id, input.Messages); err != nil {
+			return err
 		}
 		created, err = getTask(ctx, tx, id)
 		return err
@@ -141,6 +125,198 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Task, error) {
 		return Task{}, err
 	}
 	return created, nil
+}
+
+// Update replaces a task's editable configuration and ordered messages in one
+// transaction. Changing its schedule recomputes the next future occurrence;
+// changes limited to messages/name/room preserve the existing plan cursor.
+// Edits are rejected while an execution is active to avoid changing its
+// definition underneath an executor that has not yet finished.
+func (s *Service) Update(ctx context.Context, id int64, input CreateInput) (Task, error) {
+	if id <= 0 {
+		return Task{}, ErrNotFound
+	}
+	now := s.now().UTC()
+	input, err := validate(input, now)
+	if err != nil {
+		return Task{}, err
+	}
+	var updated Task
+	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		previous, err := getTask(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if err := checkRoom(ctx, tx, input.RoomID); err != nil {
+			return err
+		}
+		if err := checkNotRunning(ctx, tx, id); err != nil {
+			return err
+		}
+		var due *int64
+		if input.Enabled && previous.Enabled && samePlan(previous, input.Schedule) {
+			due = previous.NextDueAt
+		} else if input.Enabled {
+			due, err = nextDue(input.Schedule, now)
+			if err != nil {
+				return err
+			}
+		}
+		localDate, weekdays := planColumns(input.Schedule)
+		_, err = tx.ExecContext(ctx, `
+			UPDATE tasks SET room_id = ?, name = ?, kind = ?, enabled = ?,
+				interval_seconds = ?, max_count = ?, max_duration_seconds = ?,
+				schedule_kind = ?, timezone = ?, local_date = ?, local_time = ?,
+				weekdays = ?, next_due_at = ?, updated_at = ?
+			WHERE id = ? AND deleted_at IS NULL`,
+			input.RoomID, input.Name, input.Kind, input.Enabled,
+			input.IntervalSeconds, input.MaxCount, input.MaxDurationSeconds,
+			input.Schedule.Kind, input.Schedule.Timezone, localDate,
+			input.Schedule.LocalTime, weekdays, due, now.UnixMilli(), id)
+		if err != nil {
+			return fmt.Errorf("update task: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM task_messages WHERE task_id = ?", id); err != nil {
+			return fmt.Errorf("replace task messages: %w", err)
+		}
+		if err := insertMessages(ctx, tx, id, input.Messages); err != nil {
+			return err
+		}
+		updated, err = getTask(ctx, tx, id)
+		return err
+	})
+	if err != nil {
+		return Task{}, err
+	}
+	return updated, nil
+}
+
+// SetEnabled changes only future scheduling. Disabling an active task does not
+// silently cancel an ongoing execution; stopping belongs to the executor.
+// Re-enabling calculates a new future occurrence from the current clock.
+func (s *Service) SetEnabled(ctx context.Context, id int64, enabled bool) (Task, error) {
+	if id <= 0 {
+		return Task{}, ErrNotFound
+	}
+	now := s.now().UTC()
+	var changed Task
+	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		previous, err := getTask(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if previous.Enabled == enabled {
+			changed = previous
+			return nil
+		}
+		var due *int64
+		if enabled {
+			due, err = nextDue(ruleFor(previous), now)
+			if err != nil {
+				return err
+			}
+		}
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE tasks SET enabled = ?, next_due_at = ?, updated_at = ?
+			WHERE id = ? AND deleted_at IS NULL`, enabled, due, now.UnixMilli(), id); err != nil {
+			return fmt.Errorf("set task enabled: %w", err)
+		}
+		changed, err = getTask(ctx, tx, id)
+		return err
+	})
+	if err != nil {
+		return Task{}, err
+	}
+	return changed, nil
+}
+
+// Delete retains task definitions, messages and execution history while
+// removing future scheduled work. A live execution must first be stopped
+// externally, otherwise deletion is rejected without changing any records.
+func (s *Service) Delete(ctx context.Context, id int64) error {
+	if id <= 0 {
+		return ErrNotFound
+	}
+	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := getTask(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := checkNotRunning(ctx, tx, id); err != nil {
+			return err
+		}
+		now := s.now().UTC().UnixMilli()
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE tasks SET enabled = 0, next_due_at = NULL,
+				deleted_at = ?, updated_at = ?
+			WHERE id = ? AND deleted_at IS NULL`, now, now, id); err != nil {
+			return fmt.Errorf("delete task: %w", err)
+		}
+		return nil
+	})
+}
+
+func checkRoom(ctx context.Context, tx bun.Tx, roomID int64) error {
+	var active bool
+	if err := tx.QueryRowContext(ctx,
+		"SELECT EXISTS(SELECT 1 FROM rooms WHERE id = ? AND deleted_at IS NULL)", roomID,
+	).Scan(&active); err != nil {
+		return fmt.Errorf("check task room: %w", err)
+	}
+	if !active {
+		return ErrRoomUnavailable
+	}
+	return nil
+}
+
+func checkNotRunning(ctx context.Context, tx bun.Tx, id int64) error {
+	var busy bool
+	if err := tx.QueryRowContext(ctx, `
+		SELECT EXISTS(SELECT 1 FROM executions
+			WHERE task_id = ? AND status IN ('waiting', 'queued', 'running'))`, id).Scan(&busy); err != nil {
+		return fmt.Errorf("check task executions: %w", err)
+	}
+	if busy {
+		return ErrTaskBusy
+	}
+	return nil
+}
+
+func planColumns(rule schedule.Rule) (localDate, weekdays any) {
+	if rule.Kind == schedule.Once {
+		localDate = rule.LocalDate
+	}
+	if rule.Kind == schedule.Weekly {
+		weekdays = rule.Weekdays
+	}
+	return localDate, weekdays
+}
+
+func insertMessages(ctx context.Context, tx bun.Tx, id int64, messages []string) error {
+	for position, content := range messages {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO task_messages (task_id, position, content)
+			VALUES (?, ?, ?)`, id, position, content); err != nil {
+			return fmt.Errorf("insert task message %d: %w", position, err)
+		}
+	}
+	return nil
+}
+
+func ruleFor(task Task) schedule.Rule {
+	rule := schedule.Rule{
+		Kind: task.ScheduleKind, Timezone: task.Timezone, LocalTime: task.LocalTime,
+	}
+	if task.LocalDate != nil {
+		rule.LocalDate = *task.LocalDate
+	}
+	if task.Weekdays != nil {
+		rule.Weekdays = *task.Weekdays
+	}
+	return rule
+}
+
+func samePlan(task Task, rule schedule.Rule) bool {
+	return ruleFor(task) == rule
 }
 
 // Get loads an active task and its messages in their stored order.
@@ -230,12 +406,24 @@ func loadMessages(ctx context.Context, db bun.IDB, tasks []Task) error {
 }
 
 func prepare(input CreateInput, now time.Time) (CreateInput, *int64, error) {
+	input, err := validate(input, now)
+	if err != nil {
+		return input, nil, err
+	}
+	if !input.Enabled {
+		return input, nil, nil
+	}
+	due, err := nextDue(input.Schedule, now)
+	return input, due, err
+}
+
+func validate(input CreateInput, now time.Time) (CreateInput, error) {
 	if input.RoomID <= 0 {
-		return input, nil, fmt.Errorf("%w: room_id", ErrInvalidTask)
+		return input, fmt.Errorf("%w: room_id", ErrInvalidTask)
 	}
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" || !printable(input.Name) {
-		return input, nil, fmt.Errorf("%w: name", ErrInvalidTask)
+		return input, fmt.Errorf("%w: name", ErrInvalidTask)
 	}
 	if input.Schedule.Timezone == "" {
 		input.Schedule.Timezone = "Asia/Shanghai"
@@ -244,35 +432,42 @@ func prepare(input CreateInput, now time.Time) (CreateInput, *int64, error) {
 	switch input.Kind {
 	case Single:
 		if len(input.Messages) != 1 || input.IntervalSeconds != nil || input.MaxCount != nil || input.MaxDurationSeconds != nil {
-			return input, nil, fmt.Errorf("%w: single requires exactly one message and no loop settings", ErrInvalidTask)
+			return input, fmt.Errorf("%w: single requires exactly one message and no loop settings", ErrInvalidTask)
 		}
 	case Loop:
 		if len(input.Messages) == 0 || input.IntervalSeconds == nil || *input.IntervalSeconds <= 0 ||
 			(input.MaxCount == nil && input.MaxDurationSeconds == nil) ||
 			(input.MaxCount != nil && *input.MaxCount <= 0) ||
 			(input.MaxDurationSeconds != nil && *input.MaxDurationSeconds <= 0) {
-			return input, nil, fmt.Errorf("%w: loop requires messages, positive interval and a positive stop condition", ErrInvalidTask)
+			return input, fmt.Errorf("%w: loop requires messages, positive interval and a positive stop condition", ErrInvalidTask)
 		}
 	default:
-		return input, nil, fmt.Errorf("%w: kind", ErrInvalidTask)
+		return input, fmt.Errorf("%w: kind", ErrInvalidTask)
 	}
 	for _, message := range input.Messages {
 		if !printable(message) {
-			return input, nil, fmt.Errorf("%w: message contains invalid text", ErrInvalidTask)
+			return input, fmt.Errorf("%w: message contains invalid text", ErrInvalidTask)
 		}
 	}
-	next, exists, err := schedule.NextAfter(input.Schedule, now)
+	// Validate all calendar fields even when the task is disabled or a plan
+	// cursor is being preserved after a name/message-only edit.
+	_, _, err := schedule.NextAfter(input.Schedule, now)
 	if err != nil {
-		return input, nil, fmt.Errorf("%w: %w", ErrInvalidTask, err)
+		return input, fmt.Errorf("%w: %w", ErrInvalidTask, err)
 	}
-	if !input.Enabled {
-		return input, nil, nil
+	return input, nil
+}
+
+func nextDue(rule schedule.Rule, now time.Time) (*int64, error) {
+	next, exists, err := schedule.NextAfter(rule, now)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidTask, err)
 	}
 	if !exists {
-		return input, nil, fmt.Errorf("%w: enabled plan has no future occurrence", ErrInvalidTask)
+		return nil, fmt.Errorf("%w: enabled plan has no future occurrence", ErrInvalidTask)
 	}
 	due := next.UTC().UnixMilli()
-	return input, &due, nil
+	return &due, nil
 }
 
 func cleanMessages(messages []string) []string {
