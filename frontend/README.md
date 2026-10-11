@@ -52,7 +52,13 @@ pnpm run build
 | `pnpm run build:dev`    | 执行 `typecheck`，再构建未压缩的 development 产物               |
 | `pnpm run preview`      | 预览已生成的前端产物                                            |
 
-Vite 默认监听 `127.0.0.1:9245`，可以用 `WAILS_VITE_PORT` 调整。普通浏览器能预览页面，但 Wails Service / Events 的桌面行为需要在真实 Wails 窗口中验证。`typecheck` 使用 `vue-tsc --noEmit` 检查 [`tsconfig.json`](tsconfig.json) 中的源码与生成 Binding，使用 `tsc --project tsconfig.node.json` 检查 [`tsconfig.node.json`](tsconfig.node.json) 中的 `vite.config.ts` 和 `vitest.config.ts`。`build` 和 `build:dev` 保留该类型检查步骤；CI 留待 FE9 接入。
+Vite 默认监听 `127.0.0.1:9245`，可以用 `WAILS_VITE_PORT` 调整。普通浏览器能预览页面，但 Wails Service / Events 的桌面行为需要在真实 Wails 窗口中验证。`typecheck` 使用 `vue-tsc --noEmit` 检查 [`tsconfig.json`](tsconfig.json) 中的源码与生成 Binding，使用 `tsc --project tsconfig.node.json` 检查 [`tsconfig.node.json`](tsconfig.node.json) 中的 `vite.config.ts` 和 `vitest.config.ts`。`build` 和 `build:dev` 保留该类型检查步骤。
+
+## 前端持续集成（FE9）
+
+仓库根目录的 [Frontend CI](../.github/workflows/frontend-ci.yml) 在每次 Push / Pull Request 上运行，使用 Ubuntu 24.04、`.node-version` 中的 Node 24.18.0、固定 pnpm 11.28.4 和 `go.mod` 中的 Go 版本。先在 `frontend/` 执行 `pnpm install --frozen-lockfile`、`pnpm run lint`、`pnpm run format:check`、`pnpm run test`，之后生成 Wails Binding、执行 `pnpm run typecheck` 和 `pnpm run build`。任一命令失败则该 Job 失败。
+
+Binding 由固定的 Wails 3 CLI 版本（`v3.0.0-beta.25`）从 Go 根入口 `./...` 生成，需要 Ubuntu 的 GTK4 / WebKitGTK 6.0 开发头。由于干净 checkout 没有 `frontend/dist`，CI 先放一个临时 `dist/index.html` 满足 `main.go` 的 `go:embed`，随后生产构建替换它；不提交生成产物，也不修改独立的 `prototype/`。CI 仅作前端质量门禁，桌面构建、Windows / Linux WebView 与实际系统行为仍需另行验收。若要严格阻止不合格变更合并，在 GitHub 分支保护 / Ruleset 中将 `Lint, typecheck, test and build` 配为必需检查。
 
 ## 行为测试（FE6）
 

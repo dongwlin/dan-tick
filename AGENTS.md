@@ -61,7 +61,7 @@ pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
 
 - Wails 构建任务会通过 `build/Taskfile.yml` 安装前端依赖、生成 Binding、构建前端，并可能运行 `go mod tidy`；构建后检查有无意外的 `go.mod` / `go.sum` 变化。
 - Go 变更：对修改的 Go 文件执行 `gofmt`，并按需运行 `go test ./...`、`go vet ./...`；并发敏感代码还需运行 `go test -race ./...`（环境支持时）。**独立运行 Go 命令前须有 `frontend/dist/`**，否则 `main.go` 的 `go:embed` 会报错。可以先通过 Wails 构建生成前端产物。
-- **已有 Go 集成测试、前端 `pnpm run test`、ESLint / Prettier 和独立 `typecheck`，尚无 CI 工作流。** Vitest 通过 `frontend/vitest.config.ts` 使用 Vue 插件与 happy-dom，实际测试位于 `src/app/App.test.ts`、`src/pages/SettingsPage.test.ts`；不启动 Wails 桌面插件。`typecheck` 通过 `vue-tsc` 检查 Vue 源码与生成 Binding、通过 `tsc` 检查 `vite.config.ts` 和 `vitest.config.ts`；`build` 和 `build:dev` 均先执行 `typecheck`。测试覆盖随真实业务功能逐步增长，CI 留待 FE9。
+- **已有 Go 集成测试、前端 `pnpm run test`、ESLint / Prettier、独立 `typecheck` 和 FE9 GitHub Actions 前端 CI。** Vitest 通过 `frontend/vitest.config.ts` 使用 Vue 插件与 happy-dom，行为测试位于 `src/app/`、`src/pages/` 和 `src/features/configuration/`；不启动 Wails 桌面插件。`typecheck` 通过 `vue-tsc` 检查 Vue 源码与生成 Binding、通过 `tsc` 检查 `vite.config.ts` 和 `vitest.config.ts`；`build` 和 `build:dev` 均先执行 `typecheck`。`.github/workflows/frontend-ci.yml` 在 Push / PR 上冻结安装，执行 Lint / 格式 / 测试，生成 Wails Binding 后执行类型检查和生产构建；桌面实机验收独立进行。
 - ESLint 采用 Flat Config，启用 JavaScript、TypeScript 类型感知、Vue 与 Vue 可访问性推荐规则，以及重复导入、类型导入和非空断言检查；`lint` / `lint:fix` 使用 `--max-warnings 0`。Prettier 独立执行，`eslint-config-prettier` 最后关闭冲突规则，不通过 ESLint 执行格式化。检查限定 `frontend/`，忽略依赖、生成 Binding、构建与覆盖率产物；Prettier 另外忽略锁文件、第三方 SVG 和许可证。
 
 ## 4. 新代码的架构与风格约束

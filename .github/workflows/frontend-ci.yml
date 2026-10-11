@@ -1,0 +1,71 @@
+name: Frontend CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Lint, typecheck, test and build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.node-version
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.4
+          run_install: false
+
+      - name: Install frozen frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: frontend
+        run: pnpm run lint
+
+      - name: Check formatting
+        working-directory: frontend
+        run: pnpm run format:check
+
+      - name: Run behavior tests
+        working-directory: frontend
+        run: pnpm run test
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # The Go entrypoint imports Wails' Linux GTK4 bindings even when only
+      # generating TypeScript; do not silently ignore Go package-load errors.
+      - name: Install Wails Linux headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
+
+      - name: Install matching Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.25
+
+      - name: Generate Wails bindings
+        run: |
+          # main.go embeds frontend/dist, which is empty in a clean checkout.
+          # A temporary placeholder breaks the build/bindings dependency cycle;
+          # the production frontend build replaces it below.
+          mkdir -p frontend/dist
+          printf '%s\n' '<!doctype html><title>CI binding placeholder</title>' > frontend/dist/index.html
+          "$(go env GOPATH)/bin/wails3" generate bindings -clean=true -ts -i ./...
+
+      - name: Typecheck
+        working-directory: frontend
+        run: pnpm run typecheck
+
+      - name: Build production frontend
+        working-directory: frontend
+        run: pnpm run build
