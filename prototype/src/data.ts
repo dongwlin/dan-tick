@@ -60,6 +60,14 @@ export const initialLogs: RunLog[] = [
   { id: 'l3', taskId: 't1', taskName: '每日晚安问候', roomId: '22625025', date: '2026-10-08 22:00', status: 'success', sent: 1, failed: 0, detail: '按计划完成，成功发送 1 条弹幕。' },
   { id: 'l4', taskId: 't2', taskName: '夜间弹幕循环', roomId: '3044248', date: '2026-10-07 21:30', status: 'stopped', sent: 7, failed: 0, detail: '用户手动停止，剩余弹幕未发送。' },
   { id: 'l5', taskId: 't3', taskName: '周末直播提醒', roomId: '21547895', date: '2026-10-03 20:00', status: 'failed', sent: 0, failed: 1, detail: '接口返回登录状态失效，请重新配置凭证。' },
+  { id: 'l6', taskId: 't1', taskName: '每日晚安问候', roomId: '22625025', date: '2026-10-02 22:00', status: 'success', sent: 1, failed: 0, detail: '按计划完成，成功发送 1 条弹幕。' },
+  { id: 'l7', taskId: 't2', taskName: '夜间弹幕循环', roomId: '3044248', date: '2026-10-01 21:30', status: 'success', sent: 20, failed: 0, detail: '达到最大发送次数，执行结束。' },
+  { id: 'l8', taskId: 't1', taskName: '每日晚安问候', roomId: '22625025', date: '2026-09-30 22:00', status: 'success', sent: 1, failed: 0, detail: '按计划完成，成功发送 1 条弹幕。' },
+  { id: 'l9', taskId: 't2', taskName: '夜间弹幕循环', roomId: '3044248', date: '2026-09-29 21:30', status: 'stopped', sent: 8, failed: 0, detail: '用户手动停止，剩余弹幕未发送。' },
+  { id: 'l10', taskId: 't1', taskName: '每日晚安问候', roomId: '22625025', date: '2026-09-28 22:00', status: 'success', sent: 1, failed: 0, detail: '按计划完成，成功发送 1 条弹幕。' },
+  { id: 'l11', taskId: 't2', taskName: '夜间弹幕循环', roomId: '3044248', date: '2026-09-27 21:30', status: 'success', sent: 20, failed: 0, detail: '达到最大发送次数，执行结束。' },
+  { id: 'l12', taskId: 't1', taskName: '每日晚安问候', roomId: '22625025', date: '2026-09-26 22:00', status: 'success', sent: 1, failed: 0, detail: '按计划完成，成功发送 1 条弹幕。' },
+  { id: 'l13', taskId: 't3', taskName: '周末直播提醒', roomId: '21547895', date: '2026-09-26 20:00', status: 'success', sent: 1, failed: 0, detail: '按计划完成，成功发送 1 条弹幕。' },
 ]
 
 export const dayNames = ['日', '一', '二', '三', '四', '五', '六']

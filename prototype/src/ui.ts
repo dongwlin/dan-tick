@@ -1,6 +1,6 @@
 import {
   createIcons, LayoutDashboard, ListTodo, Radio, History, Settings2,
-  Minus, Plus, ChevronRight, ArrowUpRight, CircleCheck, CircleAlert,
+  Minus, Plus, ChevronLeft, ChevronRight, ArrowUpRight, CircleCheck, CircleAlert,
   Play, Square, Pencil, Trash2, CalendarClock, Search, Activity, Check,
   Moon, Sun, ExternalLink, UserRound, Bell, Power, Info, Send,
   Shield, SlidersHorizontal, X, ArrowLeft, Clock3, MessageSquareText,
@@ -11,7 +11,7 @@ import { state } from './state'
 
 const iconSet = {
   LayoutDashboard, ListTodo, Radio, History, Settings2,
-  Minus, Plus, ChevronRight, ArrowUpRight, CircleCheck, CircleAlert,
+  Minus, Plus, ChevronLeft, ChevronRight, ArrowUpRight, CircleCheck, CircleAlert,
   Play, Square, Pencil, Trash2, CalendarClock, Search, Activity, Check,
   Moon, Sun, ExternalLink, UserRound, Bell, Power, Info, Send,
   Shield, SlidersHorizontal, X, ArrowLeft, Clock3, MessageSquareText,

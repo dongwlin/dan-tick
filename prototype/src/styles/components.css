@@ -28,6 +28,14 @@
   background: color-mix(in srgb, var(--surface-solid) 64%, var(--bg-canvas));
 }
 .history-table[data-short='true'] .data-table tbody tr:last-child td { border-bottom: 1px solid var(--border-hairline); }
+.history-pagination { display: flex; flex: none; justify-content: space-between; align-items: center; min-height: 54px; gap: 12px; padding: 8px 22px; border-top: 1px solid var(--border-hairline); }
+.history-page-summary { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.history-page-controls { display: flex; align-items: center; gap: 4px; }
+.history-page-number, .history-page-arrow { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 7px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
+.history-page-number:hover:not(:disabled), .history-page-arrow:hover:not(:disabled) { background: var(--surface-muted); color: var(--text-primary); }
+.history-page-number[aria-current='page'] { background: var(--soft-accent-bg); border-color: var(--soft-accent-border); color: var(--accent-text); font-weight: 700; }
+.history-page-arrow .lucide { width: 15px; height: 15px; }
+.history-page-arrow:disabled { cursor: not-allowed; opacity: 0.35; }
 .list-toolbar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 22px; }
 .list-toolbar-heading h2 { margin: 0 0 1px; font-size: 16px; letter-spacing: -0.02em; }
 .list-toolbar-heading h2 span { font-size: 12px; font-weight: 500; color: var(--text-tertiary); margin-left: 6px; }

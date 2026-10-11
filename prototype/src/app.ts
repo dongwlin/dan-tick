@@ -68,6 +68,34 @@ function updateListEndcaps(): void {
   })
 }
 
+function updateHistoryPageSize(): void {
+  if (state.page !== 'history') return
+  const table = app.querySelector<HTMLElement>('.history-table')
+  const firstRow = table?.querySelector<HTMLTableRowElement>('tbody tr:not(.log-detail)')
+  const head = table?.querySelector<HTMLElement>('thead')
+  if (!table || !head || !firstRow) return
+  const total = state.logs.filter(log =>
+    (state.logStatus === 'all' || log.status === state.logStatus) &&
+    (state.logTask === 'all' || log.taskId === state.logTask)
+  ).length
+  if (total === 0) return
+  const rowHeight = firstRow.getBoundingClientRect().height
+  if (!rowHeight) return
+  // Preserve space for the page controls only when records exceed one full page.
+  const available = table.clientHeight + (app.querySelector<HTMLElement>('.history-pagination')?.offsetHeight ?? 0)
+  const headerHeight = head.getBoundingClientRect().height
+  const capacity = Math.max(2, Math.floor((available - headerHeight - 2) / rowHeight))
+  const pageSize = total > capacity
+    ? Math.max(2, Math.floor((available - headerHeight - 54) / rowHeight))
+    : capacity
+  const page = Math.min(state.historyPage, Math.max(1, Math.ceil(total / pageSize)))
+  if (pageSize !== state.historyPageSize || page !== state.historyPage) {
+    state.historyPageSize = pageSize
+    state.historyPage = page
+    render()
+  }
+}
+
 function render(): void {
   const currentRoute = location.hash
   const previousScroll = currentRoute === lastRenderedRoute
@@ -80,6 +108,7 @@ function render(): void {
   lastRenderedRoute = currentRoute
   renderIcons()
   updateListEndcaps()
+  updateHistoryPageSize()
 }
 
 function saveTask(): void {
@@ -114,7 +143,10 @@ function saveTask(): void {
 }
 
 export function startApp(): void {
-  window.addEventListener('resize', updateListEndcaps)
+  window.addEventListener('resize', () => {
+    updateListEndcaps()
+    updateHistoryPageSize()
+  })
   app.addEventListener('click', event => {
     const actionEl = (event.target as HTMLElement).closest<HTMLElement>('[data-action]')
     if (!actionEl) return
@@ -183,6 +215,20 @@ export function startApp(): void {
           render()
         }
         break
+      case 'history-page': {
+        const page = Number(actionEl.dataset.page)
+        const total = state.logs.filter(log =>
+          (state.logStatus === 'all' || log.status === state.logStatus) &&
+          (state.logTask === 'all' || log.taskId === state.logTask)
+        ).length
+        if (!Number.isInteger(page) || page < 1 || page > Math.ceil(total / state.historyPageSize)) break
+        state.historyPage = page
+        state.selectedLog = null
+        render()
+        document.querySelector<HTMLElement>('.history-table')?.scrollTo(0, 0)
+        document.querySelector<HTMLElement>(`.history-page-number[data-page="${page}"]`)?.focus()
+        break
+      }
       case 'clear-search': state.search = ''; render(); break
       case 'log-detail':
         state.selectedLog = state.page === 'dashboard' ? id ?? null : state.selectedLog === id ? null : id ?? null
@@ -231,8 +277,8 @@ export function startApp(): void {
         state.settings[key] = target.checked
         showToast('演示设置已更新；不会影响操作系统')
       }
-    } else if (target.id === 'log-status') { state.logStatus = target.value; render() }
-    else if (target.id === 'log-task') { state.logTask = target.value; render() }
+    } else if (target.id === 'log-status') { state.logStatus = target.value; state.historyPage = 1; state.selectedLog = null; render() }
+    else if (target.id === 'log-task') { state.logTask = target.value; state.historyPage = 1; state.selectedLog = null; render() }
     else if (target.dataset.weekday && state.draft && target instanceof HTMLInputElement) {
       const day = Number(target.dataset.weekday)
       state.draft.weekdays = target.checked ? [...state.draft.weekdays, day].sort((a, b) => a - b) : state.draft.weekdays.filter(item => item !== day)

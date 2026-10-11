@@ -45,6 +45,7 @@
   .room-actions { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
   .filter-group { width: 100%; }
   .filter-group select { flex: 1; width: 0; }
+  .history-pagination { flex-wrap: wrap; padding: 8px 16px; }
   .settings-panel, .settings-side-panel, .editor-panel { padding: 19px; }
   .form-grid, .loop-config { grid-template-columns: 1fr; }
   .setting-row select { width: 150px; }

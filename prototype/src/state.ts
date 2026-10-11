@@ -10,6 +10,8 @@ export const state = {
   search: '',
   logStatus: 'all',
   logTask: 'all',
+  historyPage: 1,
+  historyPageSize: 6,
   selectedLog: null as string | null,
   roomFormOpen: false,
   roomsView: 'cards' as 'cards' | 'list',

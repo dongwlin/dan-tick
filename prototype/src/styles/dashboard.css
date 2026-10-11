@@ -37,5 +37,10 @@
 .alert-footer a { display: inline-flex; align-items: center; gap: 3px; font-weight: 650; color: var(--text-secondary); }
 .alert-footer .lucide { width: 14px; height: 14px; }
 .recent-panel { flex: 1 1 0; padding-bottom: 8px; }
-.recent-panel .table-wrap { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; }
-.recent-panel .data-table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-solid); }
+.recent-panel .table-wrap { flex: 1; min-height: 0; overflow: hidden; }
+.recent-panel .data-table { display: flex; flex-direction: column; height: 100%; }
+.recent-panel .data-table thead { display: block; flex: none; padding-right: 9px; }
+.recent-panel .data-table thead tr,
+.recent-panel .data-table tbody tr { display: table; width: 100%; table-layout: fixed; }
+.recent-panel .data-table tbody { display: block; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; }
+.recent-panel .data-table thead th { background: color-mix(in srgb, var(--surface-solid) 64%, var(--bg-canvas)); }
