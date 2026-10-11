@@ -8,8 +8,10 @@ import (
 
 	"github.com/dongwlin/dan-tick/internal/credential"
 	"github.com/dongwlin/dan-tick/internal/danmaku"
+	"github.com/dongwlin/dan-tick/internal/desktop"
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
 	"github.com/dongwlin/dan-tick/internal/executor"
+	"github.com/dongwlin/dan-tick/internal/room"
 	"github.com/dongwlin/dan-tick/internal/scheduler"
 	"github.com/uptrace/bun"
 )
@@ -20,6 +22,7 @@ type Runtime struct {
 	Sender    *danmaku.Sender
 	Executor  *executor.Service
 	Scheduler *scheduler.Manager
+	Config    *desktop.ConfigurationService
 
 	stopOnce sync.Once
 }
@@ -39,7 +42,10 @@ func newRuntime(db *bun.DB, log *diagnostic.Logger, client *danmaku.Client) *Run
 			log.Record(diagnostic.ScheduleSyncFailed)
 		}
 	})
-	return &Runtime{Sender: sender, Executor: runner, Scheduler: manager}
+	return &Runtime{
+		Sender: sender, Executor: runner, Scheduler: manager,
+		Config: desktop.NewConfigurationService(db, room.NewClient(&http.Client{}), manager),
+	}
 }
 
 // Start performs transactional startup recovery before registering any Cron

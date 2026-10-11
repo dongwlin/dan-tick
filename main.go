@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dongwlin/dan-tick/internal/app"
+	"github.com/dongwlin/dan-tick/internal/desktop"
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
 	"github.com/dongwlin/dan-tick/internal/history"
 	"github.com/dongwlin/dan-tick/internal/storage"
@@ -97,10 +98,14 @@ func run(logger *diagnostic.Logger) error {
 	}
 
 	// Start the desktop UI only after the persisted scheduler has recovered.
-	// Business bindings will be registered here when their real use cases land.
 	app := application.New(application.Options{
 		Name:        "dan-tick",
 		Description: "B 站直播弹幕定时发送桌面工具",
+		Services: []application.Service{
+			application.NewServiceWithOptions(runtime.Config, application.ServiceOptions{
+				MarshalError: desktop.MarshalError,
+			}),
+		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
