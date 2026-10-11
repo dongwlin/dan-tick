@@ -43,6 +43,8 @@ var (
 	SendRejected           = Event{name: "send.resolved", component: "executor", result: "rejected", level: zerolog.WarnLevel}
 	SendNotSent            = Event{name: "send.resolved", component: "executor", result: "not_sent", level: zerolog.WarnLevel}
 	SendUnknown            = Event{name: "send.resolved", component: "executor", result: "unknown", level: zerolog.WarnLevel}
+	ScheduleClaimed        = Event{name: "schedule.claimed", component: "scheduler", result: "waiting", level: zerolog.InfoLevel}
+	ScheduleConflict       = Event{name: "schedule.conflict", component: "scheduler", result: "missed", errorCategory: "task_busy", level: zerolog.WarnLevel}
 )
 
 // Status can be read by a future settings/diagnostics UI without exposing
@@ -98,6 +100,28 @@ func (l *Logger) RecordSendAttempt(event Event, executionID, taskID int64, seque
 			l.recordExecution(event, executionID, taskID, sequence, category)
 		}
 	}
+}
+
+// RecordSchedule only accepts predeclared scheduled-claim events and numeric
+// occurrence identifiers. No task content, request, or raw error can be logged.
+func (l *Logger) RecordSchedule(event Event, executionID, taskID, scheduledAt int64) {
+	if executionID <= 0 || taskID <= 0 || scheduledAt <= 0 {
+		return
+	}
+	if event != ScheduleClaimed && event != ScheduleConflict {
+		return
+	}
+	e := l.log.WithLevel(event.level).
+		Str("event", event.name).
+		Str("component", event.component).
+		Str("result", event.result).
+		Int64("execution_id", executionID).
+		Int64("task_id", taskID).
+		Int64("scheduled_at", scheduledAt)
+	if event.errorCategory != "" {
+		e = e.Str("error_category", event.errorCategory)
+	}
+	e.Send()
 }
 
 func (l *Logger) recordExecution(event Event, executionID, taskID int64, sequence int, category string) {

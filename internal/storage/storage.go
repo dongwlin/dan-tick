@@ -49,6 +49,10 @@ func Open(ctx context.Context, path string) (*bun.DB, error) {
 	query := uri.Query()
 	query.Add("_pragma", "foreign_keys(1)")
 	query.Add("_pragma", "busy_timeout(5000)")
+	// Claim/read-modify-write transactions must acquire the SQLite writer
+	// reservation before reading. Deferred transactions can fail to upgrade a
+	// stale WAL snapshot with SQLITE_BUSY even when busy_timeout is enabled.
+	query.Set("_txlock", "immediate")
 	uri.RawQuery = query.Encode()
 
 	db, err := connectSQLite(ctx, uri.String())

@@ -122,6 +122,28 @@ func TestExecutionEventFieldsAreRestricted(t *testing.T) {
 	}
 }
 
+func TestScheduledEventRequiresKnownTypeAndValidIdentifiers(t *testing.T) {
+	dir := t.TempDir()
+	l := New(dir)
+	l.RecordSchedule(AppStarting, 1, 2, 3)
+	l.RecordSchedule(ScheduleClaimed, 0, 2, 3)
+	l.RecordSchedule(ScheduleConflict, 1, -2, 3)
+	l.RecordSchedule(ScheduleClaimed, 1, 2, 0)
+	l.RecordSchedule(ScheduleClaimed, 3, 4, 1760000000000)
+	l.Close()
+	data, err := os.ReadFile(filepath.Join(dir, activeName))
+	require.NoError(t, err)
+	var record map[string]any
+	require.NoError(t, json.Unmarshal([]byte(strings.TrimSpace(string(data))), &record))
+	require.Equal(t, "schedule.claimed", record["event"])
+	require.EqualValues(t, 3, record["execution_id"])
+	require.EqualValues(t, 4, record["task_id"])
+	require.EqualValues(t, 1760000000000, record["scheduled_at"])
+	require.NotContains(t, record, "error")
+	require.NotContains(t, record, "message")
+	require.Len(t, strings.Split(strings.TrimSpace(string(data)), "\n"), 1)
+}
+
 func TestRollingWriterEnforcesSizeAndFileCount(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Date(2026, 10, 11, 9, 0, 0, 0, time.UTC)

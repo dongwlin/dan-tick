@@ -2,9 +2,9 @@
 
 ## 1. 范围
 
-本文细化 [后端数据模型设计](后端数据模型设计.md) 的 MVP 落地规则。六张业务表、索引及外键已由 `internal/storage/migrations/20261011000100_initial_schema.tx.up.sql` 首次落地；应用在启动时通过 `internal/storage` 打开并迁移数据库。任务创建、编辑、启用 / 禁用、逻辑删除与消息持久化已经落地；D1～D3 已实现手动单条与循环执行、停止、FIFO 账号级排队和尝试结果写入，自动调度与恢复仍待后续单元实现。
+本文细化 [后端数据模型设计](后端数据模型设计.md) 的 MVP 落地规则。六张业务表、索引及外键已由 `internal/storage/migrations/20261011000100_initial_schema.tx.up.sql` 首次落地；应用在启动时通过 `internal/storage` 打开并迁移数据库。任务创建、编辑、启用 / 禁用、逻辑删除与消息持久化已经落地；D1～D3 已实现手动单条与循环执行、停止、FIFO 账号级排队和尝试结果写入；E1 已实现事务化领取计划及冲突终态记录，Cron 注册、迟到判定与恢复仍待后续单元实现。
 
-保持六张业务表：`rooms`、`tasks`、`task_messages`、`executions`、`send_attempts`、`app_settings`。B3 / B4 已实现任务与消息的创建、读取、编辑、状态变更及逻辑删除；D1～D3 已实现手动执行登记、逐条 `pending`、结果汇总与主动停止，等待发送许可时持久化 `queued` 并在许可到达后持久化 `running`。自动领取与异常恢复等事务仍待后续单元实现。不为单账号创建账号表，不为每个任务单独创建计划表，也不引入 Repository 框架、状态事件表或常驻任务队列表。
+保持六张业务表：`rooms`、`tasks`、`task_messages`、`executions`、`send_attempts`、`app_settings`。B3 / B4 已实现任务与消息的创建、读取、编辑、状态变更及逻辑删除；D1～D3 已实现手动执行登记、逐条 `pending`、结果汇总与主动停止，等待发送许可时持久化 `queued` 并在许可到达后持久化 `running`；E1 已实现计划游标与执行实例的事务化领取。异常恢复等事务仍待后续单元实现。不为单账号创建账号表，不为每个任务单独创建计划表，也不引入 Repository 框架、状态事件表或常驻任务队列表。
 
 ## 2. SQLite 类型与通用约定
 
@@ -190,6 +190,8 @@ SQLite 只允许一个写事务同时提交。首版采用一个 Bun / `database
 3. 用带 `WHERE id = ? AND next_due_at = ? AND enabled = 1 AND deleted_at IS NULL` 的**条件更新**领取计划，并推进下一次待处理游标；受影响行数为 0 则该回调已失效。唯一约束冲突不能误当新的可执行实例，也不能清理别的事务的结果；需要区分“已登记”和“活跃任务冲突”，必要时把活跃冲突改写为 `missed`。同一事务提交后才能把新建的 `waiting` 实例交给执行器。
 4. 如果事务已提交、进程却在交给执行器前崩溃，下次启动将 `waiting` 标为 `interrupted`，**不会在不确定是否发生外部副作用的情况下自动重放**。Cron 与 Wails Event 更新发生在提交后，失败时从 SQLite 重建，不假装数据库回滚。
 
+**E1 落地边界：** `internal/scheduler.ClaimService.Claim` 要求调用方提供持久化计划 UTC 毫秒时刻；重复、失效、禁用或过早触发返回未领取，提交成功的 `waiting` 才能交接执行器。存在同任务活跃实例时，新计划作为 `missed/task_busy` 完成并推进游标。周期计划下一次时刻以已领取的 `scheduled_at` 严格向后计算，一次性计划清空游标。E1 不决定迟到宽限、不做长时间离线快速推进，这些属于 E3。跨独立连接的读改写事务使用 SQLite 驱动 `_txlock=immediate`，防止延迟读事务对过期 WAL 快照升级写锁时出现 `SQLITE_BUSY`；交易仍保持短小，外部副作用不进入事务。
+
 仅检查内存锁、只查询“最近执行”或依赖 Cron 的 `SkipIfStillRunning` 都无法保证此语义。手动执行在独立事务内检查任务与活跃执行并插入 `manual` 实例，完全不触碰计划游标。
 
 应用启动 / 恢复时，先将遗留的 `waiting`、`queued`、`running` 执行标为 `interrupted`，将仍为 `pending` 的尝试标为 `unknown` 并核对计数；之后再恢复调度。对长期离线的周期任务，最多为每次恢复窗口保留一条代表性的 `missed` 记录，然后直接计算下一次未来时刻，不逐次补发或批量生成历史；一次性任务则终结为 `missed` 并清空游标。持久化游标不会因为系统时间倒拨而自动后退；编辑计划时也不自动创建过去的计划实例。
@@ -202,7 +204,7 @@ SQLite 只允许一个写事务同时提交。首版采用一个 Bun / `database
 
 1. `internal/storage` 负责打开数据库、配置连接、运行迁移和关闭资源。数据库位于系统用户数据目录；失败时停止依赖数据库的调度和 Wails Service 初始化，不自动删除或重建用户数据库。
 2. SQL 迁移文件放在 `internal/storage/migrations/`，按时间戳和目的命名，例如 `20261010000100_initial_schema.tx.up.sql` / `20261010000100_initial_schema.tx.down.sql`。使用 Bun `migrate.NewMigrations`、`Discover`、`Migrator.Init` 和 `Migrator.Migrate`（或实际版本提供的等价 API），在编译期通过 `go:embed` 内嵌 SQL。多条 SQL 用 `--bun:split` 分隔；采用 `.tx.up.sql`，让一组 Schema DDL 在一个事务内执行。不要在应用运行时使用 `NewCreateTable` / 自动同步 Model 来代替版本迁移。
-3. 数据库连接打开后、开始事务前启用并验证 `PRAGMA foreign_keys = ON`；**每个物理连接都必须启用**，可通过 `modernc.org/sqlite` 的连接 DSN `_pragma=foreign_keys(1)` 设置。配置有界的 `busy_timeout`（例如 5 秒），按本地文件数据库需要启用 WAL；不要在迁移事务内部切换 `journal_mode` 或 `foreign_keys`。不提前调整大量 SQLite 参数。
+3. 数据库连接打开后、开始事务前启用并验证 `PRAGMA foreign_keys = ON`；**每个物理连接都必须启用**，可通过 `modernc.org/sqlite` 的连接 DSN `_pragma=foreign_keys(1)` 设置。配置有界的 `busy_timeout`（当前 5 秒）和 `_txlock=immediate`，避免先读后写的事务升级过期 WAL 快照写锁失败；按本地文件数据库需要启用 WAL。不要在迁移事务内部切换 `journal_mode` 或 `foreign_keys`。不提前调整大量 SQLite 参数。
 4. 先迁移、再执行异常恢复与游标校对、最后启动 Cron / 执行器并注册 Wails Service。Bun 自己维护迁移版本元数据；不重复创建自定义 `schema_version` 表。
 5. 已发布迁移不可直接修改；后续 Schema 修改追加新迁移。遇到不兼容结构改动时先备份、再使用 SQLite 支持的表重建方式迁移，验证数据和 `PRAGMA foreign_key_check`，不能静默丢弃记录。回滚 SQL 优先服务开发环境；正式升级失败须报告并停止启动，不自动向下迁移或覆盖用户文件。运行中数据库备份必须采用 SQLite 一致性快照机制，不直接复制仍在写入的 WAL 主文件。
 
