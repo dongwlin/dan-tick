@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/zalando/go-keyring"
@@ -126,7 +127,7 @@ func validCookieValue(value string) bool {
 			return false
 		}
 	}
-	return true
+	return (&http.Cookie{Name: "credential", Value: value}).Valid() == nil
 }
 
 // Never wrap the underlying OS/DBus error: some providers can include user

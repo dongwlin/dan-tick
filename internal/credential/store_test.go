@@ -101,6 +101,12 @@ func TestSaveRejectsInvalidCredentialsWithoutChangingStoredPair(t *testing.T) {
 		"newline":          {SESSDATA: "abc\r\n", BiliJCT: "csrf\nx"},
 		"control":          {SESSDATA: "abc", BiliJCT: "x\x00y"},
 		"internal space":   {SESSDATA: "abc def", BiliJCT: "csrf"},
+		"quoted session":   {SESSDATA: `abc"def`, BiliJCT: "csrf"},
+		"session slash":    {SESSDATA: `abc\def`, BiliJCT: "csrf"},
+		"unicode session":  {SESSDATA: "abc中文", BiliJCT: "csrf"},
+		"quoted csrf":      {SESSDATA: "session", BiliJCT: `abc"def`},
+		"csrf slash":       {SESSDATA: "session", BiliJCT: `abc\def`},
+		"unicode csrf":     {SESSDATA: "session", BiliJCT: "abc中文"},
 		"too large":        {SESSDATA: strings.Repeat("x", maxStoredBytes), BiliJCT: "csrf"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -121,12 +127,25 @@ func TestSaveTrimsPastedWhitespace(t *testing.T) {
 	require.Equal(t, Credentials{SESSDATA: "session", BiliJCT: "csrf"}, got)
 }
 
+func TestSaveLoadPreservesURLEncodedSession(t *testing.T) {
+	store := &Store{backend: &fakeKeyring{}}
+	credentials := Credentials{SESSDATA: "fake%2Csession%2F%3B%22value", BiliJCT: "fake_csrf"}
+	require.NoError(t, store.Save(credentials))
+	got, err := store.Load()
+	require.NoError(t, err)
+	require.Equal(t, credentials, got)
+}
+
 func TestLoadRejectsCorruptedKeyringValue(t *testing.T) {
 	for name, saved := range map[string]string{
 		"empty":         "",
 		"not json":      "a-secret",
 		"missing field": `{"sessdata":"session"}`,
 		"invalid value": `{"sessdata":"session;bad","bili_jct":"csrf"}`,
+		"quoted value":  `{"sessdata":"session\"bad","bili_jct":"csrf"}`,
+		"backslash":     `{"sessdata":"session\\bad","bili_jct":"csrf"}`,
+		"unicode value": `{"sessdata":"session中文","bili_jct":"csrf"}`,
+		"invalid csrf":  `{"sessdata":"session","bili_jct":"csrf\\bad"}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			store := &Store{backend: &fakeKeyring{secret: saved, present: true}}
