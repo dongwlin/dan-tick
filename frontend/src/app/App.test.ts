@@ -31,4 +31,16 @@ describe('application navigation', () => {
     expect(await screen.findByRole('heading', { name: '总览' })).toBeTruthy()
     expect(window.location.hash).toBe('#/')
   })
+
+  it('highlights parent navigation for editing and detail routes', async () => {
+    const user = renderAtHash('/tasks/123/edit')
+    expect(await screen.findByRole('heading', { name: '编辑任务' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: '弹幕任务' }).getAttribute('aria-current')).toBe('page')
+
+    await user.click(screen.getByRole('link', { name: '执行记录' }))
+    expect(await screen.findByRole('heading', { name: '执行记录' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: '执行记录' }).getAttribute('aria-current')).toBe('page')
+    await user.click(screen.getByRole('link', { name: '打开 B 站账号设置（尚未接入）' }))
+    expect(await screen.findByRole('heading', { name: '设置' })).toBeTruthy()
+  })
 })

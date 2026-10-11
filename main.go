@@ -106,7 +106,7 @@ func run(logger *diagnostic.Logger) error {
 	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
 		Name:        "dan-tick",
-		Description: "A demo of using raw HTML & CSS",
+		Description: "B 站直播弹幕定时发送桌面工具",
 		Services: []application.Service{
 			application.NewService(&GreetService{}),
 		},
@@ -124,11 +124,12 @@ func run(logger *diagnostic.Logger) error {
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:     "Window 1",
+		Title:     "dan-tick",
 		Width:     1280,
 		Height:    760,
 		MinWidth:  1080,
 		MinHeight: 680,
+		Frameless: true,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,

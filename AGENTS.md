@@ -5,7 +5,7 @@
 - dan-tick 是面向 Windows、Linux 的 B 站直播弹幕定时发送桌面应用：本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
 - 开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它用于安排实施步骤，不覆盖 PRD 与技术选型的权威性；UI 原型可以独立继续迭代。
-- **正式应用外壳与业务页面尚未迁移，尚不能发送弹幕。** 已接入 Bun、SQLite、首次 Migration 与基础存储测试；`prototype/` 仍是独立的 Vanilla TypeScript 模拟 UI，与正式 Vue 前端分开。Cron 内核已通过 E1～E3 完成领取、注册与恢复测试，E4 已提供 SQLite 执行历史查询，但尚未装配进正式应用；前端已建立 Vue Router 4（Hash History）应用装配与占位页面、Tailwind v4 主题视觉基础、Reka UI / Lucide 交互原语以及 Vitest 行为测试；Pinia、业务表单等尚未接入。按功能渐进引入，不为未来需求创建空架构。
+- **正式外壳已按 F3 迁移，业务页面尚未迁移，尚不能通过界面发送弹幕。** 已接入 Bun、SQLite、首次 Migration 与基础存储测试；`prototype/` 仍是独立的 Vanilla TypeScript 模拟 UI，与正式 Vue 前端分开。Cron 内核已通过 E1～E3 完成领取、注册与恢复测试，E4 已提供 SQLite 执行历史查询，但尚未装配进正式应用；前端已建立 Vue Router 4（Hash History）、正式图标侧栏和自绘标题栏、Tailwind v4 主题视觉基础、Reka UI / Lucide 交互原语以及 Vitest 行为测试；Pinia、业务表单等尚未接入。按功能渐进引入，不为未来需求创建空架构。
 - `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 说明正式 Vue 前端的工具链与构建流程。
 
 ## 2. 现有结构与调用边界
