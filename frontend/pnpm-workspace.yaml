@@ -3,3 +3,6 @@ minimumReleaseAge: 10080
 engineStrict: true
 saveExact: true
 pmOnFail: download
+# vue-demi selects its Vue 3 entrypoint during postinstall (pulled in by Reka UI).
+allowBuilds:
+  vue-demi: true

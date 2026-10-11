@@ -1,6 +1,6 @@
 # dan-tick 正式前端
 
-这里是 Wails 3 应用的 Vue 3 + TypeScript 前端，已建立 Vue Router 4（Hash History）的应用装配与占位页面、Tailwind v4 和主题视觉基础，正式业务页面尚未迁移。业务页面按 [开发计划](../docs/开发计划.md) 逐步接入；已定稿的 Vanilla TypeScript 原型位于独立的 [`prototype/`](../prototype/README.md)，两者分别管理依赖和锁文件。
+这里是 Wails 3 应用的 Vue 3 + TypeScript 前端，已建立 Vue Router 4（Hash History）的应用装配与占位页面、Tailwind v4 主题视觉基础及首批可访问的 Reka UI / Lucide 控件，正式业务页面尚未迁移。业务页面按 [开发计划](../docs/开发计划.md) 逐步接入；已定稿的 Vanilla TypeScript 原型位于独立的 [`prototype/`](../prototype/README.md)，两者分别管理依赖和锁文件。
 
 ## 工具链与安装
 
@@ -12,7 +12,7 @@
 pnpm install --frozen-lockfile
 ```
 
-[`pnpm-lock.yaml`](pnpm-lock.yaml) 必须提交，不提交 `node_modules/`、`dist/` 或 `bindings/`。当前直接依赖固定为 Vue 3.5.43、TypeScript 6.0.3、Vite 8.3.2、`@vitejs/plugin-vue` 6.0.9、`vue-tsc` 3.3.12、`@types/node` 24.19.1、`@wailsio/runtime` 3.0.0-beta.25、`vue-router` 4.6.4、`tailwindcss` 与 `@tailwindcss/vite` 4.3.3；Runtime 与 Go 后端的 Wails 版本同步维护。
+[`pnpm-lock.yaml`](pnpm-lock.yaml) 必须提交，不提交 `node_modules/`、`dist/` 或 `bindings/`。当前直接依赖固定为 Vue 3.5.43、TypeScript 6.0.3、Vite 8.3.2、`@vitejs/plugin-vue` 6.0.9、`vue-tsc` 3.3.12、`@types/node` 24.19.1、`@wailsio/runtime` 3.0.0-beta.25、`vue-router` 4.6.4、`tailwindcss` 与 `@tailwindcss/vite` 4.3.3、`reka-ui` 2.10.5、`lucide-vue-next` 0.577.0；Runtime 与 Go 后端的 Wails 版本同步维护。
 
 质量工具固定为 `@eslint/js` 10.0.1、ESLint 10.12.0、`typescript-eslint` 8.71.0、`@vue/eslint-config-typescript` 14.9.0、`eslint-plugin-vue` 10.11.1、`eslint-plugin-vuejs-accessibility` 2.6.0、`globals` 17.13.0、`eslint-config-prettier` 10.1.8 和 Prettier 3.9.9。安装保留 7 天发布时间策略，不为使用更新版本关闭限制。
 
@@ -58,6 +58,12 @@ Vite 默认监听 `127.0.0.1:9245`，可以用 `WAILS_VITE_PORT` 调整。普通
 `src/style.css` 使用 Tailwind CSS v4 CSS-first 的 `@theme inline` 将亚克力语义角色映射到实用类，令牌值与 [定稿原型](../prototype/README.md) 对齐，不维护 `tailwind.config.js`。需要毛玻璃的容器可使用 `acrylic`、`acrylic--thin` 或 `acrylic--thick`；不支持背景模糊、用户请求减少透明度时使用实心背景。输入与高密度数据区域使用 `surface-solid`，全局排版、焦点、滚动条、选区和浅深主题由同一文件管理。
 
 `src/app/theme.ts` 只管理 UI 偏好：`dark`、`light`、`system`（跟随系统），初次默认深色。`index.html` 的内联脚本在 CSS 渲染前恢复 `html[data-theme]`，Vue 启动后接管并监听系统颜色变化。偏好仅保存在 `localStorage` 的 `dan-tick-theme` 键中，不放入业务状态或系统凭证；无法访问存储时保持当前会话的选择。FE4 暂时在设置占位页提供切换，F3 / F7 将分别迁移正式外壳与设置布局。Tailwind 只用于正式前端，不影响 `prototype/` 的独立 CSS。
+
+## 交互基础（FE5）
+
+`lucide-vue-next` 为临时导航与页面操作提供图标；已有可见文字的图标标记为 `aria-hidden`。设置页直接使用 Reka UI `RadioGroup` 实现带键盘焦点管理的主题选择，`src/components/UiButton.vue` 供真正复用的按钮 / 导航链接使用。主题存储失败会显示提示，已选默认值时恢复按钮禁用。输入框、Select、Dialog 等仍随 F 阶段对应业务页面引入，不预建组件库。
+
+pnpm 11 的依赖构建许可仅为 Reka 传递依赖 `vue-demi` 的 Vue 3 选择脚本开放；保留 `pnpm install --frozen-lockfile` 与供应链策略。`lucide-vue-next` 当前已有上游弃用提示，迁移到不同包名时须先更新技术选型。
 
 ## 代码质量与格式
 

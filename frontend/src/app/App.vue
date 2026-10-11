@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import {
+  CalendarClock,
+  ClipboardList,
+  LayoutDashboard,
+  RadioTower,
+  Settings2,
+} from 'lucide-vue-next'
 import { RouterLink, RouterView } from 'vue-router'
 </script>
 
@@ -10,16 +17,25 @@ import { RouterLink, RouterView } from 'vue-router'
       class="flex flex-wrap items-center gap-2 border-b border-border-hairline bg-bg-titlebar px-6 py-3"
       aria-label="主导航"
     >
-      <RouterLink to="/" class="temp-link" exact-active-class="temp-link--active">总览</RouterLink>
+      <RouterLink to="/" class="temp-link" exact-active-class="temp-link--active">
+        <LayoutDashboard class="size-4 shrink-0" :stroke-width="1.8" aria-hidden="true" />
+        总览
+      </RouterLink>
       <RouterLink to="/tasks" class="temp-link" active-class="temp-link--active"
-        >弹幕任务</RouterLink
+        ><ClipboardList class="size-4 shrink-0" :stroke-width="1.8" aria-hidden="true" />
+        弹幕任务</RouterLink
       >
-      <RouterLink to="/rooms" class="temp-link" active-class="temp-link--active">直播间</RouterLink>
+      <RouterLink to="/rooms" class="temp-link" active-class="temp-link--active">
+        <RadioTower class="size-4 shrink-0" :stroke-width="1.8" aria-hidden="true" />
+        直播间
+      </RouterLink>
       <RouterLink to="/history" class="temp-link" active-class="temp-link--active"
-        >执行记录</RouterLink
+        ><CalendarClock class="size-4 shrink-0" :stroke-width="1.8" aria-hidden="true" />
+        执行记录</RouterLink
       >
       <RouterLink to="/settings" class="temp-link" active-class="temp-link--active"
-        >设置</RouterLink
+        ><Settings2 class="size-4 shrink-0" :stroke-width="1.8" aria-hidden="true" />
+        设置</RouterLink
       >
     </nav>
     <main class="app-content flex min-w-0 flex-1 flex-col overflow-auto px-6 py-6">
@@ -34,7 +50,7 @@ import { RouterLink, RouterView } from 'vue-router'
 @reference '../style.css';
 
 .temp-link {
-  @apply rounded-[10px] px-3 py-2.5 text-text-tertiary hover:bg-surface-muted hover:text-text-primary;
+  @apply inline-flex min-h-11 items-center gap-2 rounded-[10px] px-3 py-2.5 text-text-tertiary hover:bg-surface-muted hover:text-text-primary;
 }
 
 .temp-link--active {
@@ -49,7 +65,7 @@ import { RouterLink, RouterView } from 'vue-router'
   @apply text-text-secondary;
 }
 
-.app-content :deep(a:not(.temp-link)) {
+.app-content :deep(a:not(.temp-link):not(.ui-button)) {
   @apply text-accent-text underline hover:text-text-primary;
 }
 </style>

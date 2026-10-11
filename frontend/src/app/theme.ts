@@ -3,6 +3,7 @@ import { computed, readonly, shallowRef, watch } from 'vue'
 export type ThemePreference = 'dark' | 'light' | 'system'
 
 const storageKey = 'dan-tick-theme'
+const storageAvailable = shallowRef(true)
 
 function readPreference(): ThemePreference {
   try {
@@ -10,6 +11,7 @@ function readPreference(): ThemePreference {
     if (value === 'dark' || value === 'light' || value === 'system') return value
   } catch {
     // Storage can be unavailable in restricted WebViews; the UI still works.
+    storageAvailable.value = false
   }
   return 'dark'
 }
@@ -40,11 +42,18 @@ function setPreference(next: ThemePreference): void {
   preference.value = next
   try {
     localStorage.setItem(storageKey, next)
+    storageAvailable.value = true
   } catch {
     // Keep the selected theme for this session even if persistence is denied.
+    storageAvailable.value = false
   }
 }
 
 export function useTheme() {
-  return { preference: readonly(preference), activeTheme, setPreference }
+  return {
+    preference: readonly(preference),
+    activeTheme,
+    storageAvailable: readonly(storageAvailable),
+    setPreference,
+  }
 }
