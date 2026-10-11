@@ -26,6 +26,7 @@ type sendingGate interface {
 }
 
 var errAdmissionPersist = errors.New("execution admission could not be persisted")
+var errDurationReached = errors.New("execution duration reached")
 
 type Service struct {
 	db     *bun.DB
@@ -226,18 +227,18 @@ func (s *Service) execute(ctx context.Context, run *activeRun, id, taskID int64,
 	// The explicit clock check below also supports deterministic duration tests.
 	if plan.duration > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, plan.duration)
+		ctx, cancel = context.WithTimeoutCause(ctx, started.Add(plan.duration).Sub(s.now()), errDurationReached)
 		defer cancel()
 	}
 	result := ManualResult{ExecutionID: id, Outcome: danmaku.NotSent}
-	var lastStart time.Time
+	var lastSettled time.Time
 	for seq := 1; ; seq++ {
 		if seq > 1 {
 			if done, code := s.stopReason(ctx, run, plan, started); done {
 				result.Status, result.ErrorCode = terminalStatus(code), code
 				return s.finishExecution(ctx, taskID, result)
 			}
-			if delay := lastStart.Add(plan.interval).Sub(s.now()); delay > 0 {
+			if delay := lastSettled.Add(plan.interval).Sub(s.now()); delay > 0 {
 				// Never sleep past the configured duration just to satisfy the
 				// inter-message interval.
 				if plan.duration > 0 {
@@ -289,7 +290,6 @@ func (s *Service) execute(ctx context.Context, run *activeRun, id, taskID int64,
 		}
 
 		message := plan.messages[(seq-1)%len(plan.messages)]
-		lastStart = s.now()
 		// Cancellation can arrive after a pending commit. Do not call even a
 		// replaced sender in that case; resolve the row as not_sent instead.
 		outcome, sendErr := danmaku.Result{Outcome: danmaku.NotSent}, ctx.Err()
@@ -309,6 +309,10 @@ func (s *Service) execute(ctx context.Context, run *activeRun, id, taskID int64,
 				return nil
 			})
 		}
+		// Measure the task interval after the previous send has settled. Queue
+		// admission and credential loading can both delay the actual HTTP call;
+		// counting either wait toward the next gap would send too early.
+		lastSettled = s.now()
 		step := classify(id, outcome, sendErr)
 		result.Outcome = step.Outcome
 		result.SentCount += step.SentCount
@@ -320,9 +324,12 @@ func (s *Service) execute(ctx context.Context, run *activeRun, id, taskID int64,
 			result.Status, result.ErrorCode = "stopped", "user_stopped"
 		} else if ctx.Err() != nil {
 			result.Status, result.ErrorCode = "stopped", "cancelled"
-			if plan.duration > 0 && (ctx.Err() == context.DeadlineExceeded || !s.now().Before(started.Add(plan.duration))) {
-				if step.Status == "completed" {
+			if s.durationReached(ctx, plan, started) {
+				if step.Status == "completed" || (step.Outcome == danmaku.NotSent && errors.Is(sendErr, context.DeadlineExceeded)) {
 					result.Status, result.ErrorCode = "completed", ""
+					if step.Outcome == danmaku.NotSent {
+						step.ErrorCode = "cancelled"
+					}
 				} else {
 					result.Status, result.ErrorCode = "failed", "timeout"
 				}
@@ -348,7 +355,7 @@ func (s *Service) stopReason(ctx context.Context, run *activeRun, plan runPlan, 
 		return true, "user_stopped"
 	}
 	if ctx.Err() != nil {
-		if plan.duration > 0 && ctx.Err() == context.DeadlineExceeded {
+		if s.durationReached(ctx, plan, started) {
 			return true, ""
 		}
 		return true, "cancelled"
@@ -357,6 +364,11 @@ func (s *Service) stopReason(ctx context.Context, run *activeRun, plan runPlan, 
 		return true, ""
 	}
 	return false, ""
+}
+
+func (s *Service) durationReached(ctx context.Context, plan runPlan, started time.Time) bool {
+	return plan.duration > 0 && (errors.Is(context.Cause(ctx), errDurationReached) ||
+		!s.now().Before(started.Add(plan.duration)))
 }
 
 func terminalStatus(code string) string {

@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -127,6 +128,98 @@ func TestLoopOrdersMessagesAndHonorsCountAndInterval(t *testing.T) {
 	var due int64
 	require.NoError(t, db.QueryRowContext(context.Background(), "SELECT next_due_at FROM tasks WHERE id = ?", created.ID).Scan(&due))
 	require.Equal(t, *created.NextDueAt, due)
+}
+
+type delayedLoopGate struct {
+	clock    *loopClock
+	requests []time.Time
+}
+
+func (g *delayedLoopGate) SendWithAdmission(ctx context.Context, _, _ string, admitted func(context.Context) error) (danmaku.Result, error) {
+	if len(g.requests) == 0 {
+		// Other tasks own the account before this task gets its first turn.
+		if err := g.clock.Wait(ctx, 50*time.Second); err != nil {
+			return danmaku.Result{Outcome: danmaku.NotSent}, err
+		}
+	} else if delay := g.requests[len(g.requests)-1].Add(15 * time.Second).Sub(g.clock.Now()); delay > 0 {
+		if err := g.clock.Wait(ctx, delay); err != nil {
+			return danmaku.Result{Outcome: danmaku.NotSent}, err
+		}
+	}
+	if err := admitted(ctx); err != nil {
+		return danmaku.Result{Outcome: danmaku.NotSent}, err
+	}
+	// The real Client reads Keyring after admission, so even admission is too
+	// early to start the next task interval. Then the HTTP response takes time.
+	if err := g.clock.Wait(ctx, 14*time.Second); err != nil {
+		return danmaku.Result{Outcome: danmaku.NotSent}, err
+	}
+	g.requests = append(g.requests, g.clock.Now())
+	if err := g.clock.Wait(ctx, 5*time.Second); err != nil {
+		return danmaku.Result{Outcome: danmaku.Unknown}, err
+	}
+	return danmaku.Result{Outcome: danmaku.Accepted}, nil
+}
+
+func TestLoopIntervalSurvivesQueueCredentialAndResponseDelays(t *testing.T) {
+	db := testDB(t)
+	created := addLoopTask(t, db, []string{"one", "two"}, 60, intPtr(2), nil)
+	clock := &loopClock{at: fixedTime}
+	gate := &delayedLoopGate{clock: clock}
+	s := &Service{db: db, sender: gate, now: clock.Now, wait: clock.Wait}
+	result, err := s.RunManual(context.Background(), created.ID)
+	require.NoError(t, err)
+	require.Equal(t, "completed", result.Status)
+	require.Len(t, gate.requests, 2)
+	require.GreaterOrEqual(t, gate.requests[1].Sub(gate.requests[0]), 60*time.Second,
+		"queue and credential waits must not shorten the configured HTTP gap")
+}
+
+type waitingDurationGate struct{}
+
+func (waitingDurationGate) SendWithAdmission(ctx context.Context, _, _ string, _ func(context.Context) error) (danmaku.Result, error) {
+	<-ctx.Done()
+	return danmaku.Result{Outcome: danmaku.NotSent}, ctx.Err()
+}
+
+func TestLoopConfiguredDurationExpiresNormallyWhileQueued(t *testing.T) {
+	db := testDB(t)
+	created := addLoopTask(t, db, []string{"one", "two"}, 15, nil, intPtr(1))
+	s := &Service{db: db, sender: waitingDurationGate{}, now: time.Now, wait: waitInterval}
+	result, err := s.RunManual(context.Background(), created.ID)
+	require.NoError(t, err)
+	require.Equal(t, "completed", result.Status)
+	require.Equal(t, danmaku.NotSent, result.Outcome)
+	require.Empty(t, result.ErrorCode)
+	require.Zero(t, result.SentCount)
+	var started sql.NullInt64
+	require.NoError(t, db.QueryRowContext(context.Background(), `
+		SELECT started_at FROM executions WHERE id = ?`, result.ExecutionID).Scan(&started))
+	require.False(t, started.Valid, "the configured limit was reached before actual execution")
+	var attempt, code string
+	require.NoError(t, db.QueryRowContext(context.Background(), `
+		SELECT result, error_code FROM send_attempts WHERE execution_id = ?`, result.ExecutionID).Scan(&attempt, &code))
+	require.Equal(t, "failed", attempt)
+	require.Equal(t, "cancelled", code, "never claim a network timeout for an unsent request")
+}
+
+func TestLoopCallerDeadlineDoesNotPretendConfiguredDurationWasReached(t *testing.T) {
+	db := testDB(t)
+	created := addLoopTask(t, db, []string{"one", "two"}, 15, nil, intPtr(100))
+	var calls int
+	s := &Service{db: db, now: time.Now, wait: waitInterval, sender: &fakeGate{
+		send: func(context.Context, string, string) (danmaku.Result, error) {
+			calls++
+			return danmaku.Result{Outcome: danmaku.Accepted}, nil
+		},
+	}}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	result, err := s.RunManual(ctx, created.ID)
+	require.NoError(t, err)
+	require.Equal(t, "stopped", result.Status)
+	require.Equal(t, "cancelled", result.ErrorCode)
+	require.Equal(t, 1, calls)
 }
 
 func TestLoopDurationAndCountUseFirstReachedLimit(t *testing.T) {
