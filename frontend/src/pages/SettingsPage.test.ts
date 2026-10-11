@@ -1,8 +1,20 @@
 import { render, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
+import { VueQueryPlugin } from '@tanstack/vue-query'
+import { createAppQueryClient } from '@/app/queryClient'
 import { initTheme, useTheme } from '@/app/theme'
 import SettingsPage from './SettingsPage.vue'
+
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice', () => ({
+  CheckAccount: vi.fn().mockResolvedValue({ state: 'unconfigured' }),
+  SaveAccount: vi.fn(),
+  ClearAccount: vi.fn(),
+  TestSend: vi.fn(),
+}))
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice', () => ({
+  ListRooms: vi.fn().mockResolvedValue([]),
+}))
 
 it('switches and restores the theme with visible feedback and safe storage failure', async () => {
   const listeners: ((event: MediaQueryListEvent) => void)[] = []
@@ -16,7 +28,9 @@ it('switches and restores the theme with visible feedback and safe storage failu
   initTheme()
 
   const user = userEvent.setup()
-  render(SettingsPage)
+  render(SettingsPage, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
   const restore = screen.getByRole<HTMLButtonElement>('button', { name: '恢复默认主题' })
 
   expect(restore.disabled).toBe(true)

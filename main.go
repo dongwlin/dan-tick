@@ -93,16 +93,15 @@ func run(logger *diagnostic.Logger) error {
 
 	runtime := app.New(db, logger)
 	defer runtime.Close() // Also handles startup or Wails.Run failures.
-	if err := runtime.Start(context.Background()); err != nil {
-		return fmt.Errorf("start scheduled work: %w", err)
-	}
-
 	// Start the desktop UI only after the persisted scheduler has recovered.
 	app := application.New(application.Options{
 		Name:        "dan-tick",
 		Description: "B 站直播弹幕定时发送桌面工具",
 		Services: []application.Service{
 			application.NewServiceWithOptions(runtime.Config, application.ServiceOptions{
+				MarshalError: desktop.MarshalError,
+			}),
+			application.NewServiceWithOptions(runtime.Operations, application.ServiceOptions{
 				MarshalError: desktop.MarshalError,
 			}),
 		},
@@ -113,6 +112,10 @@ func run(logger *diagnostic.Logger) error {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 	})
+	runtime.BindEvents(func(event string) { app.Event.Emit(event) })
+	if err := runtime.Start(context.Background()); err != nil {
+		return fmt.Errorf("start scheduled work: %w", err)
+	}
 	// Wails may terminate without returning from Run on some platforms.
 	// Keep the business shutdown before database close in both exit paths.
 	app.OnShutdown(runtime.Close)

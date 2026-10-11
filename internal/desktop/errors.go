@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dongwlin/dan-tick/internal/credential"
+	"github.com/dongwlin/dan-tick/internal/danmaku"
+	"github.com/dongwlin/dan-tick/internal/executor"
 	"github.com/dongwlin/dan-tick/internal/room"
 	"github.com/dongwlin/dan-tick/internal/scheduler"
 	"github.com/dongwlin/dan-tick/internal/task"
@@ -36,6 +39,14 @@ func classify(err error) safeError {
 		reply = safeError{"schedule_sync", "修改已保存，但定时调度同步失败，请重新启动应用后检查"}
 	case errors.Is(err, room.ErrInvalidInput), errors.Is(err, room.ErrInvalidPage), errors.Is(err, task.ErrInvalidTask):
 		reply = safeError{"invalid_input", "输入无效，请检查填写内容"}
+	case errors.Is(err, credential.ErrInvalid), errors.Is(err, danmaku.ErrInvalidInput):
+		reply = safeError{"invalid_input", "输入无效，请检查填写内容"}
+	case errors.Is(err, credential.ErrUnavailable), errors.Is(err, credential.ErrCorrupt):
+		reply = safeError{"keyring_unavailable", "系统安全凭证存储不可用，请检查系统密钥环"}
+	case errors.Is(err, executor.ErrExecutorClosed):
+		reply = safeError{"unavailable", "应用正在关闭，暂时无法执行任务"}
+	case errors.Is(err, executor.ErrNotRunning):
+		reply = safeError{"not_running", "该执行已结束或不在当前进程中运行，请刷新状态"}
 	case errors.Is(err, room.ErrAlreadyAdded):
 		reply = safeError{"already_exists", "该直播间已添加"}
 	case errors.Is(err, room.ErrNotSaved), errors.Is(err, task.ErrNotFound), errors.Is(err, room.ErrNotFound):

@@ -2,6 +2,9 @@
 import { RouterView } from 'vue-router'
 import AppSidebar from './AppSidebar.vue'
 import AppTitlebar from './AppTitlebar.vue'
+import { useBackendEvents } from './useBackendEvents'
+
+useBackendEvents()
 </script>
 
 <template>

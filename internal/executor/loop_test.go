@@ -102,10 +102,22 @@ func TestLoopOrdersMessagesAndHonorsCountAndInterval(t *testing.T) {
 		called = append(called, message)
 		return danmaku.Result{Outcome: danmaku.Accepted}, nil
 	})
+	var progress []int
+	s.SetOnChange(func(id, taskID int64) {
+		require.Equal(t, created.ID, taskID)
+		var count int
+		var status string
+		require.NoError(t, db.QueryRowContext(context.Background(),
+			"SELECT status, sent_count FROM executions WHERE id = ?", id).Scan(&status, &count))
+		if status == "running" && count > 0 && (len(progress) == 0 || progress[len(progress)-1] != count) {
+			progress = append(progress, count)
+		}
+	})
 	result, err := s.RunManual(context.Background(), created.ID)
 	require.NoError(t, err)
 	require.Equal(t, "completed", result.Status)
 	require.Equal(t, 5, result.SentCount)
+	require.Equal(t, []int{1, 2, 3, 4}, progress, "running counters must notify after each committed nonterminal send")
 	require.Zero(t, result.FailedCount)
 	require.Equal(t, []string{"one", "two", "three", "one", "two"}, called)
 	require.Equal(t, []time.Duration{20 * time.Second, 20 * time.Second, 20 * time.Second, 20 * time.Second}, clock.waits)

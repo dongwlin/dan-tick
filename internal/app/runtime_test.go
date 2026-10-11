@@ -128,6 +128,52 @@ func TestRuntimeShutdownStopsNewManualRuns(t *testing.T) {
 	require.ErrorIs(t, err, scheduler.ErrSchedulerClosed)
 }
 
+func TestOperationsManualRunSurvivesRequestCancellationUntilExplicitStop(t *testing.T) {
+	ctx := context.Background()
+	db := runtimeDB(t)
+	saved := saveTask(t, db, time.Now().UTC().Add(time.Hour).Truncate(time.Second))
+	sent := make(chan struct{}, 1)
+	client := danmaku.NewClient(fakeCredentials{}, &http.Client{Transport: transport(func(req *http.Request) (*http.Response, error) {
+		sent <- struct{}{}
+		<-req.Context().Done()
+		return nil, req.Context().Err()
+	})})
+	runtime := newRuntime(db, nil, client)
+	defer runtime.Close()
+	var changeCount atomic.Int32
+	runtime.BindEvents(func(name string) {
+		if name == "dan-tick:execution-changed" {
+			changeCount.Add(1)
+		}
+	})
+	require.NoError(t, runtime.Start(ctx))
+	// A Wails request context can end when the user navigates. The worker is
+	// independent and must remain alive until the user explicitly stops it.
+	requestCtx, cancel := context.WithCancel(ctx)
+	cancel()
+	started, err := runtime.Operations.StartManual(requestCtx, saved.ID)
+	require.NoError(t, err)
+	require.Positive(t, started.ExecutionID)
+	select {
+	case <-sent:
+	case <-time.After(5 * time.Second):
+		t.Fatal("manual run did not reach shared sender")
+	}
+	runs, err := runtime.Operations.LatestExecutions(ctx)
+	require.NoError(t, err)
+	require.Len(t, runs, 1)
+	require.Equal(t, "running", runs[0].Status)
+	require.Equal(t, started.ExecutionID, runs[0].ID)
+	require.NoError(t, runtime.Operations.StopExecution(ctx, started.ExecutionID))
+	require.Eventually(t, func() bool {
+		runs, err := runtime.Operations.LatestExecutions(ctx)
+		return err == nil && len(runs) == 1 && runs[0].Status == "stopped"
+	}, 5*time.Second, 20*time.Millisecond)
+	require.GreaterOrEqual(t, changeCount.Load(), int32(3), "queue, run and terminal changes must be notified")
+	_, err = runtime.Operations.StartManual(ctx, 0)
+	require.Error(t, err)
+}
+
 func TestRuntimeShutdownCancelsManualRunAndPersistsTerminalStatus(t *testing.T) {
 	ctx := context.Background()
 	db := runtimeDB(t)

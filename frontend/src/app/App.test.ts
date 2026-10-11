@@ -13,6 +13,16 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationse
   GetTask: vi.fn().mockRejectedValue(new Error('操作失败，请重试')),
 }))
 
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice', () => ({
+  CheckAccount: vi.fn().mockResolvedValue({ state: 'unconfigured' }),
+  LatestExecutions: vi.fn().mockResolvedValue([]),
+  ClearAccount: vi.fn(),
+  SaveAccount: vi.fn(),
+  TestSend: vi.fn(),
+  StartManual: vi.fn(),
+  StopExecution: vi.fn(),
+}))
+
 function renderAtHash(path: string) {
   window.history.replaceState(null, '', `/#${path}`)
   const router = createAppRouter()

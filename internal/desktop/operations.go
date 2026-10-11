@@ -1,0 +1,187 @@
+package desktop
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/dongwlin/dan-tick/internal/account"
+	"github.com/dongwlin/dan-tick/internal/credential"
+	"github.com/dongwlin/dan-tick/internal/danmaku"
+	"github.com/dongwlin/dan-tick/internal/room"
+	"github.com/uptrace/bun"
+)
+
+const (
+	EventAccountChanged   = "dan-tick:account-changed"
+	EventExecutionChanged = "dan-tick:execution-changed"
+)
+
+type credentialsStore interface {
+	Save(credential.Credentials) error
+	Clear() error
+}
+type loginChecker interface {
+	Check(context.Context) (account.Status, error)
+}
+type testSender interface {
+	TestSend(context.Context, string, string) (danmaku.Result, error)
+}
+type manualRunner interface {
+	StartManual(int64) (int64, error)
+	StopExecution(int64) error
+}
+
+// OperationsService is a Wails boundary. No method returns Cookie data,
+// underlying OS/keyring errors, message bodies or upstream response strings.
+type OperationsService struct {
+	db      *bun.DB
+	store   credentialsStore
+	account loginChecker
+	sender  testSender
+	runner  manualRunner
+	emit    func(string)
+}
+
+func NewOperationsService(db *bun.DB, store credentialsStore, checker loginChecker, sender testSender, runner manualRunner, emit func(string)) *OperationsService {
+	return &OperationsService{db: db, store: store, account: checker, sender: sender, runner: runner, emit: emit}
+}
+
+func (s *OperationsService) changed(event string) {
+	if s.emit != nil {
+		s.emit(event)
+	}
+}
+
+func (s *OperationsService) CheckAccount(ctx context.Context) account.Status {
+	status, err := s.account.Check(ctx)
+	if err != nil {
+		return account.Status{State: account.VerificationFailed}
+	}
+	return status
+}
+
+type SaveAccountInput struct {
+	SESSDATA string `json:"sessdata"`
+	BiliJCT  string `json:"biliJct"`
+}
+
+func (s *OperationsService) SaveAccount(_ context.Context, input SaveAccountInput) error {
+	if err := s.store.Save(credential.Credentials{SESSDATA: input.SESSDATA, BiliJCT: input.BiliJCT}); err != nil {
+		return protect(err)
+	}
+	s.changed(EventAccountChanged)
+	return nil
+}
+
+func (s *OperationsService) ClearAccount(_ context.Context) error {
+	if err := s.store.Clear(); err != nil {
+		return protect(err)
+	}
+	s.changed(EventAccountChanged)
+	return nil
+}
+
+type TestSendInput struct {
+	RoomID  int64  `json:"roomId"`
+	Message string `json:"message"`
+}
+
+type TestSendResult struct {
+	Outcome   danmaku.Outcome `json:"outcome"`
+	ErrorCode string          `json:"errorCode"`
+}
+
+// TestSend uses the same FIFO account limiter as scheduled and manual runs.
+// It never creates an execution history row; all expected send failures are
+// returned as safe result categories, not arbitrary upstream error strings.
+func (s *OperationsService) TestSend(ctx context.Context, input TestSendInput) (TestSendResult, error) {
+	if input.RoomID <= 0 || strings.TrimSpace(input.Message) == "" {
+		return TestSendResult{}, protect(danmaku.ErrInvalidInput)
+	}
+	var platformID string
+	err := s.db.QueryRowContext(ctx, `SELECT platform_room_id FROM rooms WHERE id = ? AND deleted_at IS NULL`, input.RoomID).Scan(&platformID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return TestSendResult{}, protect(room.ErrNotSaved)
+	}
+	if err != nil {
+		return TestSendResult{}, protect(err)
+	}
+	result, sendErr := s.sender.TestSend(ctx, platformID, input.Message)
+	return TestSendResult{Outcome: result.Outcome, ErrorCode: sendFailureCode(sendErr)}, nil
+}
+
+func sendFailureCode(err error) string {
+	switch {
+	case err == nil:
+		return ""
+	case errors.Is(err, credential.ErrNotConfigured):
+		return "credential_missing"
+	case errors.Is(err, credential.ErrUnavailable), errors.Is(err, credential.ErrCorrupt):
+		return "credential_unavailable"
+	case errors.Is(err, danmaku.ErrAuthentication):
+		return "authentication"
+	case errors.Is(err, danmaku.ErrRateLimited):
+		return "rate_limited"
+	case errors.Is(err, danmaku.ErrTooLong):
+		return "too_long"
+	case errors.Is(err, danmaku.ErrBadRequest), errors.Is(err, danmaku.ErrInvalidInput):
+		return "invalid_input"
+	case errors.Is(err, danmaku.ErrTimeout), errors.Is(err, context.DeadlineExceeded):
+		return "timeout"
+	case errors.Is(err, context.Canceled):
+		return "cancelled"
+	default:
+		return "send_failed"
+	}
+}
+
+type StartManualResult struct {
+	ExecutionID int64 `json:"executionId"`
+}
+
+func (s *OperationsService) StartManual(_ context.Context, taskID int64) (StartManualResult, error) {
+	id, err := s.runner.StartManual(taskID)
+	if err != nil {
+		return StartManualResult{}, protect(err)
+	}
+	return StartManualResult{ExecutionID: id}, nil
+}
+
+func (s *OperationsService) StopExecution(_ context.Context, executionID int64) error {
+	return protect(s.runner.StopExecution(executionID))
+}
+
+type ActiveExecution struct {
+	ID          int64  `json:"id"`
+	TaskID      int64  `json:"taskId"`
+	Status      string `json:"status"`
+	SentCount   int64  `json:"sentCount"`
+	FailedCount int64  `json:"failedCount"`
+}
+
+// LatestExecutions reads a fresh authoritative SQLite snapshot; the Event
+// payload is only an invalidation hint, never a second state source.
+func (s *OperationsService) LatestExecutions(ctx context.Context) ([]ActiveExecution, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, task_id, status, sent_count, failed_count
+		FROM executions e WHERE id = (SELECT MAX(id) FROM executions WHERE task_id = e.task_id)
+		ORDER BY id DESC`)
+	if err != nil {
+		return nil, protect(err)
+	}
+	defer rows.Close()
+	items := make([]ActiveExecution, 0)
+	for rows.Next() {
+		var item ActiveExecution
+		if err := rows.Scan(&item.ID, &item.TaskID, &item.Status, &item.SentCount, &item.FailedCount); err != nil {
+			return nil, protect(fmt.Errorf("read active execution: %w", err))
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, protect(err)
+	}
+	return items, nil
+}

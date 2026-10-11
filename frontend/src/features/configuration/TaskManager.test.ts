@@ -19,6 +19,12 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationse
   DeleteTask: vi.fn(),
 }))
 
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice', () => ({
+  LatestExecutions: vi.fn().mockResolvedValue([]),
+  StartManual: vi.fn(),
+  StopExecution: vi.fn(),
+}))
+
 it('loads task pages, resets cursor on search and room changes, and applies enable changes', async () => {
   const items: Task[] = [
     {

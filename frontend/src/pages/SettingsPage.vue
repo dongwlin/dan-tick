@@ -3,6 +3,8 @@ import { AlertTriangle, Check, RotateCcw } from 'lucide-vue-next'
 import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
 import { useTheme, type ThemePreference } from '@/app/theme'
 import UiButton from '@/components/UiButton.vue'
+import AccountPanel from '@/features/operations/AccountPanel.vue'
+import TestSendPanel from '@/features/operations/TestSendPanel.vue'
 
 const { preference, activeTheme, storageAvailable, setPreference } = useTheme()
 const choices: { value: ThemePreference; label: string }[] = [
@@ -21,6 +23,8 @@ function updateTheme(value: unknown): void {
 <template>
   <section class="space-y-6">
     <h1>设置</h1>
+    <AccountPanel />
+    <TestSendPanel />
     <fieldset
       class="rounded-[10px] border border-border-hairline bg-surface-solid p-5"
       aria-describedby="theme-description"
@@ -70,6 +74,6 @@ function updateTheme(value: unknown): void {
         恢复默认主题
       </UiButton>
     </fieldset>
-    <p>其他正式设置尚未接入，将在 F7 阶段按定稿原型迁移。</p>
+    <p class="text-sm text-text-tertiary">调度、应用设置和数据与日志将在 F7 阶段接入。</p>
   </section>
 </template>

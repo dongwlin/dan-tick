@@ -35,11 +35,16 @@ type Service struct {
 	now    func() time.Time
 	wait   func(context.Context, time.Duration) error
 
-	mu     sync.Mutex
-	active map[int64]*activeRun
-	closed bool
-	done   sync.WaitGroup
+	mu       sync.Mutex
+	active   map[int64]*activeRun
+	closed   bool
+	done     sync.WaitGroup
+	onChange func(int64, int64)
 }
+
+// SetOnChange installs a notification-only callback before starting the
+// runtime. Callbacks never own or mirror execution state.
+func (s *Service) SetOnChange(fn func(int64, int64)) { s.onChange = fn }
 
 func NewService(db *bun.DB, sender *danmaku.Sender, log *diagnostic.Logger) *Service {
 	return &Service{db: db, sender: sender, log: log, now: time.Now, wait: waitInterval}
@@ -116,13 +121,54 @@ func (s *Service) wasStopped(run *activeRun) bool {
 	return run.stopped
 }
 
+type manualRegistration struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	run     *activeRun
+	plan    runPlan
+	started time.Time
+	id      int64
+	taskID  int64
+}
+
+func (s *Service) finishManual(reg manualRegistration) (ManualResult, error) {
+	defer reg.cancel()
+	defer func() {
+		s.mu.Lock()
+		delete(s.active, reg.id)
+		s.mu.Unlock()
+		s.done.Done()
+	}()
+	return s.execute(reg.ctx, reg.run, reg.id, reg.taskID, reg.plan, reg.started)
+}
+
+// StartManual commits admission and returns a durable execution identifier
+// before launching its Go-owned worker. No frontend request context owns the
+// subsequent HTTP attempts, so navigation cannot cancel them.
+func (s *Service) StartManual(taskID int64) (int64, error) {
+	reg, err := s.registerManual(context.Background(), taskID)
+	if err != nil {
+		return 0, err
+	}
+	go func() { _, _ = s.finishManual(reg) }()
+	return reg.id, nil
+}
+
 // RunManual registers one manual execution and its first pending attempt
 // atomically before sending. Every later pending row is also committed before
 // its send. The task's schedule cursor is never changed, and uncertain results
 // are not retried. Call from a Go-managed goroutine for asynchronous UI use.
 func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, error) {
+	reg, err := s.registerManual(ctx, taskID)
+	if err != nil {
+		return ManualResult{}, err
+	}
+	return s.finishManual(reg)
+}
+
+func (s *Service) registerManual(ctx context.Context, taskID int64) (manualRegistration, error) {
 	if taskID <= 0 {
-		return ManualResult{}, task.ErrNotFound
+		return manualRegistration{}, task.ErrNotFound
 	}
 
 	var executionID int64
@@ -130,7 +176,6 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 	var plan runPlan
 	started := s.now()
 	runCtx, stop := context.WithCancel(ctx)
-	defer stop()
 	run := &activeRun{cancel: stop}
 
 	// Protect the small window between committing an execution and registering
@@ -138,7 +183,8 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
-		return ManualResult{}, ErrExecutorClosed
+		stop()
+		return manualRegistration{}, ErrExecutorClosed
 	}
 	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		loaded, name, err := loadPlan(ctx, tx, taskID)
@@ -177,19 +223,15 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 	}
 	s.mu.Unlock()
 	if err != nil {
+		stop()
 		if errors.Is(err, task.ErrTaskBusy) && conflictingID > 0 {
 			s.record(diagnostic.ExecutionConflict, conflictingID, taskID, "")
 		}
-		return ManualResult{}, err
+		return manualRegistration{}, err
 	}
-	defer func() {
-		s.mu.Lock()
-		delete(s.active, executionID)
-		s.mu.Unlock()
-		s.done.Done()
-	}()
 	s.record(diagnostic.ExecutionQueued, executionID, taskID, "")
-	return s.execute(runCtx, run, executionID, taskID, plan, started)
+	return manualRegistration{ctx: runCtx, cancel: stop, run: run, plan: plan,
+		started: started, id: executionID, taskID: taskID}, nil
 }
 
 func insertPending(ctx context.Context, tx bun.IDB, id int64, seq int, message string, now int64) error {
@@ -408,6 +450,11 @@ func (s *Service) finishAttempt(ctx context.Context, taskID int64, result Manual
 	}
 	if result.Status != "" {
 		s.recordTerminal(taskID, result)
+	} else if s.onChange != nil {
+		// A loop may run for hours. Report committed progress after every
+		// attempt, not only queue/start/terminal transitions, so the UI can
+		// refresh counters without polling or owning execution state.
+		s.onChange(result.ExecutionID, taskID)
 	}
 	return nil
 }
@@ -546,5 +593,8 @@ func nullableCode(code string) any {
 func (s *Service) record(event diagnostic.Event, executionID, taskID int64, category string) {
 	if s.log != nil {
 		s.log.RecordExecution(event, executionID, taskID, category)
+	}
+	if s.onChange != nil {
+		s.onChange(executionID, taskID)
 	}
 }

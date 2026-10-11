@@ -4,6 +4,8 @@ import { RouterLink, useRoute } from 'vue-router'
 import { Clock3, Plus, Search, Trash2 } from 'lucide-vue-next'
 import { bindingError, useDeleteTask, useSetTaskEnabled, useTaskPages } from './queries'
 import { fieldClass, panel, primaryButton, secondaryButton } from './style'
+import { useLatestExecutions } from '@/features/operations/queries'
+import TaskRunActions from '@/features/operations/TaskRunActions.vue'
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
 import type { Task } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 
@@ -18,6 +20,10 @@ const enabledMutation = useSetTaskEnabled()
 const deleteMutation = useDeleteTask()
 const items = computed(() => tasks.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
 const message = shallowRef('')
+const latestRuns = useLatestExecutions()
+const runsByTask = computed(
+  () => new Map((latestRuns.data.value ?? []).map((execution) => [execution.taskId, execution])),
+)
 
 function scheduleText(task: Task) {
   const plan = task.schedule
@@ -149,6 +155,24 @@ async function deleteTask(task: Task) {
                   <Trash2 class="size-4" aria-hidden="true" />删除
                 </button>
               </div>
+            </div>
+            <div
+              class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border-hairline pt-3"
+            >
+              <TaskRunActions :task-id="task.id" :execution="runsByTask.get(task.id)" />
+              <span
+                v-if="latestRuns.isError.value"
+                class="text-xs text-soft-danger-fg"
+                role="alert"
+              >
+                执行状态读取失败。<button
+                  type="button"
+                  class="underline"
+                  @click="latestRuns.refetch()"
+                >
+                  重试
+                </button>
+              </span>
             </div>
           </article>
           <div class="p-5 text-center">
