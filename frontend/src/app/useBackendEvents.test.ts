@@ -7,6 +7,7 @@ import type * as WailsRuntime from '@wailsio/runtime'
 import { createAppQueryClient } from './queryClient'
 import { useBackendEvents } from './useBackendEvents'
 import { operationKeys } from '@/features/operations/queries'
+import { historyKeys } from '@/features/history/queries'
 
 vi.mock('@wailsio/runtime', async (importOriginal) => {
   const actual = await importOriginal<typeof WailsRuntime>()
@@ -36,6 +37,7 @@ it('invalidates only matching Query keys and detaches all listeners on unmount',
   await waitFor(() =>
     expect(invalidated).toHaveBeenCalledWith({ queryKey: operationKeys.executions }),
   )
+  expect(invalidated).toHaveBeenCalledWith({ queryKey: historyKeys.all })
   expect(invalidated).not.toHaveBeenCalledWith({ queryKey: operationKeys.account })
   handlers.get('dan-tick:account-changed')?.()
   await waitFor(() => expect(invalidated).toHaveBeenCalledWith({ queryKey: operationKeys.account }))

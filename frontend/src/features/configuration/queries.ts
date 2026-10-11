@@ -128,6 +128,7 @@ const publicMessages = new Set([
   '系统安全凭证存储不可用，请检查系统密钥环',
   '应用正在关闭，暂时无法执行任务',
   '该执行已结束或不在当前进程中运行，请刷新状态',
+  '指定执行记录不存在',
 ])
 export function bindingError(error: unknown): string {
   if (!error || typeof error !== 'object') return '操作失败，请重试或查看诊断日志'

@@ -23,6 +23,17 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservi
   StopExecution: vi.fn(),
 }))
 
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/historyservice', () => ({
+  ListExecutionHistory: vi.fn().mockResolvedValue({
+    page: 1,
+    pageSize: 6,
+    total: 0,
+    totalPages: 0,
+    items: [],
+  }),
+  GetExecutionHistory: vi.fn(),
+}))
+
 function renderAtHash(path: string) {
   window.history.replaceState(null, '', `/#${path}`)
   const router = createAppRouter()

@@ -137,6 +137,10 @@ func run(logger *diagnostic.Logger) error {
 	desktopApp.RegisterService(application.NewServiceWithOptions(runtime.Operations, application.ServiceOptions{
 		MarshalError: desktop.MarshalError,
 	}))
+	desktopApp.RegisterService(application.NewServiceWithOptions(
+		desktop.NewHistoryService(history.NewService(db)),
+		application.ServiceOptions{MarshalError: desktop.MarshalError},
+	))
 	windowLifecycle := desktop.NewWindowLifecycle(desktopApp, db, closeBehavior)
 	desktopApp.RegisterService(application.NewServiceWithOptions(
 		desktop.NewWindowService(preferences, windowLifecycle.SetCloseBehavior, windowLifecycle.RequestQuit),

@@ -9,6 +9,7 @@ import (
 	"github.com/dongwlin/dan-tick/internal/credential"
 	"github.com/dongwlin/dan-tick/internal/danmaku"
 	"github.com/dongwlin/dan-tick/internal/executor"
+	"github.com/dongwlin/dan-tick/internal/history"
 	"github.com/dongwlin/dan-tick/internal/room"
 	"github.com/dongwlin/dan-tick/internal/scheduler"
 	"github.com/dongwlin/dan-tick/internal/settings"
@@ -38,7 +39,7 @@ func classify(err error) safeError {
 	switch {
 	case errors.Is(err, scheduler.ErrScheduleSync), errors.Is(err, scheduler.ErrRecoveryNeeded):
 		reply = safeError{"schedule_sync", "修改已保存，但定时调度同步失败，请重新启动应用后检查"}
-	case errors.Is(err, room.ErrInvalidInput), errors.Is(err, room.ErrInvalidPage), errors.Is(err, task.ErrInvalidTask), errors.Is(err, settings.ErrInvalidCloseBehavior):
+	case errors.Is(err, room.ErrInvalidInput), errors.Is(err, room.ErrInvalidPage), errors.Is(err, history.ErrInvalidPage), errors.Is(err, task.ErrInvalidTask), errors.Is(err, settings.ErrInvalidCloseBehavior):
 		reply = safeError{"invalid_input", "输入无效，请检查填写内容"}
 	case errors.Is(err, credential.ErrInvalid), errors.Is(err, danmaku.ErrInvalidInput):
 		reply = safeError{"invalid_input", "输入无效，请检查填写内容"}
@@ -52,6 +53,8 @@ func classify(err error) safeError {
 		reply = safeError{"already_exists", "该直播间已添加"}
 	case errors.Is(err, room.ErrNotSaved), errors.Is(err, task.ErrNotFound), errors.Is(err, room.ErrNotFound):
 		reply = safeError{"not_found", "指定直播间或任务不存在"}
+	case errors.Is(err, history.ErrNotFound):
+		reply = safeError{"not_found", "指定执行记录不存在"}
 	case errors.Is(err, task.ErrRoomUnavailable):
 		reply = safeError{"room_unavailable", "目标直播间不存在或已删除"}
 	case errors.Is(err, room.ErrRoomBusy), errors.Is(err, task.ErrTaskBusy):
