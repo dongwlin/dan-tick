@@ -21,7 +21,7 @@
 | `Taskfile.yml`、`build/` | Wails 3 / Task 的开发、构建和各平台打包配置；`build/config.yml` 为 Wails 开发配置 |
 | `docs/PRD.md`、`docs/技术栈选型.md`、`docs/specs/` | 产品规则、项目决策与引入的工程规范 |
 
-- 当前 Go 模块名还是 `changeme`（见 `go.mod`），模板前端通过生成的 `frontend/bindings/changeme` 调用 Go Service，并通过 Wails Events 接收时间事件。不要手动编辑 `frontend/bindings/` 或 `frontend/dist/`；它们由 Wails / Vite 生成且当前未提交。
+- Go 模块名为 `github.com/dongwlin/dan-tick`（见 `go.mod`），模板前端通过生成的 `frontend/bindings/github.com/dongwlin/dan-tick` 调用 Go Service，并通过 Wails Events 接收时间事件。不要手动编辑 `frontend/bindings/` 或 `frontend/dist/`；它们由 Wails / Vite 生成且当前未提交。
 - 业务落地后，**Go 是权威业务状态来源**：处理调度、数据库、HTTP 发送、频率限制、凭证、进程生命周期；前端只承担配置、展示与交互。前端调用使用 **Wails Service Binding**，Go 主动通知使用 **Wails Events**，不要为桌面业务另建 HTTP API。
 - 未来前端按 Feature 聚合业务，Page 负责组合及解析路由参数，共享组件不能反向依赖 Feature；保持小模块扁平，有实际复用需求再提取。当前还没有这些业务目录，创建时依照 `docs/specs/` 的架构规范。
 - `build/` 中也保留了 macOS、iOS 和 Android 的模板打包文件，但 PRD 首版目标平台仅为 Windows、Linux；不要把模板存在等同于要求支持这些平台。

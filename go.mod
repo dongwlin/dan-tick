@@ -1,4 +1,4 @@
-module changeme
+module github.com/dongwlin/dan-tick
 
 go 1.25.0
 
