@@ -1,0 +1,227 @@
+@import 'tailwindcss';
+
+/* Theme roles map to utilities; components never depend on raw palette shades. */
+@theme inline {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  --color-bg-canvas: var(--bg-canvas);
+  --color-bg-titlebar: var(--bg-titlebar);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-surface-solid: var(--surface-solid);
+  --color-surface-solid-hover: var(--surface-solid-hover);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-disabled: var(--text-disabled);
+  --color-border-hairline: var(--border-hairline);
+  --color-border-strong: var(--border-strong);
+  --color-accent-text: var(--accent-text);
+  --color-accent-solid: var(--accent-solid);
+  --color-on-accent: var(--on-accent);
+  --color-focus-ring: var(--focus-ring);
+  --color-soft-accent-bg: var(--soft-accent-bg);
+  --color-soft-accent-fg: var(--soft-accent-fg);
+  --color-soft-accent-border: var(--soft-accent-border);
+  --color-soft-success-bg: var(--soft-success-bg);
+  --color-soft-success-fg: var(--soft-success-fg);
+  --color-soft-success-border: var(--soft-success-border);
+  --color-soft-warning-bg: var(--soft-warning-bg);
+  --color-soft-warning-fg: var(--soft-warning-fg);
+  --color-soft-warning-border: var(--soft-warning-border);
+  --color-soft-danger-bg: var(--soft-danger-bg);
+  --color-soft-danger-fg: var(--soft-danger-fg);
+  --color-soft-danger-border: var(--soft-danger-border);
+}
+
+/* Match the approved prototype's semantic colors; dark is the first-run default. */
+:root {
+  --bg-canvas: #0b0b0e;
+  --bg-sidebar: #0e1014;
+  --bg-titlebar: #0d0e12;
+  --surface-solid: #131318;
+  --surface-solid-hover: #1b1b21;
+  --surface-muted: #1a1a20;
+  --surface-sunken: #08080b;
+  --tint-thin: rgb(11 11 14 / 40%);
+  --tint-mid: rgb(11 11 14 / 58%);
+  --tint-thick: rgb(11 11 14 / 80%);
+  --border-hairline: rgb(255 255 255 / 12%);
+  --border-highlight: rgb(255 255 255 / 16%);
+  --border-strong: rgb(255 255 255 / 22%);
+  --text-primary: #e6edf3;
+  --text-secondary: #b3c1cc;
+  --text-tertiary: #93a3b0;
+  --text-disabled: #5c6b78;
+  --accent-text: #6fbdd9;
+  --accent-solid: #3b9fc6;
+  --on-accent: #0f181f;
+  --focus-ring: #6fbdd9;
+  --selection-bg: #24506a;
+  --shadow-overlay: 0 16px 40px rgb(0 0 0 / 55%);
+  --soft-accent-bg: #0e2b38;
+  --soft-accent-fg: #8fcce4;
+  --soft-accent-border: #1e4a5e;
+  --soft-success-bg: #12312a;
+  --soft-success-fg: #7fd0ac;
+  --soft-success-border: #23513f;
+  --soft-warning-bg: #33270f;
+  --soft-warning-fg: #e0b372;
+  --soft-warning-border: #574117;
+  --soft-danger-bg: #35191a;
+  --soft-danger-fg: #ec9c95;
+  --soft-danger-border: #5c2b28;
+  --accent-panel: #0c1c25;
+  --accent-panel-alt: #0f3040;
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg-canvas: #e9eef3;
+  --bg-sidebar: #eff3f7;
+  --bg-titlebar: #f4f7fa;
+  --surface-solid: #ffffff;
+  --surface-solid-hover: #f4f7fa;
+  --surface-muted: #e9eef3;
+  --surface-sunken: #f4f7fa;
+  --tint-thin: rgb(255 255 255 / 46%);
+  --tint-mid: rgb(255 255 255 / 64%);
+  --tint-thick: rgb(255 255 255 / 82%);
+  --border-hairline: rgb(12 22 32 / 10%);
+  --border-highlight: rgb(255 255 255 / 85%);
+  --border-strong: rgb(12 22 32 / 20%);
+  --text-primary: #0f181f;
+  --text-secondary: #2f3c48;
+  --text-tertiary: #44535f;
+  --text-disabled: #8b9ba8;
+  --accent-text: #0e5272;
+  --accent-solid: #126b90;
+  --on-accent: #ffffff;
+  --focus-ring: #126b90;
+  --selection-bg: #bcdfef;
+  --shadow-overlay: 0 12px 32px rgb(15 32 44 / 16%);
+  --soft-accent-bg: #e2f1f7;
+  --soft-accent-fg: #0e5272;
+  --soft-accent-border: #b3d8e8;
+  --soft-success-bg: #d5ede1;
+  --soft-success-fg: #0f4e33;
+  --soft-success-border: #a9d5c0;
+  --soft-warning-bg: #f8e9cf;
+  --soft-warning-fg: #664000;
+  --soft-warning-border: #e3c284;
+  --soft-danger-bg: #f8dcda;
+  --soft-danger-fg: #7a2520;
+  --soft-danger-border: #e6a9a3;
+  --accent-panel: #d5edf4;
+  --accent-panel-alt: #b6dbe9;
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-width: 0;
+    min-height: 100dvh;
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    scrollbar-color: var(--border-strong) var(--bg-canvas);
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  a {
+    text-underline-offset: 3px;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--selection-bg);
+  }
+
+  ::placeholder {
+    color: var(--text-tertiary);
+    opacity: 1;
+  }
+
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--bg-canvas);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border: 2px solid var(--bg-canvas);
+    border-radius: 8px;
+  }
+}
+
+/* Opaque fallback remains readable without backdrop-filter (or with reduced transparency). */
+@layer components {
+  .acrylic,
+  .acrylic--thin,
+  .acrylic--thick {
+    background-color: var(--surface-solid);
+    border: 1px solid var(--border-hairline);
+    border-top-color: var(--border-highlight);
+  }
+
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .acrylic {
+      background-color: var(--tint-mid);
+      backdrop-filter: blur(28px) saturate(160%);
+      -webkit-backdrop-filter: blur(28px) saturate(160%);
+    }
+
+    .acrylic--thin {
+      background-color: var(--tint-thin);
+      backdrop-filter: blur(12px) saturate(145%);
+      -webkit-backdrop-filter: blur(12px) saturate(145%);
+    }
+
+    .acrylic--thick {
+      background-color: var(--tint-thick);
+      backdrop-filter: blur(46px) saturate(170%);
+      -webkit-backdrop-filter: blur(46px) saturate(170%);
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .acrylic,
+    .acrylic--thin,
+    .acrylic--thick {
+      background-color: var(--surface-solid);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+}
