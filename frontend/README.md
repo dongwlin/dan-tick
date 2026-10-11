@@ -1,6 +1,6 @@
 # dan-tick 正式前端
 
-这里是 Wails 3 应用的 Vue 3 + TypeScript 前端，目前仍展示模板页面。业务页面按 [开发计划](../docs/开发计划.md) 逐步接入；已定稿的 Vanilla TypeScript 原型位于独立的 [`prototype/`](../prototype/README.md)，两者分别管理依赖和锁文件。
+这里是 Wails 3 应用的 Vue 3 + TypeScript 前端，已建立 Vue Router 4（Hash History）的应用装配与占位页面，正式业务页面尚未迁移。业务页面按 [开发计划](../docs/开发计划.md) 逐步接入；已定稿的 Vanilla TypeScript 原型位于独立的 [`prototype/`](../prototype/README.md)，两者分别管理依赖和锁文件。
 
 ## 工具链与安装
 
@@ -12,7 +12,7 @@
 pnpm install --frozen-lockfile
 ```
 
-[`pnpm-lock.yaml`](pnpm-lock.yaml) 必须提交，不提交 `node_modules/`、`dist/` 或 `bindings/`。当前直接依赖固定为 Vue 3.5.43、TypeScript 6.0.3、Vite 8.3.2、`@vitejs/plugin-vue` 6.0.9、`vue-tsc` 3.3.12、`@types/node` 24.19.1 和 `@wailsio/runtime` 3.0.0-beta.25；Runtime 与 Go 后端的 Wails 版本同步维护。
+[`pnpm-lock.yaml`](pnpm-lock.yaml) 必须提交，不提交 `node_modules/`、`dist/` 或 `bindings/`。当前直接依赖固定为 Vue 3.5.43、TypeScript 6.0.3、Vite 8.3.2、`@vitejs/plugin-vue` 6.0.9、`vue-tsc` 3.3.12、`@types/node` 24.19.1、`@wailsio/runtime` 3.0.0-beta.25 和 `vue-router` 4.6.4；Runtime 与 Go 后端的 Wails 版本同步维护。
 
 质量工具固定为 `@eslint/js` 10.0.1、ESLint 10.12.0、`typescript-eslint` 8.71.0、`@vue/eslint-config-typescript` 14.9.0、`eslint-plugin-vue` 10.11.1、`eslint-plugin-vuejs-accessibility` 2.6.0、`globals` 17.13.0、`eslint-config-prettier` 10.1.8 和 Prettier 3.9.9。安装保留 7 天发布时间策略，不为使用更新版本关闭限制。
 
