@@ -66,9 +66,9 @@ type pendingPlan struct {
 	due int64
 }
 
-// NewManager requires a real handoff function before Start can run. The
-// application coordinator must dispatch committed instances to RunScheduled
-// outside the Cron callback and share the manual executor's Sender and Service.
+// NewManager requires a real handoff function before Start can run. Use
+// StartScheduled to commit executor takeover before the handoff returns and
+// send asynchronously, sharing the manual executor's Sender and Service.
 func NewManager(db *bun.DB, log *diagnostic.Logger,
 	onReady func(context.Context, ClaimResult) error, onError func(error)) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())

@@ -1,5 +1,4 @@
-// Package executor runs manually triggered tasks and persists their send results.
-// Scheduled claiming and cross-task FIFO admission belong to later D/E units.
+// Package executor runs registered tasks and persists their send results.
 package executor
 
 import (
@@ -58,7 +57,7 @@ type runPlan struct {
 
 // ManualResult is the persisted outcome of a single-message or loop task run.
 // A send failure is returned as an outcome and a safe error code, not as raw
-// upstream text. Errors from RunManual mean registration or persistence failed.
+// upstream text. Errors from run methods mean registration or persistence failed.
 type ManualResult struct {
 	ExecutionID int64           `json:"execution_id"`
 	Status      string          `json:"status"`
@@ -69,7 +68,7 @@ type ManualResult struct {
 }
 
 // StopExecution requests cancellation of a locally active run (including waits
-// and in-flight HTTP). RunManual writes the final stopped status when the
+// and in-flight HTTP). The execution chain writes the final stopped status when the
 // current request has settled; this method does not falsify that status early.
 func (s *Service) StopExecution(executionID int64) error {
 	s.mu.Lock()
@@ -110,64 +109,11 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 	// its local cancel handle. A StopExecution call cannot miss a live run here.
 	s.mu.Lock()
 	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		var name string
-		var kind task.Kind
-		var interval, maxCount, duration sql.NullInt64
-		err := tx.QueryRowContext(ctx, `
-			SELECT t.name, t.kind, r.platform_room_id, t.interval_seconds,
-				t.max_count, t.max_duration_seconds
-			FROM tasks t JOIN rooms r ON r.id = t.room_id
-			WHERE t.id = ? AND t.deleted_at IS NULL AND r.deleted_at IS NULL`,
-			taskID).Scan(&name, &kind, &plan.roomID, &interval, &maxCount, &duration)
-		if errors.Is(err, sql.ErrNoRows) {
-			return task.ErrNotFound
-		}
+		loaded, name, err := loadPlan(ctx, tx, taskID)
 		if err != nil {
-			return fmt.Errorf("load manual execution task: %w", err)
+			return err
 		}
-		rows, err := tx.QueryContext(ctx, `
-			SELECT content FROM task_messages WHERE task_id = ?
-			ORDER BY position, id`, taskID)
-		if err != nil {
-			return fmt.Errorf("load manual execution messages: %w", err)
-		}
-		for rows.Next() {
-			var content string
-			if err := rows.Scan(&content); err != nil {
-				rows.Close()
-				return fmt.Errorf("read manual execution message: %w", err)
-			}
-			plan.messages = append(plan.messages, content)
-		}
-		err = rows.Err()
-		rows.Close()
-		if err != nil {
-			return fmt.Errorf("read manual execution messages: %w", err)
-		}
-		switch kind {
-		case task.Single:
-			if len(plan.messages) != 1 {
-				return task.ErrInvalidTask
-			}
-		case task.Loop:
-			if len(plan.messages) == 0 || !interval.Valid || interval.Int64 <= 0 ||
-				(!maxCount.Valid && !duration.Valid) ||
-				(maxCount.Valid && maxCount.Int64 <= 0) ||
-				(duration.Valid && duration.Int64 <= 0) ||
-				interval.Int64 > int64((1<<63-1)/int64(time.Second)) ||
-				(duration.Valid && duration.Int64 > int64((1<<63-1)/int64(time.Second))) {
-				return task.ErrInvalidTask
-			}
-			plan.interval = time.Duration(interval.Int64) * time.Second
-			if maxCount.Valid {
-				plan.maxCount = &maxCount.Int64
-			}
-			if duration.Valid {
-				plan.duration = time.Duration(duration.Int64) * time.Second
-			}
-		default:
-			return task.ErrInvalidTask
-		}
+		plan = loaded
 		var activeID int64
 		if err := tx.QueryRowContext(ctx, `
 			SELECT id FROM executions WHERE task_id = ?
