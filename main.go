@@ -94,10 +94,11 @@ func run(logger *diagnostic.Logger) error {
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "Window 1",
-		// Window sized to the golden ratio (1000 / 618 ≈ 1.618).
-		Width:  1000,
-		Height: 618,
+		Title:     "Window 1",
+		Width:     1280,
+		Height:    760,
+		MinWidth:  1080,
+		MinHeight: 680,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,
