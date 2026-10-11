@@ -75,3 +75,30 @@ func TestInvalidAndFailedPreferenceUpdatesDoNotOverwrite(t *testing.T) {
 	_, err = s.Get(ctx)
 	require.ErrorIs(t, err, ErrInvalidTimezone)
 }
+
+func TestCloseBehaviorDefaultsValidatesAndPersists(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "preferences.db")
+	db, err := storage.Open(ctx, path)
+	require.NoError(t, err)
+	preferences := NewService(db)
+	value, err := preferences.CloseBehavior(ctx)
+	require.NoError(t, err)
+	require.Equal(t, CloseHide, value)
+	require.ErrorIs(t, preferences.SetCloseBehavior(ctx, "invalid"), ErrInvalidCloseBehavior)
+	require.NoError(t, preferences.SetCloseBehavior(ctx, CloseQuit))
+	require.NoError(t, db.Close())
+
+	db, err = storage.Open(ctx, path)
+	require.NoError(t, err)
+	defer db.Close()
+	preferences = NewService(db)
+	value, err = preferences.CloseBehavior(ctx)
+	require.NoError(t, err)
+	require.Equal(t, CloseQuit, value)
+	require.NoError(t, preferences.SetCloseBehavior(ctx, CloseHide))
+	_, err = db.ExecContext(ctx, "UPDATE app_settings SET value = 'invalid' WHERE key = 'close_behavior'")
+	require.NoError(t, err)
+	_, err = preferences.CloseBehavior(ctx)
+	require.ErrorIs(t, err, ErrInvalidCloseBehavior)
+}

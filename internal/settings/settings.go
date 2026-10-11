@@ -16,6 +16,12 @@ import (
 const DefaultTimezone = "Asia/Shanghai"
 
 var ErrInvalidTimezone = errors.New("invalid default timezone")
+var ErrInvalidCloseBehavior = errors.New("invalid window close behavior")
+
+const (
+	CloseHide = "hide"
+	CloseQuit = "quit"
+)
 
 type Values struct {
 	DefaultTimezone   string
@@ -84,6 +90,26 @@ func (s *Service) SetSchedulingEnabled(ctx context.Context, enabled bool) error 
 		value = "true"
 	}
 	return write(ctx, s.db, "scheduling_enabled", value)
+}
+
+// CloseBehavior defaults to background operation. Relaunching the executable
+// activates the existing instance, so hiding never strands a window.
+func (s *Service) CloseBehavior(ctx context.Context) (string, error) {
+	value, err := read(ctx, s.db, "close_behavior", CloseHide)
+	if err != nil {
+		return "", err
+	}
+	if value != CloseHide && value != CloseQuit {
+		return "", ErrInvalidCloseBehavior
+	}
+	return value, nil
+}
+
+func (s *Service) SetCloseBehavior(ctx context.Context, value string) error {
+	if value != CloseHide && value != CloseQuit {
+		return ErrInvalidCloseBehavior
+	}
+	return write(ctx, s.db, "close_behavior", value)
 }
 
 func validTimezone(value string) bool {

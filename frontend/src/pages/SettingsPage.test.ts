@@ -15,6 +15,10 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservi
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice', () => ({
   ListRooms: vi.fn().mockResolvedValue([]),
 }))
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice', () => ({
+  GetCloseBehavior: vi.fn().mockResolvedValue('hide'),
+  SetCloseBehavior: vi.fn().mockResolvedValue(undefined),
+}))
 
 it('switches and restores the theme with visible feedback and safe storage failure', async () => {
   const listeners: ((event: MediaQueryListEvent) => void)[] = []

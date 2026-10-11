@@ -5,6 +5,7 @@ import { useTheme, type ThemePreference } from '@/app/theme'
 import UiButton from '@/components/UiButton.vue'
 import AccountPanel from '@/features/operations/AccountPanel.vue'
 import TestSendPanel from '@/features/operations/TestSendPanel.vue'
+import CloseBehaviorPanel from '@/features/operations/CloseBehaviorPanel.vue'
 
 const { preference, activeTheme, storageAvailable, setPreference } = useTheme()
 const choices: { value: ThemePreference; label: string }[] = [
@@ -25,6 +26,7 @@ function updateTheme(value: unknown): void {
     <h1>设置</h1>
     <AccountPanel />
     <TestSendPanel />
+    <CloseBehaviorPanel />
     <fieldset
       class="rounded-[10px] border border-border-hairline bg-surface-solid p-5"
       aria-describedby="theme-description"
@@ -74,6 +76,6 @@ function updateTheme(value: unknown): void {
         恢复默认主题
       </UiButton>
     </fieldset>
-    <p class="text-sm text-text-tertiary">调度、应用设置和数据与日志将在 F7 阶段接入。</p>
+    <p class="text-sm text-text-tertiary">调度、其他应用设置和数据与日志将在 F7 阶段接入。</p>
   </section>
 </template>

@@ -3,14 +3,18 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
 import AppTitlebar from './AppTitlebar.vue'
 
-const { minimise, toggleMaximise, close } = vi.hoisted(() => ({
+const { minimise, toggleMaximise, close, quit } = vi.hoisted(() => ({
   minimise: vi.fn(),
   toggleMaximise: vi.fn(),
   close: vi.fn(),
+  quit: vi.fn(),
 }))
 
 vi.mock('@wailsio/runtime', () => ({
   Window: { Minimise: minimise, ToggleMaximise: toggleMaximise, Close: close },
+}))
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice', () => ({
+  Quit: quit,
 }))
 
 beforeEach(() => {
@@ -18,6 +22,7 @@ beforeEach(() => {
   minimise.mockResolvedValue(undefined)
   toggleMaximise.mockResolvedValue(undefined)
   close.mockResolvedValue(undefined)
+  quit.mockResolvedValue(undefined)
 })
 
 it('routes titlebar controls to the desktop window', async () => {
@@ -26,9 +31,11 @@ it('routes titlebar controls to the desktop window', async () => {
   await user.click(screen.getByRole('button', { name: '最小化窗口' }))
   await user.click(screen.getByRole('button', { name: '最大化或还原窗口' }))
   await user.click(screen.getByRole('button', { name: '关闭窗口' }))
+  await user.click(screen.getByRole('button', { name: '退出应用' }))
   expect(minimise).toHaveBeenCalledOnce()
   expect(toggleMaximise).toHaveBeenCalledOnce()
   expect(close).toHaveBeenCalledOnce()
+  expect(quit).toHaveBeenCalledOnce()
   expect(screen.queryByRole('alert')).toBeNull()
 })
 

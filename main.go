@@ -5,14 +5,17 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/dongwlin/dan-tick/internal/app"
 	"github.com/dongwlin/dan-tick/internal/desktop"
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
 	"github.com/dongwlin/dan-tick/internal/history"
+	"github.com/dongwlin/dan-tick/internal/settings"
 	"github.com/dongwlin/dan-tick/internal/storage"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -50,6 +53,36 @@ func start() (code int) {
 }
 
 func run(logger *diagnostic.Logger) error {
+	// Acquire Wails' OS-session single-instance ownership BEFORE opening SQLite
+	// or recovering Cron. A second launch signals the existing window and exits.
+	var windowMu sync.RWMutex
+	var mainWindow application.Window
+	var windowReady bool
+	desktopApp := application.New(application.Options{
+		Name:        "dan-tick",
+		Description: "B 站直播弹幕定时发送桌面工具",
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(assets),
+		},
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "io.github.dongwlin.dan-tick",
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
+				windowMu.RLock()
+				window := mainWindow
+				ready := windowReady
+				windowMu.RUnlock()
+				if ready && window != nil {
+					window.Show()
+					window.UnMinimise()
+					window.Focus()
+				}
+			},
+		},
+		Mac: application.MacOptions{
+			ApplicationShouldTerminateAfterLastWindowClosed: true,
+		},
+	})
+
 	db, err := storage.Open(context.Background(), storage.DefaultPath())
 	if err != nil {
 		logger.Record(diagnostic.DatabaseOpenFailed)
@@ -93,35 +126,32 @@ func run(logger *diagnostic.Logger) error {
 
 	runtime := app.New(db, logger)
 	defer runtime.Close() // Also handles startup or Wails.Run failures.
-	// Start the desktop UI only after the persisted scheduler has recovered.
-	app := application.New(application.Options{
-		Name:        "dan-tick",
-		Description: "B 站直播弹幕定时发送桌面工具",
-		Services: []application.Service{
-			application.NewServiceWithOptions(runtime.Config, application.ServiceOptions{
-				MarshalError: desktop.MarshalError,
-			}),
-			application.NewServiceWithOptions(runtime.Operations, application.ServiceOptions{
-				MarshalError: desktop.MarshalError,
-			}),
-		},
-		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
-		},
-		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
-		},
-	})
-	runtime.BindEvents(func(event string) { app.Event.Emit(event) })
+	preferences := settings.NewService(db)
+	closeBehavior, err := preferences.CloseBehavior(context.Background())
+	if err != nil {
+		return fmt.Errorf("load desktop preferences: %w", err)
+	}
+	desktopApp.RegisterService(application.NewServiceWithOptions(runtime.Config, application.ServiceOptions{
+		MarshalError: desktop.MarshalError,
+	}))
+	desktopApp.RegisterService(application.NewServiceWithOptions(runtime.Operations, application.ServiceOptions{
+		MarshalError: desktop.MarshalError,
+	}))
+	windowLifecycle := desktop.NewWindowLifecycle(desktopApp, db, closeBehavior)
+	desktopApp.RegisterService(application.NewServiceWithOptions(
+		desktop.NewWindowService(preferences, windowLifecycle.SetCloseBehavior, windowLifecycle.RequestQuit),
+		application.ServiceOptions{MarshalError: desktop.MarshalError},
+	))
+	runtime.BindEvents(func(event string) { desktopApp.Event.Emit(event) })
 	if err := runtime.Start(context.Background()); err != nil {
 		return fmt.Errorf("start scheduled work: %w", err)
 	}
 	// Wails may terminate without returning from Run on some platforms.
 	// Keep the business shutdown before database close in both exit paths.
-	app.OnShutdown(runtime.Close)
+	desktopApp.OnShutdown(runtime.Close)
 
 	// The F3 window remains independent of the long-lived Go scheduler.
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	window := desktopApp.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "dan-tick",
 		Width:     1280,
 		Height:    760,
@@ -136,9 +166,18 @@ func run(logger *diagnostic.Logger) error {
 		BackgroundColour: application.NewRGB(6, 7, 15),
 		URL:              "/",
 	})
+	windowLifecycle.Attach(window)
+	windowMu.Lock()
+	mainWindow = window
+	windowMu.Unlock()
+	desktopApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		windowMu.Lock()
+		windowReady = true
+		windowMu.Unlock()
+	})
 
 	// Run the application. This blocks until the application has been exited.
-	err = app.Run()
+	err = desktopApp.Run()
 	if err != nil {
 		logger.Record(diagnostic.DesktopRunFailed)
 		return fmt.Errorf("run application: %w", err)
