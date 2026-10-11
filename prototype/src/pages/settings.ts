@@ -7,7 +7,7 @@ function settingToggle(label: string, description: string, key: 'autoStart' | 'h
 
 export function settingsPage(): string {
   return `${pageHeading()}
-    <div class="settings-main"><section class="panel settings-panel">${sectionTitle('B 站账号')}
+    <div class="settings-main scroll-region" tabindex="0" aria-label="设置内容"><section class="panel settings-panel">${sectionTitle('B 站账号')}
       <div class="account-card"><div class="account-card-copy"><strong>未连接 B 站账号</strong><span>此处将在正式版本中管理账号凭证</span></div>${statusPill('未配置', 'muted')}</div><div class="settings-hint">${ico('shield')} 此原型不收集 Cookie。凭证将由正式应用安全存储。</div></section>
       <section class="panel settings-panel">${sectionTitle('应用设置')}
         <div class="setting-row"><span><strong>界面主题</strong><small>仅保存显示偏好，不保存业务数据</small></span><button class="button button--secondary" type="button" data-action="toggle-theme">${ico(state.theme === 'dark' ? 'sun' : 'moon')} 切换为${state.theme === 'dark' ? '浅色' : '深色'}</button></div>

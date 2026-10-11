@@ -4,7 +4,7 @@ import {
   Play, Square, Pencil, Trash2, CalendarClock, Search, Activity, Check,
   Moon, Sun, ExternalLink, UserRound, Bell, Power, Info, Send,
   Shield, SlidersHorizontal, X, ArrowLeft, Clock3, MessageSquareText,
-  Copy, RefreshCcw, ChevronDown, LayoutGrid, List,
+  Copy, RefreshCcw, ChevronDown, LayoutGrid, List, FolderOpen,
 } from 'lucide'
 import { displayNext, scheduleLabel, type Page, type LogStatus, type RunLog, type Task } from './data'
 import { state } from './state'
@@ -15,7 +15,7 @@ const iconSet = {
   Play, Square, Pencil, Trash2, CalendarClock, Search, Activity, Check,
   Moon, Sun, ExternalLink, UserRound, Bell, Power, Info, Send,
   Shield, SlidersHorizontal, X, ArrowLeft, Clock3, MessageSquareText,
-  Copy, RefreshCcw, ChevronDown, LayoutGrid, List,
+  Copy, RefreshCcw, ChevronDown, LayoutGrid, List, FolderOpen,
 }
 export function renderIcons(): void {
   createIcons({ icons: iconSet, attrs: { 'stroke-width': 1.7 } })

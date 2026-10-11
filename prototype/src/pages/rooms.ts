@@ -55,8 +55,9 @@ export function roomsPage(): string {
     <button type="button" data-action="set-rooms-view" data-view="list" aria-pressed="${state.roomsView === 'list'}" title="列表视图">${ico('list')}<span>列表</span></button>
   </div>`
   return `${pageHeading(`${viewSwitch}<button class="button button--primary" data-action="toggle-room-form" type="button">${ico('plus')} 添加直播间</button>`)}
+    <div class="rooms-content scroll-region ${state.roomsView === 'list' ? 'rooms-content--list' : ''} ${state.roomFormOpen ? 'rooms-content--with-form' : ''}" tabindex="0" aria-label="直播间内容">
     ${roomForm()}
     ${state.roomsView === 'cards'
       ? `<div class="room-grid">${state.rooms.length ? state.rooms.map(roomCard).join('') : `<div class="panel empty-state"><p>还没有添加直播间</p><button class="button button--secondary" type="button" data-action="toggle-room-form">添加直播间</button></div>`}</div>`
-      : `<section class="panel room-list"><div class="room-list-heading"><h2>已添加的直播间 <span>${state.rooms.length}</span></h2></div>${state.rooms.length ? state.rooms.map(roomRow).join('') : `<div class="empty-state"><p>还没有添加直播间</p><button class="button button--secondary" type="button" data-action="toggle-room-form">添加直播间</button></div>`}</section>`}`
+      : `<section class="panel room-list"><div class="list-toolbar"><div class="list-toolbar-heading"><h2>已添加的直播间 <span>${state.rooms.length}</span></h2></div></div><div class="room-list-body scroll-region" ${state.roomFormOpen ? '' : 'data-list-end="rooms"'} tabindex="0" aria-label="直播间列表">${state.rooms.length ? `${state.rooms.map(roomRow).join('')}<div class="list-endcap">共 ${state.rooms.length} 个直播间，已全部显示</div>` : `<div class="empty-state"><p>还没有添加直播间</p><button class="button button--secondary" type="button" data-action="toggle-room-form">添加直播间</button></div>`}</div></section>`}</div>`
 }

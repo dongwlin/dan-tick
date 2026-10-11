@@ -10,6 +10,7 @@ import { settingsPage } from './pages/settings'
 import { editorPage, previewPanel } from './pages/editor'
 
 const app = document.querySelector<HTMLDivElement>('#app')!
+let lastRenderedRoute = ''
 
 function showToast(message: string, type: 'success' | 'info' = 'success'): void {
   state.toast = message
@@ -46,7 +47,7 @@ function syncRoute(): void {
   }
   state.toast = ''
   render()
-  document.querySelector('.main-scroll')?.scrollTo(0, 0)
+  document.querySelectorAll('.scroll-region').forEach(region => region.scrollTo(0, 0))
 }
 
 function refreshPreview(): void {
@@ -56,9 +57,29 @@ function refreshPreview(): void {
   renderIcons()
 }
 
+function updateListEndcaps(): void {
+  app.querySelectorAll<HTMLElement>('[data-list-end]').forEach(region => {
+    delete region.dataset.short
+    const lastRow = region.querySelector('.list-endcap')?.previousElementSibling
+    if (!lastRow) return
+    // Leave room for the caption; a nearly full list must not gain a scrollbar.
+    const remaining = region.getBoundingClientRect().bottom - lastRow.getBoundingClientRect().bottom
+    if (remaining >= 42) region.dataset.short = 'true'
+  })
+}
+
 function render(): void {
-  app.innerHTML = `<div class="app-shell">${titlebar()}<div class="app-column">${sidebar()}<main id="main" class="main-scroll" tabindex="-1"><div class="content-wrap">${({ dashboard, tasks: tasksPage, rooms: roomsPage, history: historyPage, settings: settingsPage, editor: editorPage } as Record<Page, () => string>)[state.page]()}</div><footer class="app-footer">dan-tick UI 原型 · 不会发送真实弹幕</footer></main></div></div>${state.toast ? `<div role="status" class="toast">${ico(state.toastType === 'info' ? 'info' : 'circle-check')}${h(state.toast)}<button class="icon-button" type="button" data-action="dismiss-toast" aria-label="关闭提示">${ico('x')}</button></div>` : ''}`
+  const currentRoute = location.hash
+  const previousScroll = currentRoute === lastRenderedRoute
+    ? Array.from(app.querySelectorAll<HTMLElement>('.scroll-region'), region => region.scrollTop)
+    : []
+  app.innerHTML = `<div class="app-shell">${titlebar()}<div class="app-column">${sidebar()}<main id="main" class="main-viewport" tabindex="-1"><div class="content-wrap content-wrap--${state.page}">${({ dashboard, tasks: tasksPage, rooms: roomsPage, history: historyPage, settings: settingsPage, editor: editorPage } as Record<Page, () => string>)[state.page]()}</div><footer class="app-footer">dan-tick UI 原型 · 不会发送真实弹幕</footer></main></div></div>${state.toast ? `<div role="status" class="toast">${ico(state.toastType === 'info' ? 'info' : 'circle-check')}${h(state.toast)}<button class="icon-button" type="button" data-action="dismiss-toast" aria-label="关闭提示">${ico('x')}</button></div>` : ''}`
+  app.querySelectorAll<HTMLElement>('.scroll-region').forEach((region, index) => {
+    region.scrollTop = previousScroll[index] ?? 0
+  })
+  lastRenderedRoute = currentRoute
   renderIcons()
+  updateListEndcaps()
 }
 
 function saveTask(): void {
@@ -93,6 +114,7 @@ function saveTask(): void {
 }
 
 export function startApp(): void {
+  window.addEventListener('resize', updateListEndcaps)
   app.addEventListener('click', event => {
     const actionEl = (event.target as HTMLElement).closest<HTMLElement>('[data-action]')
     if (!actionEl) return
@@ -150,7 +172,11 @@ export function startApp(): void {
         }
         break
       }
-      case 'toggle-room-form': state.roomFormOpen = !state.roomFormOpen; render(); break
+      case 'toggle-room-form':
+        state.roomFormOpen = !state.roomFormOpen
+        render()
+        if (state.roomFormOpen) document.querySelector('.rooms-content')?.scrollTo(0, 0)
+        break
       case 'set-rooms-view':
         if (actionEl.dataset.view === 'cards' || actionEl.dataset.view === 'list') {
           state.roomsView = actionEl.dataset.view
