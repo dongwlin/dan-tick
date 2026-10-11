@@ -1,6 +1,7 @@
+<script setup lang="ts">
+import TaskEditorForm from '@/features/configuration/TaskEditorForm.vue'
+</script>
+
 <template>
-  <section>
-    <h1>新建任务</h1>
-    <p>任务创建页面尚未接入，将在 F4 阶段按定稿原型迁移。</p>
-  </section>
+  <TaskEditorForm />
 </template>

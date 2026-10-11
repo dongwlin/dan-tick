@@ -1,13 +1,24 @@
 import { render, screen } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { VueQueryPlugin } from '@tanstack/vue-query'
+import { describe, expect, it, vi } from 'vitest'
 import App from './App.vue'
 import { createAppRouter } from './router'
+import { createAppQueryClient } from './queryClient'
+
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice', () => ({
+  ListRoomPage: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+  ListTaskPage: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+  ListRooms: vi.fn().mockResolvedValue([]),
+  GetTask: vi.fn().mockRejectedValue(new Error('操作失败，请重试')),
+}))
 
 function renderAtHash(path: string) {
   window.history.replaceState(null, '', `/#${path}`)
   const router = createAppRouter()
-  render(App, { global: { plugins: [router] } })
+  render(App, {
+    global: { plugins: [router, [VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
   return userEvent.setup()
 }
 

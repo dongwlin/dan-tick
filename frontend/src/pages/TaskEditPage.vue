@@ -1,19 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import TaskEditorForm from '@/features/configuration/TaskEditorForm.vue'
+import { bindingError, useTaskDetail } from '@/features/configuration/queries'
 
 const route = useRoute()
-
-const taskID = computed(() => {
-  const id = route.params.id
-  return typeof id === 'string' ? id : ''
-})
+const taskID = computed(() => Number(route.params.id))
+const task = useTaskDetail(taskID)
 </script>
 
 <template>
-  <section>
+  <h1 v-if="!Number.isSafeInteger(taskID) || taskID <= 0">编辑任务</h1>
+  <p v-if="!Number.isSafeInteger(taskID) || taskID <= 0" role="alert">任务编号无效</p>
+  <div v-else-if="task.isPending.value" role="status">正在加载任务…</div>
+  <div v-else-if="task.isError.value" role="alert">
     <h1>编辑任务</h1>
-    <p>任务编辑页面尚未接入，将在 F4 阶段按定稿原型迁移。</p>
-    <p v-if="taskID">当前路由任务 ID：{{ taskID }}</p>
-  </section>
+    <p>{{ bindingError(task.error.value) }}</p>
+    <button type="button" class="underline" @click="task.refetch()">重试读取</button>
+  </div>
+  <TaskEditorForm v-else-if="task.data.value" :key="taskID" :task="task.data.value" />
 </template>
