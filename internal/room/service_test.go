@@ -354,3 +354,50 @@ func TestRoomAddHonorsCancelledContext(t *testing.T) {
 	require.NoError(t, db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM rooms`).Scan(&count))
 	assert.Zero(t, count)
 }
+
+func TestRoomAddPersistsVerifiedRoomWhenOptionalMetadataTimesOut(t *testing.T) {
+	s, db := setupRoomService(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/room/v1/Room/get_info" {
+			fmt.Fprint(w, `{"code":0,"data":{"room_id":5440,"uid":8,"title":"Room title"}}`)
+			return
+		}
+		<-r.Context().Done()
+	})
+	s.client.timeout = 100 * time.Millisecond
+	ctx := context.Background()
+	saved, err := s.Add(ctx, "1")
+	require.NoError(t, err)
+	assert.Equal(t, "5440", saved.PlatformRoomID)
+	assert.Equal(t, "Room title", saved.Title)
+	assert.Empty(t, saved.AnchorName)
+	rooms, err := s.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, rooms, 1)
+	assert.Equal(t, saved, rooms[0])
+	var count int
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT COUNT(*) FROM rooms`).Scan(&count))
+	assert.Equal(t, 1, count)
+}
+
+func TestRoomAddDoesNotPersistWhenCallerCancelsOptionalMetadata(t *testing.T) {
+	masterStarted := make(chan struct{})
+	s, db := setupRoomService(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/room/v1/Room/get_info" {
+			fmt.Fprint(w, `{"code":0,"data":{"room_id":5440,"uid":8,"title":"Room title"}}`)
+			return
+		}
+		close(masterStarted)
+		<-r.Context().Done()
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		<-masterStarted
+		cancel()
+	}()
+	_, err := s.Add(ctx, "1")
+	require.ErrorIs(t, err, context.Canceled)
+	var count int
+	require.NoError(t, db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM rooms`).Scan(&count))
+	assert.Zero(t, count)
+}

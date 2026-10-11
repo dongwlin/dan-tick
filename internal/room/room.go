@@ -98,13 +98,14 @@ type Client struct {
 	httpClient *http.Client
 	roomURL    string
 	masterURL  string
+	timeout    time.Duration
 }
 
 func NewClient(httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: requestTimeout}
 	}
-	return &Client{httpClient: httpClient, roomURL: roomInfoURL, masterURL: masterInfoURL}
+	return &Client{httpClient: httpClient, roomURL: roomInfoURL, masterURL: masterInfoURL, timeout: requestTimeout}
 }
 
 // Resolve validates an input, queries its real room ID, and optionally obtains
@@ -115,9 +116,6 @@ func (c *Client) Resolve(ctx context.Context, input string) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
-	defer cancel()
-
 	var response struct {
 		Code *int `json:"code"`
 		Data *struct {
@@ -146,6 +144,9 @@ func (c *Client) Resolve(ctx context.Context, input string) (Info, error) {
 		RoomID: strconv.FormatInt(response.Data.RoomID, 10),
 		Title:  response.Data.Title,
 	}
+	if err := ctx.Err(); err != nil {
+		return Info{}, err
+	}
 	if response.Data.UID == 0 {
 		return info, nil
 	}
@@ -168,6 +169,10 @@ func (c *Client) Resolve(ctx context.Context, input string) (Info, error) {
 }
 
 func (c *Client) getJSON(ctx context.Context, endpoint, key, value string, dest any) error {
+	// Each endpoint has its own deadline. An optional metadata timeout must
+	// not cancel the caller or invalidate an already verified room.
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return fmt.Errorf("%w: endpoint", ErrInvalidResponse)
