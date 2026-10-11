@@ -17,5 +17,8 @@ export function settingsPage(): string {
       </section><section class="panel settings-panel">${sectionTitle('调度设置')}
         ${settingToggle('启用自动调度', '关闭后不自动触发定时计划', 'scheduling')}
         <div class="setting-row"><span><strong>默认时区</strong><small>新建任务的默认时区</small></span><select aria-label="默认时区" id="timezone"><option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option></select></div>
+      </section><section class="panel settings-panel">${sectionTitle('数据与日志')}
+        <div class="setting-row"><span><strong>诊断日志目录</strong><small>发生问题时，可从此处找到日志并提供给开发者排查</small></span><button class="button button--secondary" type="button" data-action="open-log-directory">${ico('folder-open')} 打开日志目录</button></div>
+        <div class="settings-hint">${ico('info')} 浏览器原型无法打开系统文件管理器；正式桌面版将在此打开本机日志目录。</div>
       </section><p class="settings-footnote">UI Prototype 0.1 · 设置仅在当前页面会话生效</p></div>`
 }

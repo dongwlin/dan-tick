@@ -110,6 +110,9 @@ export function startApp(): void {
         render()
         break
       case 'go-settings': routeTo('#/settings'); break
+      case 'open-log-directory':
+        showToast('浏览器原型无法打开系统日志目录；正式桌面版将通过系统文件管理器打开。', 'info')
+        break
       case 'go-tasks': routeTo('#/tasks'); break
       case 'new-task': routeTo('#/tasks/new'); break
       case 'edit-task': routeTo(`#/tasks/${id}/edit`); break
