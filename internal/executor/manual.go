@@ -22,8 +22,10 @@ var ErrNotRunning = errors.New("execution is not active in this process")
 // sendingGate is supplied by the shared danmaku.Sender in production. It is
 // deliberately not a Client: manual runs must not bypass account-wide limits.
 type sendingGate interface {
-	Send(context.Context, string, string) (danmaku.Result, error)
+	SendWithAdmission(context.Context, string, string, func(context.Context) error) (danmaku.Result, error)
 }
+
+var errAdmissionPersist = errors.New("execution admission could not be persisted")
 
 type Service struct {
 	db     *bun.DB
@@ -96,6 +98,7 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 	}
 
 	var executionID int64
+	var conflictingID int64
 	var plan runPlan
 	started := s.now()
 	runCtx, stop := context.WithCancel(ctx)
@@ -164,21 +167,22 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 		default:
 			return task.ErrInvalidTask
 		}
-		var busy bool
+		var activeID int64
 		if err := tx.QueryRowContext(ctx, `
-			SELECT EXISTS(SELECT 1 FROM executions WHERE task_id = ?
-				AND status IN ('waiting', 'queued', 'running'))`, taskID).Scan(&busy); err != nil {
+			SELECT id FROM executions WHERE task_id = ?
+				AND status IN ('waiting', 'queued', 'running') LIMIT 1`, taskID).Scan(&activeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("check manual execution conflict: %w", err)
 		}
-		if busy {
+		if activeID != 0 {
+			conflictingID = activeID
 			return task.ErrTaskBusy
 		}
 
 		now := started.UTC().UnixMilli()
 		if err := tx.QueryRowContext(ctx, `
 			INSERT INTO executions (task_id, trigger_kind, status, created_at,
-				started_at, task_name_snapshot, platform_room_id_snapshot)
-			VALUES (?, 'manual', 'running', ?, ?, ?, ?) RETURNING id`,
+				queued_at, task_name_snapshot, platform_room_id_snapshot)
+			VALUES (?, 'manual', 'queued', ?, ?, ?, ?) RETURNING id`,
 			taskID, now, now, name, plan.roomID).Scan(&executionID); err != nil {
 			return fmt.Errorf("register manual execution: %w", err)
 		}
@@ -193,6 +197,9 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 	}
 	s.mu.Unlock()
 	if err != nil {
+		if errors.Is(err, task.ErrTaskBusy) && conflictingID > 0 {
+			s.record(diagnostic.ExecutionConflict, conflictingID, taskID, "")
+		}
 		return ManualResult{}, err
 	}
 	defer func() {
@@ -200,7 +207,7 @@ func (s *Service) RunManual(ctx context.Context, taskID int64) (ManualResult, er
 		delete(s.active, executionID)
 		s.mu.Unlock()
 	}()
-	s.record(diagnostic.ExecutionStarted, executionID, taskID, "")
+	s.record(diagnostic.ExecutionQueued, executionID, taskID, "")
 	return s.execute(runCtx, run, executionID, taskID, plan, started)
 }
 
@@ -261,13 +268,24 @@ func (s *Service) execute(ctx context.Context, run *activeRun, id, taskID int64,
 			// unfinalized running execution without a known pending row.
 			pendingCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 6*time.Second)
 			err := s.db.RunInTx(pendingCtx, nil, func(ctx context.Context, tx bun.Tx) error {
-				return insertPending(ctx, tx, id, seq, message, s.now().UTC().UnixMilli())
+				now := s.now().UTC().UnixMilli()
+				updated, err := tx.ExecContext(ctx, `
+					UPDATE executions SET status = 'queued', queued_at = COALESCE(queued_at, ?)
+					WHERE id = ? AND status = 'running'`, now, id)
+				if err != nil {
+					return fmt.Errorf("queue execution: %w", err)
+				}
+				if affected, err := updated.RowsAffected(); err != nil || affected != 1 {
+					return fmt.Errorf("queue execution: expected running row")
+				}
+				return insertPending(ctx, tx, id, seq, message, now)
 			})
 			cancel()
 			if err != nil {
 				s.record(diagnostic.ExecutionPersistFailed, id, taskID, "")
 				return ManualResult{ExecutionID: id}, fmt.Errorf("persist pending send: %w", err)
 			}
+			s.record(diagnostic.ExecutionQueued, id, taskID, "")
 		}
 
 		message := plan.messages[(seq-1)%len(plan.messages)]
@@ -276,7 +294,20 @@ func (s *Service) execute(ctx context.Context, run *activeRun, id, taskID int64,
 		// replaced sender in that case; resolve the row as not_sent instead.
 		outcome, sendErr := danmaku.Result{Outcome: danmaku.NotSent}, ctx.Err()
 		if sendErr == nil {
-			outcome, sendErr = s.sender.Send(ctx, plan.roomID, message)
+			outcome, sendErr = s.sender.SendWithAdmission(ctx, plan.roomID, message, func(admitCtx context.Context) error {
+				updated, err := s.db.ExecContext(admitCtx, `
+					UPDATE executions SET status = 'running',
+						started_at = COALESCE(started_at, ?)
+					WHERE id = ? AND status = 'queued'`, s.now().UTC().UnixMilli(), id)
+				if err != nil {
+					return errAdmissionPersist
+				}
+				if affected, err := updated.RowsAffected(); err != nil || affected != 1 {
+					return errAdmissionPersist
+				}
+				s.record(diagnostic.ExecutionStarted, id, taskID, "")
+				return nil
+			})
 		}
 		step := classify(id, outcome, sendErr)
 		result.Outcome = step.Outcome
@@ -357,7 +388,7 @@ func (s *Service) finishAttempt(ctx context.Context, taskID int64, result Manual
 		executionUpdate, err := tx.ExecContext(ctx, `
 			UPDATE executions SET status = ?, finished_at = ?, sent_count = ?,
 				failed_count = ?, error_code = ?
-			WHERE id = ? AND status = 'running'`, runningStatus(result.Status), finishTime(result.Status, now),
+			WHERE id = ? AND status IN ('running', 'queued')`, runningStatus(result.Status), finishTime(result.Status, now),
 			result.SentCount, result.FailedCount, nullableCode(result.ErrorCode), result.ExecutionID)
 		if err != nil {
 			return fmt.Errorf("finish manual execution: %w", err)
@@ -409,7 +440,7 @@ func (s *Service) finishExecution(ctx context.Context, taskID int64, result Manu
 	updated, err := s.db.ExecContext(finishCtx, `
 		UPDATE executions SET status = ?, finished_at = ?, sent_count = ?,
 			failed_count = ?, error_code = ?
-		WHERE id = ? AND status = 'running'`, result.Status,
+		WHERE id = ? AND status IN ('running', 'queued')`, result.Status,
 		s.now().UTC().UnixMilli(), result.SentCount, result.FailedCount,
 		nullableCode(result.ErrorCode), result.ExecutionID)
 	if err != nil {
@@ -476,6 +507,8 @@ func attemptResult(outcome danmaku.Outcome) string {
 
 func errorCode(err error) string {
 	switch {
+	case errors.Is(err, errAdmissionPersist):
+		return "persistence"
 	case errors.Is(err, credential.ErrNotConfigured):
 		return "credential_missing"
 	case errors.Is(err, credential.ErrUnavailable):

@@ -33,6 +33,8 @@ var (
 	DatabaseCloseFailed    = Event{name: "database.close_failed", component: "storage", result: "failed", errorCategory: "database_close", level: zerolog.ErrorLevel}
 	DesktopRunFailed       = Event{name: "desktop.run_failed", component: "desktop", result: "failed", errorCategory: "desktop_runtime", level: zerolog.ErrorLevel}
 	ExecutionStarted       = Event{name: "execution.started", component: "executor", result: "running", level: zerolog.InfoLevel}
+	ExecutionQueued        = Event{name: "execution.queued", component: "executor", result: "queued", level: zerolog.InfoLevel}
+	ExecutionConflict      = Event{name: "execution.conflict", component: "executor", result: "rejected", errorCategory: "task_busy", level: zerolog.WarnLevel}
 	ExecutionCompleted     = Event{name: "execution.completed", component: "executor", result: "completed", level: zerolog.InfoLevel}
 	ExecutionStopped       = Event{name: "execution.stopped", component: "executor", result: "stopped", level: zerolog.InfoLevel}
 	ExecutionFailed        = Event{name: "execution.failed", component: "executor", result: "failed", level: zerolog.WarnLevel}
@@ -103,7 +105,7 @@ func (l *Logger) recordExecution(event Event, executionID, taskID int64, sequenc
 		return
 	}
 	switch event {
-	case ExecutionStarted, ExecutionCompleted, ExecutionStopped, ExecutionFailed,
+	case ExecutionQueued, ExecutionConflict, ExecutionStarted, ExecutionCompleted, ExecutionStopped, ExecutionFailed,
 		ExecutionPersistFailed, SendAccepted, SendRejected, SendNotSent, SendUnknown:
 	default:
 		return
@@ -132,7 +134,7 @@ func safeSendCategory(category string) string {
 		"authentication", "rate_limited", "bad_request", "too_long",
 		"rejected", "invalid_input", "timeout", "cancelled", "transport",
 		"http_status", "invalid_response", "uncertain", "send_failure",
-		"user_stopped", "wait_failure":
+		"user_stopped", "wait_failure", "persistence":
 		return category
 	default:
 		return "send_failure"

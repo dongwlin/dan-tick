@@ -2,6 +2,7 @@ package danmaku
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -16,14 +17,22 @@ type sendingClient interface {
 
 // Sender is the single-account sending entry point. Share one instance across
 // manual runs, scheduled runs and test sends; constructing separate instances
-// would defeat the account-wide limit. D3 will add execution-level FIFO queues.
+// would defeat the account-wide limit. Send and TestSend share the same FIFO
+// admission order, with no durable queue table.
 type Sender struct {
 	client   sendingClient
-	permit   chan struct{}
 	interval time.Duration
-	nextDue  time.Time // Only accessed while holding permit.
+	nextDue  time.Time // Only accessed while holding an admitted slot.
 	now      func() time.Time
 	wait     func(context.Context, time.Duration) error
+	mu       sync.Mutex
+	active   bool
+	queue    []*waiter
+}
+
+type waiter struct {
+	ready   chan struct{}
+	granted bool // Under Sender.mu.
 }
 
 func NewSender(client *Client) *Sender {
@@ -33,12 +42,10 @@ func NewSender(client *Client) *Sender {
 func newSender(client sendingClient, interval time.Duration, now func() time.Time, wait func(context.Context, time.Duration) error) *Sender {
 	s := &Sender{
 		client:   client,
-		permit:   make(chan struct{}, 1),
 		interval: interval,
 		now:      now,
 		wait:     wait,
 	}
-	s.permit <- struct{}{}
 	return s
 }
 
@@ -46,21 +53,31 @@ func newSender(client sendingClient, interval time.Duration, now func() time.Tim
 // request, including one returning an uncertain outcome, counts against the
 // interval; requests known not to have been sent do not consume a slot.
 func (s *Sender) Send(ctx context.Context, roomID, message string) (Result, error) {
-	if err := ctx.Err(); err != nil {
+	return s.SendWithAdmission(ctx, roomID, message, nil)
+}
+
+// SendWithAdmission lets a task executor commit its queued -> running state
+// after FIFO admission but before the HTTP call. A failed callback prevents
+// sending and does not consume a rate-limit slot.
+func (s *Sender) SendWithAdmission(ctx context.Context, roomID, message string, admitted func(context.Context) error) (Result, error) {
+	release, err := s.acquire(ctx)
+	if err != nil {
 		return Result{Outcome: NotSent}, err
 	}
-	select {
-	case <-ctx.Done():
-		return Result{Outcome: NotSent}, ctx.Err()
-	case <-s.permit:
-	}
-	defer func() { s.permit <- struct{}{} }()
-
+	defer release()
 	if err := ctx.Err(); err != nil {
 		return Result{Outcome: NotSent}, err
 	}
 	if delay := s.nextDue.Sub(s.now()); delay > 0 {
 		if err := s.wait(ctx, delay); err != nil {
+			return Result{Outcome: NotSent}, err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return Result{Outcome: NotSent}, err
+	}
+	if admitted != nil {
+		if err := admitted(ctx); err != nil {
 			return Result{Outcome: NotSent}, err
 		}
 	}
@@ -77,6 +94,68 @@ func (s *Sender) Send(ctx context.Context, roomID, message string) (Result, erro
 		s.nextDue = previousDue
 	}
 	return result, err
+}
+
+// acquire maintains FIFO order for send requests that reach this Sender,
+// including test sends. A canceled waiter is removed without stealing the
+// next turn; a cancellation racing with admission hands the slot forward.
+func (s *Sender) acquire(ctx context.Context) (func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	w := &waiter{ready: make(chan struct{})}
+	s.mu.Lock()
+	if !s.active {
+		s.active = true
+		w.granted = true
+		close(w.ready)
+	} else {
+		s.queue = append(s.queue, w)
+	}
+	s.mu.Unlock()
+
+	select {
+	case <-ctx.Done():
+		s.mu.Lock()
+		if w.granted {
+			s.releaseLocked()
+		} else {
+			for i, item := range s.queue {
+				if item == w {
+					copy(s.queue[i:], s.queue[i+1:])
+					s.queue[len(s.queue)-1] = nil
+					s.queue = s.queue[:len(s.queue)-1]
+					break
+				}
+			}
+		}
+		s.mu.Unlock()
+		return nil, ctx.Err()
+	case <-w.ready:
+		if err := ctx.Err(); err != nil {
+			s.release()
+			return nil, err
+		}
+		return s.release, nil
+	}
+}
+
+func (s *Sender) release() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.releaseLocked()
+}
+
+func (s *Sender) releaseLocked() {
+	if len(s.queue) == 0 {
+		s.active = false
+		return
+	}
+	next := s.queue[0]
+	s.queue[0] = nil
+	s.queue = s.queue[1:]
+	next.granted = true
+	close(next.ready)
 }
 
 // TestSend performs one real send through the very same account limiter. It

@@ -331,6 +331,7 @@ func TestRunManualFailedFinalWriteLeavesRecoverablePending(t *testing.T) {
 	created := addSingleTask(t, db)
 	_, err := db.ExecContext(context.Background(), `
 		CREATE TRIGGER fail_finalize BEFORE UPDATE ON executions
+		WHEN NEW.status = 'completed'
 		BEGIN SELECT RAISE(ABORT, 'injected failure'); END`)
 	require.NoError(t, err)
 	sender, closeServer := testSender(t, func(w http.ResponseWriter, r *http.Request) {
@@ -354,6 +355,16 @@ type fakeGate struct {
 
 func (f *fakeGate) Send(ctx context.Context, room, msg string) (danmaku.Result, error) {
 	return f.send(ctx, room, msg)
+}
+
+func (f *fakeGate) SendWithAdmission(ctx context.Context, room, msg string, admitted func(context.Context) error) (danmaku.Result, error) {
+	if err := ctx.Err(); err != nil {
+		return danmaku.Result{Outcome: danmaku.NotSent}, err
+	}
+	if err := admitted(ctx); err != nil {
+		return danmaku.Result{Outcome: danmaku.NotSent}, err
+	}
+	return f.Send(ctx, room, msg)
 }
 
 func TestRunManualCredentialMissingIsSafe(t *testing.T) {
