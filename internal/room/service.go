@@ -15,6 +15,7 @@ var (
 	ErrAlreadyAdded = errors.New("live room already added")
 	ErrNotSaved     = errors.New("live room not saved")
 	ErrRoomBusy     = errors.New("live room has active executions")
+	ErrInvalidPage  = errors.New("invalid room page")
 )
 
 // Room represents a saved room. TaskCount includes only nondeleted tasks.
@@ -52,6 +53,29 @@ func (s *Service) List(ctx context.Context) ([]Room, error) {
 		return nil, fmt.Errorf("list rooms: %w", err)
 	}
 	return rooms, nil
+}
+
+// ListPage uses the immutable row ID as a descending cursor. New rows inserted
+// while paging cannot shift the boundary and make earlier rows repeat.
+func (s *Service) ListPage(ctx context.Context, cursor *int64, limit int) ([]Room, *int64, error) {
+	if (cursor != nil && *cursor <= 0) || limit < 1 || limit > 100 {
+		return nil, nil, ErrInvalidPage
+	}
+	rooms := make([]Room, 0)
+	query := roomQuery(s.db.NewSelect().Model(&rooms)).
+		Where("r.deleted_at IS NULL").OrderExpr("r.id DESC").Limit(limit + 1)
+	if cursor != nil {
+		query = query.Where("r.id < ?", *cursor)
+	}
+	if err := query.Scan(ctx); err != nil {
+		return nil, nil, fmt.Errorf("list room page: %w", err)
+	}
+	if len(rooms) <= limit {
+		return rooms, nil, nil
+	}
+	rooms = rooms[:limit]
+	next := rooms[len(rooms)-1].ID
+	return rooms, &next, nil
 }
 
 // Add validates the input with Bilibili and persists its canonical room ID.

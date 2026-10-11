@@ -135,6 +135,63 @@ func TestConfigurationBindingRoomTaskLifecycle(t *testing.T) {
 	require.Equal(t, int64(1), deleted)
 }
 
+func TestConfigurationPagesHaveStableCursorsAndResetFilters(t *testing.T) {
+	ctx := context.Background()
+	svc, _, db := configurationTest(t)
+	first, err := svc.AddRoom(ctx, AddRoomInput{Value: "12345"})
+	require.NoError(t, err)
+	// Additional rooms are inserted locally to test cursor boundaries without
+	// making real Bilibili requests or depending on a fake API ID.
+	for _, id := range []string{"200", "300", "400"} {
+		_, err = db.ExecContext(ctx, `INSERT INTO rooms (platform_room_id, title, anchor_name, created_at, updated_at)
+			VALUES (?, ?, '', 1, 1)`, id, "Title "+id)
+		require.NoError(t, err)
+	}
+	page, err := svc.ListRoomPage(ctx, PageInput{Limit: 2})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 2)
+	require.NotNil(t, page.NextCursor)
+	firstPageIDs := []int64{page.Items[0].ID, page.Items[1].ID}
+	_, err = db.ExecContext(ctx, `INSERT INTO rooms (platform_room_id, title, anchor_name, created_at, updated_at)
+		VALUES ('500', 'New room', '', 1, 1)`)
+	require.NoError(t, err)
+	page, err = svc.ListRoomPage(ctx, PageInput{Cursor: page.NextCursor, Limit: 2})
+	require.NoError(t, err)
+	require.Equal(t, []int64{first.ID + 1, first.ID}, []int64{page.Items[0].ID, page.Items[1].ID})
+	require.Nil(t, page.NextCursor)
+	require.NotContains(t, firstPageIDs, page.Items[0].ID)
+	_, err = svc.ListRoomPage(ctx, PageInput{Limit: 101})
+	assertPublicError(t, err, "invalid_input", "private")
+
+	for _, name := range []string{"hello", "other", "hello again", "third hello", "last"} {
+		input := taskRequest(first.ID)
+		input.Name = name
+		_, err = svc.CreateTask(ctx, input)
+		require.NoError(t, err)
+	}
+	all, err := svc.ListTaskPage(ctx, TaskPageInput{Limit: 2})
+	require.NoError(t, err)
+	require.Len(t, all.Items, 2)
+	require.NotNil(t, all.NextCursor)
+	filtered, err := svc.ListTaskPage(ctx, TaskPageInput{Search: "hello", Limit: 2})
+	require.NoError(t, err)
+	require.Len(t, filtered.Items, 2)
+	require.NotNil(t, filtered.NextCursor)
+	require.Equal(t, "third hello", filtered.Items[0].Name)
+	filteredEnd, err := svc.ListTaskPage(ctx, TaskPageInput{Search: "hello", Cursor: filtered.NextCursor, Limit: 2})
+	require.NoError(t, err)
+	require.Len(t, filteredEnd.Items, 1)
+	require.Equal(t, "hello", filteredEnd.Items[0].Name)
+	require.Nil(t, filteredEnd.NextCursor)
+	// A different search starts at the newest matching task, not a previous cursor.
+	other, err := svc.ListTaskPage(ctx, TaskPageInput{Search: "other", Limit: 2})
+	require.NoError(t, err)
+	require.Len(t, other.Items, 1)
+	require.Equal(t, "other", other.Items[0].Name)
+	_, err = svc.ListTaskPage(ctx, TaskPageInput{Limit: -1})
+	assertPublicError(t, err, "invalid_input", "private")
+}
+
 func TestConfigurationBindingRejectsInvalidInputAndPreservesState(t *testing.T) {
 	ctx := context.Background()
 	svc, _, _ := configurationTest(t)

@@ -387,6 +387,45 @@ func (s *Service) List(ctx context.Context, roomID int64) ([]Task, error) {
 	return tasks, nil
 }
 
+// ListPage performs keyset pagination inside a read transaction so messages
+// correspond to the page of active task rows. Search is applied before limit.
+func (s *Service) ListPage(ctx context.Context, roomID int64, search string, cursor *int64, limit int) ([]Task, *int64, error) {
+	if roomID < 0 || (cursor != nil && *cursor <= 0) || limit < 1 || limit > 100 {
+		return nil, nil, ErrInvalidTask
+	}
+	tasks := make([]Task, 0)
+	var next *int64
+	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		query := activeTasks(tx.NewSelect().Model(&tasks)).OrderExpr("t.id DESC").Limit(limit + 1)
+		if roomID > 0 {
+			query = query.Where("t.room_id = ?", roomID)
+		}
+		if cursor != nil {
+			query = query.Where("t.id < ?", *cursor)
+		}
+		if term := strings.TrimSpace(search); term != "" {
+			// Escape LIKE metacharacters so user input is a literal substring.
+			term = strings.ReplaceAll(term, "\\", "\\\\")
+			term = strings.ReplaceAll(term, "%", "\\%")
+			term = strings.ReplaceAll(term, "_", "\\_")
+			query = query.Where(`(t.name LIKE ? ESCAPE '\' OR EXISTS (
+				SELECT 1 FROM rooms r WHERE r.id = t.room_id AND
+				(r.remark LIKE ? ESCAPE '\' OR r.title LIKE ? ESCAPE '\' OR
+				 r.platform_room_id LIKE ? ESCAPE '\')))`, "%"+term+"%", "%"+term+"%", "%"+term+"%", "%"+term+"%")
+		}
+		if err := query.Scan(ctx); err != nil {
+			return fmt.Errorf("list task page: %w", err)
+		}
+		if len(tasks) > limit {
+			tasks = tasks[:limit]
+			id := tasks[len(tasks)-1].ID
+			next = &id
+		}
+		return loadMessages(ctx, tx, tasks)
+	})
+	return tasks, next, err
+}
+
 func activeTasks(query *bun.SelectQuery) *bun.SelectQuery {
 	return query.Where("t.deleted_at IS NULL").Where(`EXISTS (
 		SELECT 1 FROM rooms r WHERE r.id = t.room_id AND r.deleted_at IS NULL

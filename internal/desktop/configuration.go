@@ -51,6 +51,35 @@ type UpdateRoomInput struct {
 	Remark string `json:"remark"`
 }
 
+type PageInput struct {
+	Cursor *int64 `json:"cursor"`
+	Limit  int    `json:"limit"`
+}
+
+func (p PageInput) size() int {
+	if p.Limit == 0 {
+		return 20
+	}
+	return p.Limit
+}
+
+type RoomPage struct {
+	Items      []Room `json:"items"`
+	NextCursor *int64 `json:"nextCursor"`
+}
+
+func (s *ConfigurationService) ListRoomPage(ctx context.Context, input PageInput) (RoomPage, error) {
+	saved, next, err := s.rooms.ListPage(ctx, input.Cursor, input.size())
+	if err != nil {
+		return RoomPage{}, protect(err)
+	}
+	items := make([]Room, 0, len(saved))
+	for _, item := range saved {
+		items = append(items, roomView(item))
+	}
+	return RoomPage{Items: items, NextCursor: next}, nil
+}
+
 func (s *ConfigurationService) ListRooms(ctx context.Context) ([]Room, error) {
 	saved, err := s.rooms.List(ctx)
 	if err != nil {
@@ -170,8 +199,31 @@ func taskView(saved task.Task) Task {
 	return result
 }
 
-// F4 will add backend cursor pagination when its first list UI is built.
-// These read methods currently expose the existing stable, newest-first lists.
+type TaskPageInput struct {
+	Cursor *int64 `json:"cursor"`
+	Limit  int    `json:"limit"`
+	RoomID int64  `json:"roomId"`
+	Search string `json:"search"`
+}
+
+type TaskPage struct {
+	Items      []Task `json:"items"`
+	NextCursor *int64 `json:"nextCursor"`
+}
+
+func (s *ConfigurationService) ListTaskPage(ctx context.Context, input TaskPageInput) (TaskPage, error) {
+	saved, next, err := s.tasks.ListPage(ctx, input.RoomID, input.Search, input.Cursor, PageInput{Limit: input.Limit}.size())
+	if err != nil {
+		return TaskPage{}, protect(err)
+	}
+	items := make([]Task, 0, len(saved))
+	for _, item := range saved {
+		items = append(items, taskView(item))
+	}
+	return TaskPage{Items: items, NextCursor: next}, nil
+}
+
+// Legacy full-list bindings are retained for compatibility; new UI uses pages.
 func (s *ConfigurationService) ListTasks(ctx context.Context, roomID int64) ([]Task, error) {
 	saved, err := s.tasks.List(ctx, roomID)
 	if err != nil {

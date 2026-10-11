@@ -34,7 +34,7 @@ func classify(err error) safeError {
 	switch {
 	case errors.Is(err, scheduler.ErrScheduleSync), errors.Is(err, scheduler.ErrRecoveryNeeded):
 		reply = safeError{"schedule_sync", "修改已保存，但定时调度同步失败，请重新启动应用后检查"}
-	case errors.Is(err, room.ErrInvalidInput), errors.Is(err, task.ErrInvalidTask):
+	case errors.Is(err, room.ErrInvalidInput), errors.Is(err, room.ErrInvalidPage), errors.Is(err, task.ErrInvalidTask):
 		reply = safeError{"invalid_input", "输入无效，请检查填写内容"}
 	case errors.Is(err, room.ErrAlreadyAdded):
 		reply = safeError{"already_exists", "该直播间已添加"}
