@@ -32,14 +32,15 @@ var (
 // onError reports failures from asynchronous callbacks, including handoff
 // errors. A failed handoff is not retried because the waiting row is durable.
 type Manager struct {
-	db      *bun.DB
-	tasks   *task.Service
-	claim   *ClaimService
-	cron    *cron.Cron
-	onReady func(context.Context, ClaimResult) error
-	onError func(error)
-	log     *diagnostic.Logger
-	now     func() time.Time
+	db       *bun.DB
+	tasks    *task.Service
+	claim    *ClaimService
+	recovery *RecoveryService
+	cron     *cron.Cron
+	onReady  func(context.Context, ClaimResult) error
+	onError  func(error)
+	log      *diagnostic.Logger
+	now      func() time.Time
 
 	mu         sync.Mutex
 	entries    map[int64]registration
@@ -68,7 +69,8 @@ func NewManager(db *bun.DB, log *diagnostic.Logger,
 	onReady func(context.Context, ClaimResult) error, onError func(error)) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Manager{db: db, tasks: task.NewService(db), claim: NewClaimService(db, log),
-		cron: cron.New(cron.WithLocation(time.UTC)), onReady: onReady, onError: onError,
+		recovery: NewRecoveryService(db, log),
+		cron:     cron.New(cron.WithLocation(time.UTC)), onReady: onReady, onError: onError,
 		log: log, now: time.Now, ctx: ctx, cancel: cancel,
 		entries: make(map[int64]registration)}
 }
@@ -87,6 +89,9 @@ func (m *Manager) Start(ctx context.Context) error {
 	}
 	if m.started {
 		return nil
+	}
+	if _, err := m.recovery.RecoverStartup(ctx); err != nil {
+		return fmt.Errorf("recover on scheduler startup: %w", err)
 	}
 	if err := m.rebuildLocked(ctx); err != nil {
 		return err
@@ -127,6 +132,25 @@ func (m *Manager) Rebuild(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.rebuildLocked(ctx)
+}
+
+// Resume is the explicit sleep/wake recovery entry point. It does not
+// interrupt locally active executions. It settles every already-due cursor
+// as missed and rebuilds future Cron jobs from SQLite; it never sends work.
+func (m *Manager) Resume(ctx context.Context) (RecoverySummary, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closed {
+		return RecoverySummary{}, ErrSchedulerClosed
+	}
+	result, err := m.recovery.RecoverAfterWake(ctx)
+	if err != nil {
+		return RecoverySummary{}, fmt.Errorf("recover after wake: %w", err)
+	}
+	if err := m.rebuildLocked(ctx); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 func (m *Manager) rebuildLocked(ctx context.Context) error {
@@ -284,7 +308,11 @@ func (m *Manager) fire(taskID, due int64, gen uint64) {
 		return
 	}
 	ctx, cancel := context.WithTimeout(m.ctx, 6*time.Second)
-	result, err := m.claim.Claim(ctx, taskID, due)
+	late, err := m.recovery.ReconcileLate(ctx, taskID, due)
+	var result ClaimResult
+	if err == nil && !late {
+		result, err = m.claim.Claim(ctx, taskID, due)
+	}
 	cancel()
 	if err != nil {
 		m.report(fmt.Errorf("claim scheduled occurrence: %w", err))

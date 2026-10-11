@@ -5,7 +5,7 @@
 - dan-tick 是面向 Windows、Linux 的 B 站直播弹幕定时发送桌面应用：本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
 - 开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它用于安排实施步骤，不覆盖 PRD 与技术选型的权威性；UI 原型可以独立继续迭代。
-- **正式应用仍以 Wails 3 模板为主，尚不能发送弹幕。** 已接入 Bun、SQLite、首次 Migration 与基础存储测试；`prototype/` 仍是独立的 Vanilla TypeScript 模拟 UI，与正式 Vue 前端分开。Cron、Pinia、Tailwind、路由与前端表单 / 测试框架等尚未接入。按功能渐进引入，不为未来需求创建空架构。
+- **正式应用仍以 Wails 3 模板为主，尚不能发送弹幕。** 已接入 Bun、SQLite、首次 Migration 与基础存储测试；`prototype/` 仍是独立的 Vanilla TypeScript 模拟 UI，与正式 Vue 前端分开。Cron 内核已通过 E1～E3 完成领取、注册与恢复测试，但尚未装配进正式应用；Pinia、Tailwind、路由与前端表单 / 测试框架等尚未接入。按功能渐进引入，不为未来需求创建空架构。
 - `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 仍是 Vue 模板说明，应以代码和工程配置为准。
 
 ## 2. 现有结构与调用边界
@@ -52,7 +52,7 @@ npm run build:dev          # vue-tsc + 非压缩的 development build
 
 ## 4. 新代码的架构与风格约束
 
-- Go 后端已采用 **Bun + `modernc.org/sqlite` + Bun Migrations** 与 testify；zerolog、`robfig/cron/v3`、`go-keyring`、`net/http` 等按实际用例后续接入。优先具体类型与清晰的 Service / 业务边界，不引入 Gin、本地 REST Server、分布式调度或没有实际需求的 Repository 接口。
+- Go 后端已采用 **Bun + `modernc.org/sqlite` + Bun Migrations** 与 testify，已按业务需求接入 zerolog、`robfig/cron/v3`、`go-keyring` 和 `net/http`；正式桌面应用的调度与执行装配尚未完成。优先具体类型与清晰的 Service / 业务边界，不引入 Gin、本地 REST Server、分布式调度或没有实际需求的 Repository 接口。
 - Go 应用源码以根目录仅保留 `main.go` 为目标；现有 `greetservice.go` 是待移除的模板文件。新后端业务代码按职责放在 `internal/`，不预建空包。模型复用、Binding Input、事务和依赖方向以 [Go 桌面应用架构约定](docs/specs/profiles/backend/wails-desktop/Go%20桌面应用架构约定.md) 为准；数据库初稿见 [后端数据模型设计](docs/后端数据模型设计.md)。`build/` 的平台模板 Go 文件不属于根目录限制。
 - 调度器只负责触发计划；执行防重、持久化、漏发判定和恢复由业务逻辑与 SQLite 事务承担。任务使用明确时区（PRD 默认 `Asia/Shanghai`）；错过计划默认不补发，手动执行不改变定时计划。同一账号的多个任务共享发送频率限制。
 - B 站接口成功不能只看 HTTP 200，需校验业务响应；发送结果不确定时默认不自动重试。HTTP 请求要有超时、取消能力，避免在停任务或退出后继续发送。

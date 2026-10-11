@@ -39,6 +39,7 @@ var (
 	ExecutionStopped       = Event{name: "execution.stopped", component: "executor", result: "stopped", level: zerolog.InfoLevel}
 	ExecutionFailed        = Event{name: "execution.failed", component: "executor", result: "failed", level: zerolog.WarnLevel}
 	ExecutionPersistFailed = Event{name: "execution.persist_failed", component: "executor", result: "failed", errorCategory: "persistence", level: zerolog.ErrorLevel}
+	ExecutionInterrupted   = Event{name: "execution.interrupted", component: "executor", result: "interrupted", errorCategory: "recovery_interrupted", level: zerolog.WarnLevel}
 	SendAccepted           = Event{name: "send.resolved", component: "executor", result: "accepted", level: zerolog.InfoLevel}
 	SendRejected           = Event{name: "send.resolved", component: "executor", result: "rejected", level: zerolog.WarnLevel}
 	SendNotSent            = Event{name: "send.resolved", component: "executor", result: "not_sent", level: zerolog.WarnLevel}
@@ -46,6 +47,8 @@ var (
 	ScheduleClaimed        = Event{name: "schedule.claimed", component: "scheduler", result: "waiting", level: zerolog.InfoLevel}
 	ScheduleConflict       = Event{name: "schedule.conflict", component: "scheduler", result: "missed", errorCategory: "task_busy", level: zerolog.WarnLevel}
 	ScheduleSyncFailed     = Event{name: "schedule.sync_failed", component: "scheduler", result: "failed", errorCategory: "schedule_sync", level: zerolog.ErrorLevel}
+	ScheduleMissed         = Event{name: "schedule.missed", component: "scheduler", result: "missed", errorCategory: "schedule_overdue", level: zerolog.WarnLevel}
+	RecoveryFailed         = Event{name: "recovery.failed", component: "scheduler", result: "failed", errorCategory: "persistence", level: zerolog.ErrorLevel}
 )
 
 // Status can be read by a future settings/diagnostics UI without exposing
@@ -109,7 +112,7 @@ func (l *Logger) RecordSchedule(event Event, executionID, taskID, scheduledAt in
 	if executionID <= 0 || taskID <= 0 || scheduledAt <= 0 {
 		return
 	}
-	if event != ScheduleClaimed && event != ScheduleConflict {
+	if event != ScheduleClaimed && event != ScheduleConflict && event != ScheduleMissed {
 		return
 	}
 	e := l.log.WithLevel(event.level).
@@ -130,7 +133,7 @@ func (l *Logger) recordExecution(event Event, executionID, taskID int64, sequenc
 		return
 	}
 	switch event {
-	case ExecutionQueued, ExecutionConflict, ExecutionStarted, ExecutionCompleted, ExecutionStopped, ExecutionFailed,
+	case ExecutionQueued, ExecutionConflict, ExecutionStarted, ExecutionCompleted, ExecutionStopped, ExecutionFailed, ExecutionInterrupted,
 		ExecutionPersistFailed, SendAccepted, SendRejected, SendNotSent, SendUnknown:
 	default:
 		return
@@ -159,7 +162,7 @@ func safeSendCategory(category string) string {
 		"authentication", "rate_limited", "bad_request", "too_long",
 		"rejected", "invalid_input", "timeout", "cancelled", "transport",
 		"http_status", "invalid_response", "uncertain", "send_failure",
-		"user_stopped", "wait_failure", "persistence":
+		"user_stopped", "wait_failure", "persistence", "recovery_unknown":
 		return category
 	default:
 		return "send_failure"
