@@ -35,10 +35,6 @@ jobs:
         working-directory: frontend
         run: pnpm run format:check
 
-      - name: Run behavior tests
-        working-directory: frontend
-        run: pnpm run test
-
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -61,6 +57,12 @@ jobs:
           mkdir -p frontend/dist
           printf '%s\n' '<!doctype html><title>CI binding placeholder</title>' > frontend/dist/index.html
           "$(go env GOPATH)/bin/wails3" generate bindings -clean=true -ts -i ./...
+
+      # The test suites and lazy-loaded pages import these generated modules.
+      # Run Vitest only after binding generation in a clean checkout.
+      - name: Run behavior tests
+        working-directory: frontend
+        run: pnpm run test
 
       - name: Typecheck
         working-directory: frontend
