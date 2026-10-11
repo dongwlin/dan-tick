@@ -163,7 +163,7 @@ func safeSendCategory(category string) string {
 		"authentication", "rate_limited", "bad_request", "too_long",
 		"rejected", "invalid_input", "timeout", "cancelled", "transport",
 		"http_status", "invalid_response", "uncertain", "send_failure",
-		"user_stopped", "wait_failure", "persistence", "recovery_unknown":
+		"user_stopped", "wait_failure", "persistence", "recovery_unknown", "handoff_failed":
 		return category
 	default:
 		return "send_failure"

@@ -28,10 +28,11 @@ var (
 // the next persisted occurrence is registered. Using A3's calendar calculation
 // rather than an independent Cron expression preserves DST gap/fold semantics.
 //
-// onReady receives ONLY committed waiting executions. Its implementation is
-// the future scheduled executor; no HTTP request is made by this package.
+// onReady receives ONLY committed waiting executions. It dispatches each one
+// to the scheduled executor; no HTTP request is made by this package.
 // onError reports failures from asynchronous callbacks, including handoff
-// errors. A failed handoff is not retried because the waiting row is durable.
+// errors. A failed handoff is not retried; an unaccepted waiting row is
+// finalized so it cannot keep the task busy until the next application restart.
 type Manager struct {
 	db       *bun.DB
 	tasks    *task.Service
@@ -65,8 +66,9 @@ type pendingPlan struct {
 	due int64
 }
 
-// NewManager requires a real handoff function before Start can run. Until an
-// E-stage scheduled executor is available, no production scheduler is started.
+// NewManager requires a real handoff function before Start can run. The
+// application coordinator must dispatch committed instances to RunScheduled
+// outside the Cron callback and share the manual executor's Sender and Service.
 func NewManager(db *bun.DB, log *diagnostic.Logger,
 	onReady func(context.Context, ClaimResult) error, onError func(error)) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -373,9 +375,15 @@ func (m *Manager) fire(taskID, due int64, gen uint64) {
 	if err := m.SyncTask(m.ctx, taskID); err != nil && !errors.Is(err, ErrSchedulerClosed) {
 		m.report(fmt.Errorf("sync after scheduled occurrence: %w", err))
 	}
-	if result.Claimed && result.Status == "waiting" && m.ctx.Err() == nil {
-		if err := m.onReady(m.ctx, result); err != nil {
-			m.report(fmt.Errorf("hand off scheduled execution: %w", err))
+	if result.Claimed && result.Status == "waiting" {
+		if m.ctx.Err() != nil {
+			if err := m.finishUnacceptedHandoff(taskID, result.ExecutionID, true); err != nil {
+				m.report(err)
+			}
+		} else if err := m.onReady(m.ctx, result); err != nil {
+			cancelled := m.ctx.Err() != nil && errors.Is(err, context.Canceled)
+			cleanupErr := m.finishUnacceptedHandoff(taskID, result.ExecutionID, cancelled)
+			m.report(fmt.Errorf("hand off scheduled execution: %w", errors.Join(err, cleanupErr)))
 		}
 	}
 }

@@ -179,7 +179,7 @@ func safeCode(code *string) *string {
 		"invalid_input", "timeout", "cancelled", "transport", "http_status",
 		"invalid_response", "uncertain", "send_failure", "persistence",
 		"wait_failure", "user_stopped", "task_busy", "schedule_overdue",
-		"recovery_unknown", "recovery_interrupted":
+		"recovery_unknown", "recovery_interrupted", "handoff_failed":
 		return code
 	default:
 		unknown := "unknown_error"
