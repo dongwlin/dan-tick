@@ -4,8 +4,8 @@
 
 - dan-tick 是面向 Windows、Linux 的 B 站直播弹幕定时发送桌面应用：本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
-- **当前只有 Wails 3 模板应用，并未实现 PRD 的业务功能。** 技术栈选型中的 Bun、SQLite、Cron、Pinia、Tailwind、路由、表单和测试框架等是后续落地方案，不代表仓库已安装这些依赖或已有对应目录。按功能渐进引入，不为未来需求创建空架构。
-- `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录和 `frontend/` 下的 README 仍是模板说明，个别路径或功能与实际仓库不符，应以代码和工程配置为准。
+- **正式应用当前仍是 Wails 3 模板，并未实现 PRD 的业务功能。** `prototype/` 已有独立的 Vanilla TypeScript UI 演示，全部使用模拟状态，与 `frontend/` 正式 Vue 前端分开。技术栈选型中的 Bun、SQLite、Cron、Pinia、Tailwind、路由、表单和测试框架等是后续落地方案，不代表正式应用已安装这些依赖或已有对应目录。按功能渐进引入，不为未来需求创建空架构。
+- `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 仍是 Vue 模板说明，应以代码和工程配置为准。
 
 ## 2. 现有结构与调用边界
 
@@ -16,6 +16,7 @@
 | `frontend/src/main.ts`、`App.vue`、`components/HelloWorld.vue` | Vue 入口及模板页面；使用 `<script setup lang="ts">` 和 Composition API |
 | `frontend/public/`、`frontend/index.html` | 当前模板的全局样式、图片、字体及 HTML 入口 |
 | `frontend/package.json`、`vite.config.ts`、`tsconfig.json` | 前端脚本、Vite + Wails Binding 插件、TypeScript 配置 |
+| `prototype/` | 独立 UI 原型；详细职责和运行命令见 `prototype/AGENTS.md`、`prototype/README.md` |
 | `Taskfile.yml`、`build/` | Wails 3 / Task 的开发、构建和各平台打包配置；`build/config.yml` 为 Wails 开发配置 |
 | `docs/PRD.md`、`docs/技术栈选型.md`、`docs/specs/` | 产品规则、项目决策与引入的工程规范 |
 
@@ -78,4 +79,4 @@ npm run build:dev          # vue-tsc + 非压缩的 development build
 - **Commit message 必须使用英文，且符合 Conventional Commits**：`<type>[optional scope]: <description>`，例如 `docs: refine agent development guide`。每个 Commit 只覆盖一个明确的变更目的，不混入无关重构。
 - **Branch 名称必须符合 `<type>/<kebab-case-description>`**，`type` 与主要修改类型一致；例如 `test/agent-server-callback-test`。禁止使用 Agent、模型或工具名称作为 branch prefix。
 - **优先采用项目 Development Guide 定义的 change type vocabulary**。当前仓库没有 Development Guide 或已定义的类型词表，因此不要声称已有专属类型清单；在补充该指南前，分支 `type` 与对应的 Conventional Commits 类型保持一致。若后续新增 Development Guide，以其中的词表为准。
-- 当前可见历史只有 `master` 上的初始化提交 `feat: init`，尚不足以推导更细的 Commit scope、合并策略或分支流程；不要额外假设。分支操作与提交应遵守用户当前任务要求。
+- 不要从少量现有提交推导固定的 Commit scope、合并策略或分支流程；分支操作与提交应遵守用户当前任务要求。
