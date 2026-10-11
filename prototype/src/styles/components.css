@@ -21,7 +21,12 @@
 .list-endcap { display: none; padding: 10px 22px 14px; text-align: center; color: var(--text-tertiary); font-size: 11px; }
 [data-list-end][data-short='true'] > .list-endcap { display: block; }
 .history-table .table-wrap { overflow: visible; }
-.history-table .data-table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-solid); }
+.history-table .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: color-mix(in srgb, var(--surface-solid) 64%, var(--bg-canvas));
+}
 .history-table[data-short='true'] .data-table tbody tr:last-child td { border-bottom: 1px solid var(--border-hairline); }
 .list-toolbar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 22px; }
 .list-toolbar-heading h2 { margin: 0 0 1px; font-size: 16px; letter-spacing: -0.02em; }

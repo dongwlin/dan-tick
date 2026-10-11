@@ -50,7 +50,7 @@
 .filter-group { display: flex; gap: 10px; }
 .filter-group select { width: 150px; min-height: 39px; font-size: 12px; }
 .history-panel .data-table { min-width: 640px; }
-.history-panel .data-table th { padding-top: 17px; }
+.history-panel .data-table th { padding-block: 10px; font-weight: 600; letter-spacing: 0; color: var(--text-secondary); }
 .history-panel .table-wrap { padding: 0 12px; }
 .log-detail td { background: var(--surface-muted) !important; white-space: normal; }
 .log-detail td > div { padding: 5px 12px 8px; }
