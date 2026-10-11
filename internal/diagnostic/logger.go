@@ -45,6 +45,7 @@ var (
 	SendUnknown            = Event{name: "send.resolved", component: "executor", result: "unknown", level: zerolog.WarnLevel}
 	ScheduleClaimed        = Event{name: "schedule.claimed", component: "scheduler", result: "waiting", level: zerolog.InfoLevel}
 	ScheduleConflict       = Event{name: "schedule.conflict", component: "scheduler", result: "missed", errorCategory: "task_busy", level: zerolog.WarnLevel}
+	ScheduleSyncFailed     = Event{name: "schedule.sync_failed", component: "scheduler", result: "failed", errorCategory: "schedule_sync", level: zerolog.ErrorLevel}
 )
 
 // Status can be read by a future settings/diagnostics UI without exposing

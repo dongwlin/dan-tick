@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/adrg/xdg v0.5.3
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun v1.2.18
