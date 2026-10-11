@@ -4,9 +4,10 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log"
+	"os"
 	"time"
 
+	"github.com/dongwlin/dan-tick/internal/diagnostic"
 	"github.com/dongwlin/dan-tick/internal/storage"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -30,17 +31,43 @@ func init() {
 // and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
 // logs any error that might occur.
 func main() {
-	if err := run(); err != nil {
-		log.Fatal(err)
-	}
+	os.Exit(start())
 }
 
-func run() error {
+func start() (code int) {
+	logger := diagnostic.New(diagnostic.DefaultDir())
+	defer logger.Close()
+	defer func() {
+		if recover() != nil {
+			// Panics can contain private data; record the category, not the value.
+			logger.Record(diagnostic.AppPanicked)
+			_, _ = fmt.Fprintln(os.Stderr, "dan-tick: unexpected application failure; see diagnostic logs")
+			code = 1
+		}
+	}()
+	logger.Record(diagnostic.AppStarting)
+	if err := run(logger); err != nil {
+		logger.Record(diagnostic.AppFailed)
+		// The underlying error may contain credentials or private paths.
+		_, _ = fmt.Fprintln(os.Stderr, "dan-tick: application failed; see diagnostic logs for the failure stage")
+		return 1
+	}
+	logger.Record(diagnostic.AppStopped)
+	return 0
+}
+
+func run(logger *diagnostic.Logger) error {
 	db, err := storage.Open(context.Background(), storage.DefaultPath())
 	if err != nil {
+		logger.Record(diagnostic.DatabaseOpenFailed)
 		return fmt.Errorf("open application database: %w", err)
 	}
-	defer db.Close()
+	logger.Record(diagnostic.DatabaseReady)
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Record(diagnostic.DatabaseCloseFailed)
+		}
+	}()
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -93,6 +120,7 @@ func run() error {
 	// Run the application. This blocks until the application has been exited.
 	err = app.Run()
 	if err != nil {
+		logger.Record(diagnostic.DesktopRunFailed)
 		return fmt.Errorf("run application: %w", err)
 	}
 	return nil

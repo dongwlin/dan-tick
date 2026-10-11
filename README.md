@@ -41,10 +41,20 @@ wails3 build
 | --- | --- |
 | `main.go`、`greetservice.go` | 当前 Wails 模板入口与示例服务 |
 | `internal/storage/` | Bun + SQLite 连接、事务型数据库迁移及集成测试 |
+| `internal/diagnostic/` | 结构化安全诊断日志、轮转与保留策略 |
 | `frontend/` | 正式 Wails 应用的 Vue 3 + TypeScript 前端（尚未实现业务页面） |
 | `prototype/` | 独立 UI 演示原型，Vanilla TypeScript + Vite |
 | `build/`、`Taskfile.yml` | Wails 开发、构建和平台打包配置 |
 | `docs/` | 产品需求、技术决策、开发计划和数据库设计文档 |
+
+## 诊断日志
+
+正式应用启动时默认记录本地 JSON Lines 诊断日志，数据库初始化失败也会记录。活动文件为 `dan-tick.jsonl`；单文件最多 10 MiB，总共最多 5 个文件（含活动文件），轮转日志最多保留 14 天。日志与 SQLite 执行历史、Keyring 凭证相互独立。
+
+- Linux：通常为 `~/.local/state/dan-tick/logs/`（可受 `XDG_STATE_HOME` 影响）。
+- Windows：通常为 `%LOCALAPPDATA%\dan-tick\logs\`。
+
+当前正式界面还是模板，尚未提供「打开日志目录」与诊断包导出；这些功能将在 L3 接入设置页。日志不可写时不会阻止应用运行，当前通过标准错误输出发出有界提示，并可由后续设置页读取降级状态。
 
 ## 文档入口
 
