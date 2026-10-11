@@ -85,13 +85,12 @@ func (s *Sender) SendWithAdmission(ctx context.Context, roomID, message string, 
 		return Result{Outcome: NotSent}, err
 	}
 
-	// Hold the permit throughout the HTTP call: later requests must not
-	// overlap, and the next gap is measured from the actual send attempt.
-	previousDue := s.nextDue
-	s.nextDue = s.now().Add(s.interval)
+	// Hold the permit throughout the client call, including credential reads.
+	// Start the next gap after the attempt returns so preflight or HTTP latency
+	// cannot shorten the interval between actual requests.
 	result, err := s.client.Send(ctx, roomID, message)
-	if result.Outcome == NotSent {
-		s.nextDue = previousDue
+	if result.Outcome != NotSent {
+		s.nextDue = s.now().Add(s.interval)
 	}
 	return result, err
 }

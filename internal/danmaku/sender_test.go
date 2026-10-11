@@ -49,6 +49,46 @@ func (f sendFunc) Send(ctx context.Context, roomID, message string) (Result, err
 	return f(ctx, roomID, message)
 }
 
+type credentialLoadFunc func() (credential.Credentials, error)
+
+func (f credentialLoadFunc) Load() (credential.Credentials, error) { return f() }
+
+func TestSenderPreservesHTTPIntervalAfterSlowCredentialRead(t *testing.T) {
+	for _, readDelay := range []time.Duration{14 * time.Second, 30 * time.Second} {
+		t.Run(readDelay.String(), func(t *testing.T) {
+			clock := &fakeClock{now: time.Unix(1000, 0)}
+			started := make(chan time.Time, 2)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				started <- clock.Now()
+				_, _ = w.Write([]byte(`{"code":0}`))
+			}))
+			defer server.Close()
+
+			loads := 0
+			store := credentialLoadFunc(func() (credential.Credentials, error) {
+				loads++
+				if loads == 1 {
+					clock.Advance(readDelay)
+				}
+				return credential.Credentials{SESSDATA: sessionSecret, BiliJCT: csrfSecret}, nil
+			})
+			client := NewClient(store, server.Client())
+			client.endpoint = server.URL
+			sender := newSender(client, accountInterval, clock.Now, clock.Wait)
+
+			for _, send := range []func(context.Context, string, string) (Result, error){sender.Send, sender.TestSend} {
+				result, err := send(context.Background(), "42", "example")
+				require.NoError(t, err)
+				require.Equal(t, Accepted, result.Outcome)
+			}
+			first, second := <-started, <-started
+			require.Equal(t, accountInterval, second.Sub(first))
+			require.Equal(t, []time.Duration{accountInterval}, clock.delays)
+			require.Equal(t, 2, loads)
+		})
+	}
+}
+
 func TestSendAndTestSendShareAccountIntervalWithRealHTTP(t *testing.T) {
 	clock := &fakeClock{now: time.Unix(1760123456, 0)}
 	var started []time.Time
@@ -208,6 +248,7 @@ func TestSenderPropagatesErrorsAndPreservesIntervals(t *testing.T) {
 	sender := newSender(sendFunc(func(ctx context.Context, roomID, message string) (Result, error) {
 		answer := responses[calls]
 		calls++
+		clock.Advance(10 * time.Second)
 		return answer.result, answer.err
 	}), accountInterval, clock.Now, clock.Wait)
 
