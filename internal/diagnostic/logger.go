@@ -49,6 +49,7 @@ var (
 	ScheduleSyncFailed     = Event{name: "schedule.sync_failed", component: "scheduler", result: "failed", errorCategory: "schedule_sync", level: zerolog.ErrorLevel}
 	ScheduleMissed         = Event{name: "schedule.missed", component: "scheduler", result: "missed", errorCategory: "schedule_overdue", level: zerolog.WarnLevel}
 	RecoveryFailed         = Event{name: "recovery.failed", component: "scheduler", result: "failed", errorCategory: "persistence", level: zerolog.ErrorLevel}
+	HistoryCleanupFailed   = Event{name: "history.cleanup_failed", component: "history", result: "failed", errorCategory: "persistence", level: zerolog.WarnLevel}
 )
 
 // Status can be read by a future settings/diagnostics UI without exposing

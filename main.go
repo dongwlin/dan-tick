@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
+	"github.com/dongwlin/dan-tick/internal/history"
 	"github.com/dongwlin/dan-tick/internal/storage"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -67,6 +68,35 @@ func run(logger *diagnostic.Logger) error {
 		if err := db.Close(); err != nil {
 			logger.Record(diagnostic.DatabaseCloseFailed)
 		}
+	}()
+
+	// Run retention once at startup and every 24 hours while the desktop app
+	// remains open. Maintenance failure must not prevent tasks from running.
+	cleanup := history.NewService(db)
+	cleanupHistory := func(ctx context.Context) {
+		if _, err := cleanup.CleanupExpired(ctx, time.Now()); err != nil && ctx.Err() == nil {
+			logger.Record(diagnostic.HistoryCleanupFailed)
+		}
+	}
+	cleanupHistory(context.Background())
+	cleanupCtx, stopCleanup := context.WithCancel(context.Background())
+	cleanupDone := make(chan struct{})
+	go func() {
+		defer close(cleanupDone)
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-cleanupCtx.Done():
+				return
+			case <-ticker.C:
+				cleanupHistory(cleanupCtx)
+			}
+		}
+	}()
+	defer func() {
+		stopCleanup()
+		<-cleanupDone // stop all queries before closing SQLite
 	}()
 
 	// Create a new Wails application by providing the necessary options.
