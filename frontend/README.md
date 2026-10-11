@@ -42,6 +42,7 @@ pnpm run build
 | 命令                    | 用途                                                            |
 | ----------------------- | --------------------------------------------------------------- |
 | `pnpm run dev`          | 运行 Vite 开发服务器                                            |
+| `pnpm run test`         | 在 happy-dom 环境中运行一次前端行为测试                         |
 | `pnpm run typecheck`    | 独立检查 Vue 源码、生成 Binding 和 Vite 配置的类型              |
 | `pnpm run lint`         | 执行 ESLint 检查，warning 也会使检查失败                        |
 | `pnpm run lint:fix`     | 自动修复可修复的 ESLint 问题，剩余错误或 warning 仍会使检查失败 |
@@ -51,7 +52,13 @@ pnpm run build
 | `pnpm run build:dev`    | 执行 `typecheck`，再构建未压缩的 development 产物               |
 | `pnpm run preview`      | 预览已生成的前端产物                                            |
 
-Vite 默认监听 `127.0.0.1:9245`，可以用 `WAILS_VITE_PORT` 调整。普通浏览器能预览页面，但 Wails Service / Events 的桌面行为需要在真实 Wails 窗口中验证。`typecheck` 使用 `vue-tsc --noEmit` 检查 [`tsconfig.json`](tsconfig.json) 中的源码与生成 Binding，使用 `tsc --project tsconfig.node.json` 检查 [`tsconfig.node.json`](tsconfig.node.json) 中的 `vite.config.ts`。`build` 和 `build:dev` 保留该类型检查步骤；前端 `test` 脚本与 CI 尚未接入。
+Vite 默认监听 `127.0.0.1:9245`，可以用 `WAILS_VITE_PORT` 调整。普通浏览器能预览页面，但 Wails Service / Events 的桌面行为需要在真实 Wails 窗口中验证。`typecheck` 使用 `vue-tsc --noEmit` 检查 [`tsconfig.json`](tsconfig.json) 中的源码与生成 Binding，使用 `tsc --project tsconfig.node.json` 检查 [`tsconfig.node.json`](tsconfig.node.json) 中的 `vite.config.ts` 和 `vitest.config.ts`。`build` 和 `build:dev` 保留该类型检查步骤；CI 留待 FE9 接入。
+
+## 行为测试（FE6）
+
+`pnpm run test` 使用 Vitest 5、Vue Testing Library、user-event 与 happy-dom。`vitest.config.ts` 与生产 Vite 配置分离：只加载 Vue SFC 插件和 `@/*` 别名，不调用 Wails 桌面插件；因此不依赖运行中的桌面应用、真实 B 站网络或系统 Keyring。`src/test/setup.ts` 在测试后清理挂载的 DOM、Mock、`localStorage` 和 Hash URL。需要真实路由的测试使用 `createAppRouter()` 创建独立的 Hash Router，不替换内部导航逻辑。
+
+现有 `App.test.ts` 测试深链接、实际导航、未知路径回退；`SettingsPage.test.ts` 通过页面交互测试主题状态、系统颜色变化和存储不可用时的反馈。新增测试优先与源文件共置，使用 `*.test.ts`，通过可访问角色 / 名称定位，不直接调用组件私有方法。未来 Wails Binding / Events 业务测试在实际接入时替换外部边界；复杂 Focus / 键盘、CSS 与系统 WebView 行为仍需浏览器或桌面验证，不能仅依赖 DOM 模拟。
 
 ## 主题与视觉基础（FE4）
 
@@ -71,7 +78,7 @@ pnpm 11 的依赖构建许可仅为 Reka 传递依赖 `vue-demi` 的 Vue 3 选�
 
 格式化由 Prettier 独立执行，`eslint-config-prettier` 放在 ESLint 配置最后关闭冲突规则。[`.prettierrc.json`](.prettierrc.json) 约定单引号、无分号、2 空格缩进、100 字符行宽、LF 和 `trailingComma: all`。检查与格式化只作用于正式 `frontend/`，不扩展到独立原型或根目录文档。ESLint 忽略依赖、生成 Binding、`dist/` 与 `coverage/`；[`.prettierignore`](.prettierignore) 另外保留 pnpm 锁文件、第三方 SVG 与字体许可证原文。
 
-提交前运行 `pnpm run lint`、`pnpm run format:check` 和 `pnpm run build`；需要修复时先运行 `lint:fix` 或 `format`，再重新检查。依赖 / 生成物不手动修复，Binding 缺失时先运行上面的 Wails 生成命令。
+提交前运行 `pnpm run test`、`pnpm run lint`、`pnpm run format:check` 和 `pnpm run build`；需要修复时先运行 `lint:fix` 或 `format`，再重新检查。依赖 / 生成物不手动修复，Binding 缺失时先运行上面的 Wails 生成命令。
 
 ## 配置与导入路径
 

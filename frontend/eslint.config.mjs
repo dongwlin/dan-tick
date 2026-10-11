@@ -20,7 +20,7 @@ export default withVueTs(
     },
   },
   {
-    files: ['src/**/*.{ts,tsx,vue}', 'vite.config.ts'],
+    files: ['src/**/*.{ts,tsx,vue}', 'vite.config.ts', 'vitest.config.ts'],
     extends: [vueTsConfigs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {

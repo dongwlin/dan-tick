@@ -5,7 +5,7 @@
 - dan-tick 是面向 Windows、Linux 的 B 站直播弹幕定时发送桌面应用：本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
 - 开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它用于安排实施步骤，不覆盖 PRD 与技术选型的权威性；UI 原型可以独立继续迭代。
-- **正式应用外壳与业务页面尚未迁移，尚不能发送弹幕。** 已接入 Bun、SQLite、首次 Migration 与基础存储测试；`prototype/` 仍是独立的 Vanilla TypeScript 模拟 UI，与正式 Vue 前端分开。Cron 内核已通过 E1～E3 完成领取、注册与恢复测试，E4 已提供 SQLite 执行历史查询，但尚未装配进正式应用；前端已建立 Vue Router 4（Hash History）应用装配与占位页面、Tailwind v4 主题视觉基础，并开始实际使用 Reka UI 和 Lucide 图标；Pinia、业务表单 / 前端测试框架等尚未接入。按功能渐进引入，不为未来需求创建空架构。
+- **正式应用外壳与业务页面尚未迁移，尚不能发送弹幕。** 已接入 Bun、SQLite、首次 Migration 与基础存储测试；`prototype/` 仍是独立的 Vanilla TypeScript 模拟 UI，与正式 Vue 前端分开。Cron 内核已通过 E1～E3 完成领取、注册与恢复测试，E4 已提供 SQLite 执行历史查询，但尚未装配进正式应用；前端已建立 Vue Router 4（Hash History）应用装配与占位页面、Tailwind v4 主题视觉基础、Reka UI / Lucide 交互原语以及 Vitest 行为测试；Pinia、业务表单等尚未接入。按功能渐进引入，不为未来需求创建空架构。
 - `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 说明正式 Vue 前端的工具链与构建流程。
 
 ## 2. 现有结构与调用边界
@@ -22,6 +22,7 @@
 | `frontend/public/`、`frontend/index.html` | 静态资源及 HTML 入口 |
 | `frontend/package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`.node-version` | 前端脚本、固定工具链、依赖锁文件及 pnpm 安装策略 |
 | `frontend/vite.config.ts`、`tsconfig.json`、`tsconfig.node.json` | Vite + Wails Binding 插件、源码与构建配置的 TypeScript 检查 |
+| `frontend/vitest.config.ts`、`src/test/setup.ts`、`*.test.ts` | 独立于 Wails 的 Vitest + happy-dom 测试配置、测试环境清理与用户可观察行为测试 |
 | `frontend/eslint.config.mjs`、`.prettierrc.json`、`.prettierignore` | 正式前端 ESLint Flat Config、格式约定与依赖 / 生成物忽略规则 |
 | `prototype/` | 独立 UI 原型；详细职责和运行命令见 `prototype/AGENTS.md`、`prototype/README.md` |
 | `Taskfile.yml`、`build/` | Wails 3 / Task 的开发、构建和各平台打包配置；`build/config.yml` 为 Wails 开发配置 |
@@ -45,8 +46,9 @@ cd ..
 wails3 dev                 # 桌面开发，前端热更新
 wails3 build               # 构建当前平台桌面应用
 
-# 仅前端检查 / 构建（需要已生成 Wails bindings）
+# 前端检查 / 构建（类型检查和构建需要已生成 Wails bindings）
 cd frontend
+pnpm run test              # Vitest + Testing Library 行为测试，不需要运行 Wails
 pnpm run typecheck         # 独立检查 Vue 源码和 Vite 配置的类型
 pnpm run lint              # ESLint 检查；不允许 warning
 pnpm run format:check      # Prettier 格式检查
@@ -58,7 +60,7 @@ pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
 
 - Wails 构建任务会通过 `build/Taskfile.yml` 安装前端依赖、生成 Binding、构建前端，并可能运行 `go mod tidy`；构建后检查有无意外的 `go.mod` / `go.sum` 变化。
 - Go 变更：对修改的 Go 文件执行 `gofmt`，并按需运行 `go test ./...`、`go vet ./...`；并发敏感代码还需运行 `go test -race ./...`（环境支持时）。**独立运行 Go 命令前须有 `frontend/dist/`**，否则 `main.go` 的 `go:embed` 会报错。可以先通过 Wails 构建生成前端产物。
-- **已有 Go 集成测试与正式前端 ESLint / Prettier / 独立 `typecheck` 脚本，但尚无 CI 工作流或前端 `test` 脚本。** `typecheck` 通过 `vue-tsc` 检查 Vue 源码与生成 Binding、通过 `tsc` 检查 `vite.config.ts`；`build` 和 `build:dev` 均先执行 `typecheck`。不要编造 `pnpm run test` 或把 specs 中规划的检查当作当前可运行命令；测试与 CI 随对应开发单元接入。
+- **已有 Go 集成测试、前端 `pnpm run test`、ESLint / Prettier 和独立 `typecheck`，尚无 CI 工作流。** Vitest 通过 `frontend/vitest.config.ts` 使用 Vue 插件与 happy-dom，实际测试位于 `src/app/App.test.ts`、`src/pages/SettingsPage.test.ts`；不启动 Wails 桌面插件。`typecheck` 通过 `vue-tsc` 检查 Vue 源码与生成 Binding、通过 `tsc` 检查 `vite.config.ts` 和 `vitest.config.ts`；`build` 和 `build:dev` 均先执行 `typecheck`。测试覆盖随真实业务功能逐步增长，CI 留待 FE9。
 - ESLint 采用 Flat Config，启用 JavaScript、TypeScript 类型感知、Vue 与 Vue 可访问性推荐规则，以及重复导入、类型导入和非空断言检查；`lint` / `lint:fix` 使用 `--max-warnings 0`。Prettier 独立执行，`eslint-config-prettier` 最后关闭冲突规则，不通过 ESLint 执行格式化。检查限定 `frontend/`，忽略依赖、生成 Binding、构建与覆盖率产物；Prettier 另外忽略锁文件、第三方 SVG 和许可证。
 
 ## 4. 新代码的架构与风格约束
@@ -77,14 +79,14 @@ pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
 1. 读对应 PRD 条目、技术选型和相关 Pack，区分已有行为与计划行为；确认需要修改的 Go、Binding、前端边界及平台影响。
 2. 先用最小可维护实现满足场景；不要为了“未来扩展”提前拆层、重复维护业务状态或加与任务无关的防御分支。
 3. 为新增或修改的**关键行为**补测试，而不是机械追求覆盖率：Go 侧用 `testing` / testify、可控时钟、真实临时 SQLite（包括重新打开后的恢复）及 `httptest` 验证调度防重、时区、状态变更、停止条件、限流和异常响应。测试不得访问真实 B 站生产接口或使用实际账号凭证。
-4. 前端测试基础设施**引入之后**，默认用 Vitest + Vue Testing Library 验证用户可见行为；对 Binding / Events 外部边界做替换，不断言内部实现。真实焦点、键盘或 WebView 差异按需做浏览器和 Windows / Linux 实机验证；不要为纯文档或简单模板调整搭建完整测试框架。
+4. 前端默认用 Vitest + Vue Testing Library + user-event 验证用户可见行为；对 Binding / Events 外部边界做替换，不断言内部实现。真实焦点、键盘或 WebView 差异按需做浏览器和 Windows / Linux 实机验证；不要为纯文档或简单模板调整搭建完整测试框架。
 5. 影响托盘、窗口隐藏、单实例、自启动、Keyring、睡眠恢复或后台运行的变更，记录对应平台的人工验证；Go 单元测试和普通浏览器测试不能替代桌面验收。
 
 提交改动前至少检查：
 
 - `git diff --check`、`git status --short`：确认无空白错误、生成文件、凭证或无关改动。
 - Go 代码改动：`gofmt` 后执行受影响测试；准备好前端构建产物后运行 `go test ./...`、`go vet ./...`，并发敏感场景酌情加 `-race`。
-- 前端代码改动：生成 / 更新 Binding 后在 `frontend/` 运行 `pnpm run lint`、`pnpm run format:check` 和 `pnpm run build`；可用 `pnpm run typecheck` 独立检查类型，构建仍包含该检查。影响 Wails 集成或桌面行为时再执行 `wails3 build` 和相关平台手动检查。
+- 前端代码改动：在 `frontend/` 运行 `pnpm run test`、`pnpm run lint`、`pnpm run format:check`；生成 / 更新 Binding 后运行 `pnpm run build`，可用 `pnpm run typecheck` 独立检查类型，构建仍包含该检查。影响 Wails 集成或桌面行为时再执行 `wails3 build` 和相关平台手动检查。
 - 纯文档改动：核对 Markdown 链接、路径与命令的真实性即可。无法运行的检查需说明原因，不得报告为通过。保留用户未提交改动；未经要求不自行提交、重置或清理。
 
 ## 6. Git 分支与提交
