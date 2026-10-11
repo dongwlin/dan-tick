@@ -57,7 +57,7 @@ function refreshPreview(): void {
 }
 
 function render(): void {
-  app.innerHTML = `<div class="app-shell">${sidebar()}<div class="app-column">${titlebar()}<main id="main" class="main-scroll" tabindex="-1"><div class="content-wrap">${({ dashboard, tasks: tasksPage, rooms: roomsPage, history: historyPage, settings: settingsPage, editor: editorPage } as Record<Page, () => string>)[state.page]()}</div><footer class="app-footer">dan-tick UI 原型 · 不会发送真实弹幕</footer></main></div></div>${state.toast ? `<div role="status" class="toast">${ico(state.toastType === 'info' ? 'info' : 'circle-check')}${h(state.toast)}<button class="icon-button" type="button" data-action="dismiss-toast" aria-label="关闭提示">${ico('x')}</button></div>` : ''}`
+  app.innerHTML = `<div class="app-shell">${titlebar()}<div class="app-column">${sidebar()}<main id="main" class="main-scroll" tabindex="-1"><div class="content-wrap">${({ dashboard, tasks: tasksPage, rooms: roomsPage, history: historyPage, settings: settingsPage, editor: editorPage } as Record<Page, () => string>)[state.page]()}</div><footer class="app-footer">dan-tick UI 原型 · 不会发送真实弹幕</footer></main></div></div>${state.toast ? `<div role="status" class="toast">${ico(state.toastType === 'info' ? 'info' : 'circle-check')}${h(state.toast)}<button class="icon-button" type="button" data-action="dismiss-toast" aria-label="关闭提示">${ico('x')}</button></div>` : ''}`
   renderIcons()
 }
 
@@ -98,7 +98,6 @@ export function startApp(): void {
     if (!actionEl) return
     const { action, id } = actionEl.dataset
     switch (action) {
-      case 'toggle-sidebar': state.sidebarExpanded = !state.sidebarExpanded; render(); break
       case 'window-minimize':
       case 'window-maximize':
       case 'window-close':

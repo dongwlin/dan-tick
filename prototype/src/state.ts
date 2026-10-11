@@ -2,7 +2,6 @@ import { initialLogs, initialRooms, initialTasks, type Page, type Task } from '.
 
 export const state = {
   page: 'dashboard' as Page,
-  sidebarExpanded: false,
   rooms: structuredClone(initialRooms),
   tasks: structuredClone(initialTasks),
   logs: structuredClone(initialLogs),
