@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {ref, onMounted, useTemplateRef} from 'vue'
 import {Events, WML} from "@wailsio/runtime";
-import {GreetService} from "../../bindings/github.com/dongwlin/dan-tick";
+import {GreetService} from "@bindings/github.com/dongwlin/dan-tick";
 
 // Show the actual Wails version this project was generated against.
 const wailsVersion = "v3.0.0-beta.25";
@@ -60,7 +60,7 @@ onMounted(() => {
     // On a narrow screen the full RFC1123 stamp is too wide for the footer, so
     // show just the clock time there (matching the CSS breakpoint).
     const full = timeValue.data;
-    const compact = (full.match(/\d{1,2}:\d{2}:\d{2}/) || [full])[0];
+    const compact = full.match(/\d{1,2}:\d{2}:\d{2}/)?.[0] ?? full;
     time.value = window.matchMedia('(max-width: 640px)').matches ? compact : full;
   });
   // Wire up data-wml-openURL links (logos + footer "Docs" link).

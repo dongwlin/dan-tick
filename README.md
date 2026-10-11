@@ -18,11 +18,11 @@ pnpm dev
 
 ## 运行正式应用模板
 
-需要 Go 1.25、Node.js / npm、Wails 3 CLI，以及目标平台所需的 Wails 构建依赖。
+需要 Go 1.25、Node.js 24.18.0、pnpm 11.28.4、Wails 3 CLI，以及目标平台所需的 Wails 构建依赖。正式前端的 Node 版本记录在 `frontend/.node-version`，pnpm 版本由 `frontend/package.json` 的 `packageManager` 固定。
 
 ```sh
 cd frontend
-npm install
+pnpm install --frozen-lockfile
 cd ..
 wails3 dev
 ```
@@ -33,7 +33,7 @@ wails3 dev
 wails3 build
 ```
 
-桌面构建产物位于 `bin/`。当前 `frontend/` 仍为 Vue 模板页面，以上命令不会启动 UI 原型，也不会提供尚未实现的弹幕功能。正式前端默认使用 npm；`prototype/` 独立使用 pnpm。
+桌面构建产物位于 `bin/`。当前 `frontend/` 仍为 Vue 模板页面，以上命令不会启动 UI 原型，也不会提供尚未实现的弹幕功能。正式前端与 `prototype/` 均使用 pnpm，但分别管理依赖与锁文件，不合并为 workspace。正式前端的单独构建和依赖升级说明见 [前端 README](frontend/README.md)。
 
 ## 仓库结构
 

@@ -1,0 +1,5 @@
+# Single-package frontend; the prototype keeps its own dependency tree.
+minimumReleaseAge: 10080
+engineStrict: true
+saveExact: true
+pmOnFail: download

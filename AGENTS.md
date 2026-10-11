@@ -6,7 +6,7 @@
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
 - 开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它用于安排实施步骤，不覆盖 PRD 与技术选型的权威性；UI 原型可以独立继续迭代。
 - **正式应用仍以 Wails 3 模板为主，尚不能发送弹幕。** 已接入 Bun、SQLite、首次 Migration 与基础存储测试；`prototype/` 仍是独立的 Vanilla TypeScript 模拟 UI，与正式 Vue 前端分开。Cron 内核已通过 E1～E3 完成领取、注册与恢复测试，E4 已提供 SQLite 执行历史查询，但尚未装配进正式应用；Pinia、Tailwind、路由与前端表单 / 测试框架等尚未接入。按功能渐进引入，不为未来需求创建空架构。
-- `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 仍是 Vue 模板说明，应以代码和工程配置为准。
+- `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 说明正式 Vue 前端的工具链与构建流程。
 
 ## 2. 现有结构与调用边界
 
@@ -18,7 +18,8 @@
 | `greetservice.go` | 示例 `GreetService`，不是弹幕业务服务 |
 | `frontend/src/main.ts`、`App.vue`、`components/HelloWorld.vue` | Vue 入口及模板页面；使用 `<script setup lang="ts">` 和 Composition API |
 | `frontend/public/`、`frontend/index.html` | 当前模板的全局样式、图片、字体及 HTML 入口 |
-| `frontend/package.json`、`vite.config.ts`、`tsconfig.json` | 前端脚本、Vite + Wails Binding 插件、TypeScript 配置 |
+| `frontend/package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`.node-version` | 前端脚本、固定工具链、依赖锁文件及 pnpm 安装策略 |
+| `frontend/vite.config.ts`、`tsconfig.json`、`tsconfig.node.json` | Vite + Wails Binding 插件、源码与构建配置的 TypeScript 检查 |
 | `prototype/` | 独立 UI 原型；详细职责和运行命令见 `prototype/AGENTS.md`、`prototype/README.md` |
 | `Taskfile.yml`、`build/` | Wails 3 / Task 的开发、构建和各平台打包配置；`build/config.yml` 为 Wails 开发配置 |
 | `docs/PRD.md`、`docs/技术栈选型.md`、`docs/specs/` | 产品规则、项目决策与引入的工程规范 |
@@ -31,25 +32,25 @@
 ## 3. 开发环境与可执行命令
 
 - `go.mod` 要求 **Go 1.25.0**；当前框架依赖是 `github.com/wailsapp/wails/v3 v3.0.0-beta.25`。前端由 **Vue 3 + TypeScript + Vite 8** 构成，仓库提供 Wails 3 CLI / Taskfile 流程。
-- 当前 `Taskfile.yml` 的 `PACKAGE_MANAGER` 默认是 `npm`；`frontend/package.json` 只声明了 npm scripts，**仓库尚无前端锁文件**。不要因为通用 specs 提到其他包管理器，就假设已完成切换。
-- `frontend/.npmrc` 声明了 `minimum-release-age=10080`，但其中明确注明 npm 尚不支持这项限制；不要将它误认为当前 npm 安装的安全保证。Vite 开发服务器默认绑定 `127.0.0.1:9245`（可通过 `WAILS_VITE_PORT` 调整）。
+- 正式前端使用 **pnpm 11.28.4**，由 `frontend/package.json` 的 `packageManager` 固定；`frontend/.node-version` 指定 **Node.js 24.18.0**，`engines` 要求 `>=24.18.0 <25`。`Taskfile.yml` 的 `PACKAGE_MANAGER` 默认是 `pnpm`，安装使用已提交的 `frontend/pnpm-lock.yaml` 与 `pnpm install --frozen-lockfile`。`prototype/` 独立管理依赖，不合并 workspace。
+- `frontend/pnpm-workspace.yaml` 保存单包安装配置，启用 `minimumReleaseAge: 10080`（7 天）及 `engineStrict: true`；不再用旧 `.npmrc` 表达这些策略。Vite 开发服务器默认绑定 `127.0.0.1:9245`（可通过 `WAILS_VITE_PORT` 调整）。源码别名为 `@/*` → `src/*`、`@bindings/*` → `bindings/*`，TypeScript 与 Vite 保持一致。
 
 ```sh
-# 仓库根目录；需先安装 Go、Node/npm、Wails 3 CLI 及目标平台所需的 Wails 构建依赖
-cd frontend && npm install
+# 仓库根目录；需先安装 Go、Node/pnpm、Wails 3 CLI 及目标平台所需的 Wails 构建依赖
+cd frontend && pnpm install --frozen-lockfile
 cd ..
 wails3 dev                 # 桌面开发，前端热更新
 wails3 build               # 构建当前平台桌面应用
 
 # 仅前端检查 / 构建（需要已生成 Wails bindings）
 cd frontend
-npm run build              # vue-tsc + Vite production build
-npm run build:dev          # vue-tsc + 非压缩的 development build
+pnpm run build             # Vue 源码和 Vite 配置类型检查 + production build
+pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
 ```
 
 - Wails 构建任务会通过 `build/Taskfile.yml` 安装前端依赖、生成 Binding、构建前端，并可能运行 `go mod tidy`；构建后检查有无意外的 `go.mod` / `go.sum` 变化。
 - Go 变更：对修改的 Go 文件执行 `gofmt`，并按需运行 `go test ./...`、`go vet ./...`；并发敏感代码还需运行 `go test -race ./...`（环境支持时）。**独立运行 Go 命令前须有 `frontend/dist/`**，否则 `main.go` 的 `go:embed` 会报错。可以先通过 Wails 构建生成前端产物。
-- **已有 `internal/storage/storage_test.go` 的 Go 集成测试，但尚无 CI 工作流、前端 `test` / `lint` / 独立 `typecheck` 脚本，也没有已接入的 ESLint / Prettier 配置。** 类型检查包含在 `npm run build` 中；不要编造 `npm run test`、`npm run lint` 或把 specs 中规划的检查当作当前可运行命令。工具落地时再补相应脚本与 CI。
+- **已有 `internal/storage/storage_test.go` 的 Go 集成测试，但尚无 CI 工作流、前端 `test` / `lint` / 独立 `typecheck` 脚本，也没有已接入的 ESLint / Prettier 配置。** `pnpm run build` 和 `pnpm run build:dev` 均通过 `vue-tsc` 检查 Vue 源码、通过 `tsc` 检查 `vite.config.ts`；不要编造 `pnpm run test`、`pnpm run lint` 或把 specs 中规划的检查当作当前可运行命令。工具落地时再补相应脚本与 CI。
 
 ## 4. 新代码的架构与风格约束
 
@@ -74,7 +75,7 @@ npm run build:dev          # vue-tsc + 非压缩的 development build
 
 - `git diff --check`、`git status --short`：确认无空白错误、生成文件、凭证或无关改动。
 - Go 代码改动：`gofmt` 后执行受影响测试；准备好前端构建产物后运行 `go test ./...`、`go vet ./...`，并发敏感场景酌情加 `-race`。
-- 前端代码改动：生成 / 更新 Binding 后在 `frontend/` 运行 `npm run build`；影响 Wails 集成或桌面行为时再执行 `wails3 build` 和相关平台手动检查。
+- 前端代码改动：生成 / 更新 Binding 后在 `frontend/` 运行 `pnpm run build`；影响 Wails 集成或桌面行为时再执行 `wails3 build` 和相关平台手动检查。
 - 纯文档改动：核对 Markdown 链接、路径与命令的真实性即可。无法运行的检查需说明原因，不得报告为通过。保留用户未提交改动；未经要求不自行提交、重置或清理。
 
 ## 6. Git 分支与提交
