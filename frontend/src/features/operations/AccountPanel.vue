@@ -82,7 +82,7 @@ async function clearCredentials() {
         }}
       </span>
     </div>
-    <div class="grid gap-3 md:grid-cols-2">
+    <div class="grid gap-3">
       <label for="account-sessdata" :class="labelClass">
         SESSDATA
         <input
