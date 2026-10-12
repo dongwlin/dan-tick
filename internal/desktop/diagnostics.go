@@ -23,14 +23,20 @@ func NewDiagnosticsService(logger *diagnostic.Logger, openFolder func(string) er
 }
 
 type DiagnosticsStatus struct {
-	Directory string `json:"directory"`
-	Degraded  bool   `json:"degraded"`
-	Warning   string `json:"warning"`
+	Directory     string `json:"directory"`
+	DataDirectory string `json:"dataDirectory"`
+	Degraded      bool   `json:"degraded"`
+	Warning       string `json:"warning"`
 }
 
 func (s *DiagnosticsService) GetDiagnosticsStatus() DiagnosticsStatus {
 	status := s.logger.Status()
-	return DiagnosticsStatus{Directory: status.Directory, Degraded: status.Degraded, Warning: status.Warning}
+	return DiagnosticsStatus{
+		Directory:     status.Directory,
+		DataDirectory: filepath.Dir(storage.DefaultPath()),
+		Degraded:      status.Degraded,
+		Warning:       status.Warning,
+	}
 }
 
 func (s *DiagnosticsService) OpenLogDirectory() error {

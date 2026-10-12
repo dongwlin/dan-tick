@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
+	"github.com/dongwlin/dan-tick/internal/storage"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,6 +27,8 @@ func TestDiagnosticsServiceOpensDirectoriesAndHandlesExportCancel(t *testing.T) 
 	require.DirExists(t, dir)
 	status := service.GetDiagnosticsStatus()
 	require.Equal(t, dir, status.Directory)
+	require.Equal(t, filepath.Dir(storage.DefaultPath()), status.DataDirectory)
+	require.Equal(t, status.DataDirectory, opened[1])
 	require.False(t, status.Degraded)
 	result, err := service.ExportDiagnostics()
 	require.NoError(t, err)

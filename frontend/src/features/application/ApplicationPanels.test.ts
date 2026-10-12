@@ -44,6 +44,7 @@ beforeEach(() => {
   })
   vi.mocked(GetDiagnosticsStatus).mockReset().mockResolvedValue({
     directory: '/tmp/dan-tick/logs',
+    dataDirectory: '/tmp/dan-tick/data',
     degraded: false,
     warning: '',
   })
@@ -140,6 +141,10 @@ it('opens local directories and exports with result feedback without the explana
   const card = screen.getByRole('region', { name: '数据与日志' })
   const initialChildCount = card.children.length
   expect(screen.queryByText(/不包含数据库、账号凭证或弹幕正文/)).toBeNull()
+  expect(await within(card).findByText('/tmp/dan-tick/data')).toBeTruthy()
+  expect(within(card).getByText('/tmp/dan-tick/logs')).toBeTruthy()
+  expect(within(card).queryByText(/任务、设置和执行记录保存在本机 SQLite 中/)).toBeNull()
+  expect(within(card).queryByText(/日志与执行历史分别保存/)).toBeNull()
   await user.click(screen.getByRole('button', { name: '打开日志目录' }))
   await waitFor(() => expect(OpenLogDirectory).toHaveBeenCalledOnce())
   await user.click(screen.getByRole('button', { name: '打开数据目录' }))

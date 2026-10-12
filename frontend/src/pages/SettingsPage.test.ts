@@ -33,9 +33,12 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationserv
   SetSchedulingEnabled: vi.fn(),
 }))
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/diagnosticsservice', () => ({
-  GetDiagnosticsStatus: vi
-    .fn()
-    .mockResolvedValue({ directory: '/tmp/logs', degraded: false, warning: '' }),
+  GetDiagnosticsStatus: vi.fn().mockResolvedValue({
+    directory: '/tmp/logs',
+    dataDirectory: '/tmp/data',
+    degraded: false,
+    warning: '',
+  }),
   OpenLogDirectory: vi.fn(),
   OpenDataDirectory: vi.fn(),
   ExportDiagnostics: vi.fn(),

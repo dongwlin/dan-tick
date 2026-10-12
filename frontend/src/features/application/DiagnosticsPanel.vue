@@ -57,9 +57,11 @@ async function run(action: 'logs' | 'data' | 'export') {
     <div
       class="flex flex-wrap items-center justify-between gap-4 border-b border-border-hairline py-4"
     >
-      <div>
+      <div class="min-w-0 flex-1">
         <strong class="text-sm">本地数据目录</strong>
-        <p class="mt-1 text-xs text-text-tertiary">任务、设置和执行记录保存在本机 SQLite 中</p>
+        <p v-if="status.data.value" class="mt-1 break-all text-xs text-text-tertiary">
+          {{ status.data.value.dataDirectory }}
+        </p>
       </div>
       <button
         type="button"
@@ -74,9 +76,6 @@ async function run(action: 'logs' | 'data' | 'export') {
     <div class="flex flex-wrap items-center justify-between gap-4 py-4">
       <div class="min-w-0 flex-1">
         <strong class="text-sm">诊断日志目录</strong>
-        <p class="mt-1 text-xs text-text-tertiary">
-          日志与执行历史分别保存，即使暂无日志也可打开目录
-        </p>
         <p v-if="status.data.value" class="mt-1 break-all text-xs text-text-tertiary">
           {{ status.data.value.directory }}
         </p>
