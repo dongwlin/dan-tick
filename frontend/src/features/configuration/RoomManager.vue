@@ -156,7 +156,7 @@ async function deleteRoom(room: Room) {
           </div>
           <div
             class="p-5"
-            :class="view === 'list' ? 'flex flex-col gap-4 md:flex-row md:items-center' : ''"
+            :class="view === 'list' ? 'flex flex-col gap-4 pr-7 md:flex-row md:items-center' : ''"
           >
             <div :class="view === 'list' ? 'min-w-0 flex-1' : ''">
               <div :class="view === 'list' ? 'flex flex-wrap items-center gap-x-7 gap-y-2' : ''">

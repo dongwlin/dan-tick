@@ -79,12 +79,14 @@ it('loads real binding pages, switches views, adds rooms and retains input on fa
   expect(listActions?.classList.contains('border-t')).toBe(false)
   expect(listActions?.classList.contains('md:ml-auto')).toBe(true)
   expect(listActions?.parentElement?.classList.contains('md:flex-row')).toBe(true)
+  expect(listActions?.parentElement?.classList.contains('pr-7')).toBe(true)
 
   await user.click(screen.getByRole('button', { name: '卡片' }))
   const cardActions = screen.getByRole('button', { name: '修改 300 的备注' }).parentElement
     ?.parentElement
   expect(cardActions?.classList.contains('border-t')).toBe(true)
   expect(cardActions?.classList.contains('md:ml-auto')).toBe(false)
+  expect(cardActions?.parentElement?.classList.contains('pr-7')).toBe(false)
 
   await user.click(screen.getByRole('button', { name: '添加直播间' }))
   const input = screen.getByRole<HTMLInputElement>('textbox', { name: '直播间 ID 或链接' })
