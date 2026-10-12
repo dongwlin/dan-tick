@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import TaskEditorForm from '@/features/configuration/TaskEditorForm.vue'
-import { bindingError, useTaskDetail } from '@/features/configuration/queries'
+import { useTaskDetail } from '@/features/configuration/queries'
+import { bindingError } from '@/lib/bindingError'
 
 const route = useRoute()
 const taskID = computed(() => Number(route.params.id))

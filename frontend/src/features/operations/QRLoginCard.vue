@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from 'reka-ui'
 import { QrCode, Smartphone, X } from 'lucide-vue-next'
-import { primaryButton } from '@/features/configuration/style'
+import { primaryButton } from '@/components/buttonStyles'
 import type { QRLoginState } from './useQRLogin'
 
 const props = defineProps<{

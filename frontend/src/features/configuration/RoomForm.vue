@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue'
 import { Plus, X } from 'lucide-vue-next'
-import { fieldClass, primaryButton, secondaryButton } from './style'
+import { fieldClass } from '@/components/uiStyles'
+import { primaryButton, secondaryButton } from '@/components/buttonStyles'
 
 defineProps<{ pending: boolean }>()
 const emit = defineEmits<{ submit: [value: string]; cancel: [] }>()

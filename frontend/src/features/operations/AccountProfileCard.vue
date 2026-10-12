@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
 import AccountAvatar from '@/components/AccountAvatar.vue'
-import { flatPanel } from '@/features/configuration/style'
+import { flatPanel } from '@/components/uiStyles'
 import { useAccountStatus } from './queries'
 
 const account = useAccountStatus()

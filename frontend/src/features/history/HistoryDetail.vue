@@ -2,8 +2,9 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowLeft } from 'lucide-vue-next'
-import { bindingError } from '@/features/configuration/queries'
-import { flatPanel, secondaryButton, solidPanel } from '@/features/configuration/style'
+import { flatPanel, solidPanel } from '@/components/uiStyles'
+import { secondaryButton } from '@/components/buttonStyles'
+import { bindingError } from '@/lib/bindingError'
 import { attemptResult, displayTime, errorText, statusClass, statusText } from './presentation'
 import { useExecutionHistoryDetail } from './queries'
 

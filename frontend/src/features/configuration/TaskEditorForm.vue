@@ -10,10 +10,12 @@ import type {
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import { Kind as TaskKind } from '@bindings/github.com/dongwlin/dan-tick/internal/task/models'
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
-import { bindingError, useRoomOptions, useSaveTask } from './queries'
+import { useRoomOptions, useSaveTask } from './queries'
 import { usePreferences } from '@/features/application/queries'
 import UiToast from '@/components/UiToast.vue'
-import { fieldClass, flatPanel, labelClass, primaryButton, secondaryButton } from './style'
+import { fieldClass, flatPanel, labelClass } from '@/components/uiStyles'
+import { primaryButton, secondaryButton } from '@/components/buttonStyles'
+import { bindingError } from '@/lib/bindingError'
 import TaskFieldLabel from './TaskFieldLabel.vue'
 
 const props = defineProps<{ task?: Task }>()

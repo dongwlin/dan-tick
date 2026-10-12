@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { ChevronLeft, ChevronRight, History } from 'lucide-vue-next'
-import { bindingError } from '@/features/configuration/queries'
-import { flatPanel, secondaryButton } from '@/features/configuration/style'
+import { flatPanel } from '@/components/uiStyles'
+import { secondaryButton } from '@/components/buttonStyles'
+import { bindingError } from '@/lib/bindingError'
 import { historyPageSize } from './pagination'
 import { useExecutionHistoryPages } from './queries'
 import HistoryTable from './HistoryTable.vue'

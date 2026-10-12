@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
 import { Play, Square } from 'lucide-vue-next'
-import { bindingError } from '@/features/configuration/queries'
-import { secondaryButton } from '@/features/configuration/style'
+import { secondaryButton } from '@/components/buttonStyles'
+import { bindingError } from '@/lib/bindingError'
 import type { ActiveExecution } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import { executionStatus, useStartManual, useStopExecution } from './queries'
 

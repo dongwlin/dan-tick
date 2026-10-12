@@ -5,7 +5,7 @@ import {
   ConfirmQRAccount,
   PollQRLogin,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice'
-import { bindingError } from '@/features/configuration/queries'
+import { bindingError } from '@/lib/bindingError'
 
 export type QRLoginState =
   | 'idle'

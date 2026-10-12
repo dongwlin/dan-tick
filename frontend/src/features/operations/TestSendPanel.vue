@@ -3,8 +3,10 @@ import { shallowRef } from 'vue'
 import { Send } from 'lucide-vue-next'
 import { Outcome } from '@bindings/github.com/dongwlin/dan-tick/internal/danmaku/models'
 import UiToast from '@/components/UiToast.vue'
-import { bindingError, useRoomOptions } from '@/features/configuration/queries'
-import { fieldClass, flatPanel, labelClass, primaryButton } from '@/features/configuration/style'
+import { useRoomOptions } from '@/features/configuration/queries'
+import { fieldClass, flatPanel, labelClass } from '@/components/uiStyles'
+import { primaryButton } from '@/components/buttonStyles'
+import { bindingError } from '@/lib/bindingError'
 import { sendFailureText, useTestSend } from './queries'
 
 const rooms = useRoomOptions()

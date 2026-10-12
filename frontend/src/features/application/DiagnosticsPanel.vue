@@ -2,7 +2,7 @@
 import { shallowRef } from 'vue'
 import { FolderOpen, FileArchive } from 'lucide-vue-next'
 import UiToast from '@/components/UiToast.vue'
-import { secondaryButton } from '@/features/configuration/style'
+import { secondaryButton } from '@/components/buttonStyles'
 import {
   useDiagnosticsStatus,
   useExportDiagnostics,

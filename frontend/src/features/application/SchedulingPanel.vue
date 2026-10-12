@@ -2,8 +2,9 @@
 import { shallowRef, watch } from 'vue'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
 import UiToast from '@/components/UiToast.vue'
-import { bindingError } from '@/features/configuration/queries'
-import { fieldClass, secondaryButton } from '@/features/configuration/style'
+import { fieldClass } from '@/components/uiStyles'
+import { secondaryButton } from '@/components/buttonStyles'
+import { bindingError } from '@/lib/bindingError'
 import { usePreferences, useSetDefaultTimezone, useSetSchedulingEnabled } from './queries'
 
 const preferences = usePreferences()
