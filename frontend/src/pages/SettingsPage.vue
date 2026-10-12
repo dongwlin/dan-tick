@@ -37,7 +37,7 @@ function updateTheme(value: unknown): void {
           class="rounded-2xl border border-border-hairline bg-surface-solid p-5"
           aria-labelledby="theme-heading"
         >
-          <h2 id="theme-heading" class="mb-4 text-lg font-semibold">界面主题</h2>
+          <h2 id="theme-heading" class="mb-4 text-base font-semibold">界面主题</h2>
           <RadioGroupRoot
             :model-value="preference"
             orientation="horizontal"

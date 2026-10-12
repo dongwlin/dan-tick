@@ -47,7 +47,7 @@ async function toggleScheduling(event: Event) {
     class="rounded-2xl border border-border-hairline bg-surface-solid p-5"
     aria-label="调度设置"
   >
-    <h2 class="mb-2 text-lg font-semibold">调度设置</h2>
+    <h2 class="mb-2 text-base font-semibold">调度设置</h2>
     <div v-if="preferences.isPending.value" role="status" class="py-4 text-sm text-text-secondary">
       正在读取调度设置…
     </div>
