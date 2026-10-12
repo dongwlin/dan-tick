@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import { ChevronRight } from 'lucide-vue-next'
+import { ChevronRight, History } from 'lucide-vue-next'
 import type { Execution } from '@bindings/github.com/dongwlin/dan-tick/internal/history/models'
 import { displayTime, statusClass, statusText } from './presentation'
 
@@ -38,7 +38,10 @@ withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact
     <tbody
       :class="
         compact
-          ? 'block min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]'
+          ? [
+              'min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]',
+              items.length ? 'block' : 'flex flex-col',
+            ]
           : ''
       "
       :tabindex="compact ? 0 : undefined"
@@ -89,9 +92,16 @@ withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact
           </RouterLink>
         </td>
       </tr>
-      <tr v-if="compact && !items.length" class="table w-full table-fixed">
-        <td colspan="5" class="px-4 py-4 text-sm text-text-secondary">
-          还没有执行记录。运行任务后可在此查看结果。
+      <tr
+        v-if="compact && !items.length"
+        class="flex min-h-0 w-full flex-1 items-center justify-center"
+      >
+        <td
+          colspan="5"
+          class="flex flex-col items-center gap-2 p-5 text-center text-sm text-text-secondary"
+        >
+          <History class="size-7 text-text-tertiary" aria-hidden="true" />
+          还没有执行记录
         </td>
       </tr>
     </tbody>

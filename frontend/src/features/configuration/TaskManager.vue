@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { Clock3, Plus, Search, Trash2 } from 'lucide-vue-next'
+import { Clock3, ListTodo, Plus, Search, Trash2 } from 'lucide-vue-next'
 import { bindingError, useDeleteTask, useSetTaskEnabled, useTaskPages } from './queries'
 import { fieldClass, panel, primaryButton, secondaryButton } from './style'
 import { useLatestExecutions } from '@/features/operations/queries'
@@ -83,7 +83,14 @@ async function deleteTask(task: Task) {
           />
         </div>
       </div>
-      <div class="min-h-0 flex-1 overflow-y-auto" tabindex="0" aria-label="弹幕任务列表">
+      <div
+        class="min-h-0 flex-1 overflow-y-auto"
+        :class="
+          !tasks.isPending.value && !tasks.isError.value && !items.length ? 'flex flex-col' : ''
+        "
+        tabindex="0"
+        aria-label="弹幕任务列表"
+      >
         <div v-if="tasks.isPending.value" role="status" class="p-6 text-text-secondary">
           正在加载任务…
         </div>
@@ -93,7 +100,11 @@ async function deleteTask(task: Task) {
             重试读取
           </button>
         </div>
-        <div v-else-if="!items.length" class="p-8 text-center">
+        <div
+          v-else-if="!items.length"
+          class="flex min-h-40 flex-1 flex-col items-center justify-center gap-2 p-8 text-center"
+        >
+          <ListTodo class="size-7 text-text-tertiary" aria-hidden="true" />
           <p class="text-text-secondary">
             {{ search ? '没有找到匹配的任务' : '还没有创建弹幕任务' }}
           </p>
@@ -106,9 +117,6 @@ async function deleteTask(task: Task) {
           >
             清除搜索
           </button>
-          <RouterLink v-else to="/tasks/new" :class="secondaryButton" class="mt-3"
-            >新建任务</RouterLink
-          >
         </div>
         <template v-else>
           <article v-for="task in items" :key="task.id" class="border-b border-border-hairline p-5">

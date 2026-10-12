@@ -139,3 +139,23 @@ it('loads task pages, resets cursor on search and room changes, and applies enab
   )
   expect(screen.queryByRole('heading', { name: '第三个任务' })).toBeNull()
 })
+
+it('centers the empty task state without a duplicate create button and retains clear search', async () => {
+  vi.mocked(ListTaskPage).mockResolvedValue({ items: [], nextCursor: null })
+  window.history.replaceState(null, '', '/#/tasks')
+  const user = userEvent.setup()
+  render(TaskManager, {
+    global: {
+      plugins: [createAppRouter(), [VueQueryPlugin, { queryClient: createAppQueryClient() }]],
+    },
+  })
+  const emptyState = await screen.findByText('还没有创建弹幕任务')
+  expect(emptyState.parentElement?.classList.contains('justify-center')).toBe(true)
+  expect(emptyState.parentElement?.querySelector('svg')).not.toBeNull()
+  expect(screen.getByLabelText('弹幕任务列表').classList.contains('flex')).toBe(true)
+  expect(screen.getAllByRole('link', { name: '新建任务' })).toHaveLength(1)
+  await user.type(screen.getByRole('searchbox', { name: '搜索任务或直播间' }), '无结果')
+  expect(await screen.findByText('没有找到匹配的任务')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: '清除搜索' }))
+  expect(await screen.findByText('还没有创建弹幕任务')).toBeTruthy()
+})

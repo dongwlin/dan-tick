@@ -106,6 +106,7 @@ it('shows live task summaries, a paused schedule notice, and navigable failure d
   expect(recentPanel.querySelector('thead')).not.toBeNull()
   expect(recentPanel.querySelector('tbody')?.classList.contains('overflow-y-auto')).toBe(true)
   expect(recentPanel.querySelector('tbody')?.getAttribute('tabindex')).toBe('0')
+  expect(recentPanel.querySelector('tbody')?.classList.contains('flex')).toBe(true)
   expect(
     [...recentPanel.querySelectorAll('th')].map((heading) => heading.textContent?.trim()),
   ).toEqual(['任务 / 直播间', '执行时间', '发送结果', '状态', '操作'])
@@ -131,7 +132,14 @@ it('renders empty state and retries failed overview reads', async () => {
   expect(await screen.findByText('暂无即将执行的任务')).toBeTruthy()
   expect(screen.queryByRole('link', { name: '创建任务' })).toBeNull()
   expect(screen.getByRole('link', { name: '新建任务' }).getAttribute('href')).toBe('/tasks/new')
-  expect(screen.getByText('还没有执行记录。运行任务后可在此查看结果。')).toBeTruthy()
+  const emptyAlert = screen.getByText('最近没有失败、中断或错过的执行')
+  expect(emptyAlert.classList.contains('items-center')).toBe(true)
+  expect(emptyAlert.querySelector('svg')).not.toBeNull()
+  expect(document.body.textContent).not.toContain('最近没有失败、中断或错过的执行。')
+  const emptyRecent = screen.getByText('还没有执行记录')
+  expect(emptyRecent.closest('td')?.classList.contains('items-center')).toBe(true)
+  expect(emptyRecent.closest('td')?.querySelector('svg')).not.toBeNull()
+  expect(document.body.textContent).not.toContain('运行任务后可在此查看结果')
   const recentPanel = screen.getByRole('region', { name: '最近执行' })
   expect(recentPanel.querySelector('thead')).not.toBeNull()
   expect(recentPanel.querySelector('tbody')?.classList.contains('overflow-y-auto')).toBe(true)

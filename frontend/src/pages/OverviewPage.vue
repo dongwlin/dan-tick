@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { CalendarClock, ChevronRight, CircleAlert, Plus } from 'lucide-vue-next'
+import { CalendarClock, ChevronRight, CircleAlert, CircleCheck, Plus } from 'lucide-vue-next'
 import { useAccountStatus } from '@/features/operations/queries'
 import { useOverview, usePreferences } from '@/features/application/queries'
 import { bindingError } from '@/features/configuration/queries'
@@ -191,9 +191,13 @@ const statusLabels: Record<string, string> = {
               >查看执行详情</RouterLink
             >
           </div>
-          <p v-else class="flex-1 px-5 pt-2 pb-5 text-sm text-text-secondary">
-            最近没有失败、中断或错过的执行。
-          </p>
+          <div
+            v-else
+            class="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-5 text-center text-sm text-text-secondary"
+          >
+            <CircleCheck class="size-7 text-text-tertiary" aria-hidden="true" />
+            最近没有失败、中断或错过的执行
+          </div>
           <div class="shrink-0 px-5 pb-3 text-xs text-text-tertiary">
             <div class="flex items-center justify-between border-t border-border-hairline pt-3">
               <span>已添加直播间</span

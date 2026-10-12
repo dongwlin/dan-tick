@@ -87,6 +87,9 @@ onUnmounted(() => {
       <div
         ref="scrollElement"
         class="min-h-0 min-w-0 flex-1 overflow-auto"
+        :class="
+          !history.isPending.value && !history.isError.value && !items.length ? 'flex flex-col' : ''
+        "
         tabindex="0"
         aria-label="执行记录表格"
       >
@@ -99,8 +102,11 @@ onUnmounted(() => {
             重试读取
           </button>
         </div>
-        <div v-else-if="!items.length" class="p-8 text-center">
-          <History class="mx-auto mb-3 size-9 text-text-tertiary" aria-hidden="true" />
+        <div
+          v-else-if="!items.length"
+          class="flex min-h-40 flex-1 flex-col items-center justify-center gap-2 p-8 text-center"
+        >
+          <History class="size-7 text-text-tertiary" aria-hidden="true" />
           <p class="text-text-secondary">
             {{ knownTotal ? '当前页没有记录' : '还没有执行记录' }}
           </p>
