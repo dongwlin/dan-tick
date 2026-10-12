@@ -107,7 +107,7 @@ withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact
         class="flex min-h-0 w-full flex-1 items-center justify-center"
       >
         <td colspan="5" class="flex flex-col items-center justify-center p-0 text-center">
-          <UiEmptyState compact :icon="History" title="还没有执行记录" />
+          <UiEmptyState :fill="false" :icon="History" title="还没有执行记录" />
         </td>
       </tr>
     </tbody>

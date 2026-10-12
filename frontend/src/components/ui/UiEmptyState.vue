@@ -10,7 +10,6 @@ withDefaults(
     description?: string
     actionLabel?: string
     actionTo?: RouteLocationRaw
-    compact?: boolean
     /** Use the available height without imposing a 160px minimum. */
     fill?: boolean
   }>(),
@@ -20,7 +19,7 @@ withDefaults(
     description: undefined,
     actionLabel: undefined,
     actionTo: undefined,
-    compact: false,
+    fill: true,
   },
 )
 
@@ -29,23 +28,13 @@ const emit = defineEmits<{ action: [] }>()
 
 <template>
   <div
-    :class="
-      compact
-        ? 'flex flex-col items-center gap-2 p-5 text-center text-sm text-text-secondary'
-        : [
-            'flex flex-1 flex-col items-center justify-center gap-2 text-center',
-            fill ? 'min-h-40 p-8' : 'min-h-0 p-5',
-          ]
-    "
+    :class="[
+      'flex flex-1 flex-col items-center justify-center gap-2 text-center',
+      fill ? 'min-h-40 p-8' : 'min-h-0 p-5',
+    ]"
   >
     <slot name="icon">
-      <component
-        :is="icon"
-        v-if="icon"
-        class="text-text-tertiary"
-        :class="compact ? 'size-5' : 'size-7'"
-        aria-hidden="true"
-      />
+      <component :is="icon" v-if="icon" class="size-7 text-text-tertiary" aria-hidden="true" />
     </slot>
     <p v-if="title" class="wrap-anywhere font-medium text-text-primary">{{ title }}</p>
     <p v-if="description" class="text-sm text-text-secondary">{{ description }}</p>

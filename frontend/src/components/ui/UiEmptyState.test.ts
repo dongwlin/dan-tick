@@ -26,6 +26,17 @@ it('renders an icon, explanation and a next-step action', async () => {
   expect(action).toHaveBeenCalledOnce()
 })
 
+it('uses the standard icon size in the compact vertical rhythm', () => {
+  const view = render(UiEmptyState, {
+    props: { icon: History, title: '还没有执行记录', fill: false },
+  })
+
+  const empty = view.container.firstElementChild
+  expect(empty?.classList.contains('min-h-0')).toBe(true)
+  expect(empty?.classList.contains('p-5')).toBe(true)
+  expect(empty?.querySelector('svg')?.classList.contains('size-7')).toBe(true)
+})
+
 it('supports an in-app link as the next step', async () => {
   const router = createRouter({
     history: createMemoryHistory(),
