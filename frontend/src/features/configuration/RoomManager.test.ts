@@ -115,30 +115,29 @@ it('loads real binding pages, switches views, adds rooms and retains input on fa
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
   expect(await screen.findByRole('heading', { name: '直播三' })).toBeTruthy()
-  const grid = screen.getByText('直播间 · 300').closest('article')?.parentElement
+  const grid = screen.getByRole('heading', { name: '直播三' }).closest('article')?.parentElement
   expect(grid?.classList.contains('grid-cols-1')).toBe(true)
   expect(grid?.classList.contains('min-[601px]:grid-cols-2')).toBe(true)
   expect(grid?.classList.contains('min-[1101px]:grid-cols-3')).toBe(true)
   expect(screen.getAllByText('直播三')).toHaveLength(1)
   expect(screen.getAllByText('直播二')).toHaveLength(1)
-  const cover = screen.getByText('直播间 · 300').parentElement
+  expect(screen.getByText('主播 · 300')).toBeTruthy()
+  const cover = roomCover('直播三')
   expect(cover?.classList.contains('h-[134px]')).toBe(true)
   expect(cover?.classList.contains('bg-(--accent-panel)')).toBe(true)
   const symbol = cover?.querySelector('[aria-hidden="true"]')
   expect(symbol?.classList.contains('size-[66px]')).toBe(true)
   expect(symbol?.querySelector('svg')?.classList.contains('size-[26px]')).toBe(true)
-  expect(
-    screen.getByText('直播间 · 200').parentElement?.classList.contains('bg-surface-muted'),
-  ).toBe(true)
+  expect(cover?.textContent?.trim()).toBe('')
+  expect(roomCover('直播二')?.classList.contains('bg-surface-muted')).toBe(true)
   expect(screen.queryByRole('heading', { name: '直播一' })).toBeNull()
   await user.click(screen.getByRole('button', { name: '加载更多' }))
   expect(await screen.findByRole('heading', { name: '直播一' })).toBeTruthy()
-  expect(
-    screen.getByText('直播间 · 100').parentElement?.classList.contains('bg-(--accent-panel-alt)'),
-  ).toBe(true)
+  expect(roomCover('直播一')?.classList.contains('bg-(--accent-panel-alt)')).toBe(true)
   expect(vi.mocked(ListRoomPage)).toHaveBeenCalledWith({ cursor: 2, limit: 12 })
   await user.click(screen.getByRole('button', { name: '列表' }))
   expect(screen.getByRole('button', { name: '列表' }).getAttribute('aria-pressed')).toBe('true')
+  expect(screen.getByText('主播：主播 · 300')).toBeTruthy()
   expect(grid?.classList.contains('flex')).toBe(true)
   expect(screen.getAllByText('直播二')).toHaveLength(1)
   const listActions = screen.getByRole('button', { name: '修改 300 的备注' }).parentElement

@@ -178,12 +178,7 @@ async function deleteRoom(room: Room) {
           :key="room.id"
           :class="[panel, 'min-w-0 overflow-hidden']"
         >
-          <RoomCover
-            v-if="view === 'cards'"
-            :cover-url="room.coverUrl"
-            :platform-room-id="room.platformRoomId"
-            :index="index"
-          />
+          <RoomCover v-if="view === 'cards'" :cover-url="room.coverUrl" :index="index" />
           <div
             class="p-5"
             :class="view === 'list' ? 'flex flex-col gap-4 pr-7 md:flex-row md:items-center' : ''"
@@ -211,7 +206,8 @@ async function deleteRoom(room: Room) {
                   class="text-xs text-text-tertiary"
                   :class="view === 'list' ? 'min-w-0 max-w-full' : 'mt-2'"
                 >
-                  主播：{{ room.anchorName || '未知' }} · 房间号 {{ room.platformRoomId }}
+                  {{ view === 'list' ? '主播：' : '' }}{{ room.anchorName || '未知' }} ·
+                  {{ room.platformRoomId }}
                 </p>
               </div>
               <form

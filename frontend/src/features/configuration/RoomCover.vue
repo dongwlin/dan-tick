@@ -4,7 +4,6 @@ import { Radio } from 'lucide-vue-next'
 
 const props = defineProps<{
   coverUrl: string
-  platformRoomId: string
   index: number
 }>()
 
@@ -22,7 +21,7 @@ watch(
 
 <template>
   <div
-    class="relative flex h-[134px] items-end justify-end overflow-hidden border-b border-border-hairline px-[19px] py-4"
+    class="relative h-[134px] overflow-hidden border-b border-border-hairline"
     :class="coverColors[index % coverColors.length]"
   >
     <template v-if="!imageLoaded || imageFailed">
@@ -31,9 +30,6 @@ watch(
         aria-hidden="true"
       >
         <Radio class="size-[26px]" />
-      </span>
-      <span class="relative text-[11px] text-text-secondary tabular-nums">
-        直播间 · {{ platformRoomId }}
       </span>
     </template>
     <img
