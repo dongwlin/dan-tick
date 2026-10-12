@@ -113,7 +113,7 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   await user.click(screen.getByRole('button', { name: '创建任务' }))
   expect(await screen.findByText('单次任务只能填写一条弹幕')).toBeTruthy()
   expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
-    '请检查 1 处填写问题：发送队列',
+    '表单校验未通过，请根据字段提示修改后重试。',
   )
   expect(screen.getByRole('textbox', { name: '发送队列' }).getAttribute('aria-invalid')).toBe(
     'true',
@@ -189,7 +189,7 @@ it('shows validation summary in a toast while keeping field errors and focusing 
   expect(header.textContent).toBe('新建任务')
   await user.click(screen.getByRole('button', { name: '创建任务' }))
   const toast = await screen.findByRole('alert', { name: '操作失败通知' })
-  expect(toast.textContent).toContain('请检查 3 处填写问题：任务名称、目标直播间、发送队列')
+  expect(toast.textContent).toContain('表单校验未通过，请根据字段提示修改后重试。')
   expect(toast.closest('form')).toBeNull()
   expect(header.textContent).toBe('新建任务')
   await waitFor(() =>

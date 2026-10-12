@@ -219,9 +219,7 @@ const submit = handleSubmit(
     )
     toast.value = {
       id: ++nextToastId,
-      message: `请检查 ${invalidFields.length} 处填写问题：${invalidFields
-        .map((field) => fieldNames[field])
-        .join('、')}`,
+      message: '表单校验未通过，请根据字段提示修改后重试。',
       tone: 'error',
     }
     void nextTick(() => {
