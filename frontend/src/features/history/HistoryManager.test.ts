@@ -53,6 +53,8 @@ it('uses window height for stable numbered pages and an end marker on the short 
 
   await waitFor(() => expect(vi.mocked(ListExecutionHistory)).toHaveBeenCalledWith(1, 4))
   expect(await screen.findByText('历史任务 9')).toBeTruthy()
+  expect(screen.getByRole('columnheader', { name: '计划执行' })).toBeTruthy()
+  expect(screen.getByRole('columnheader', { name: '实际开始' })).toBeTruthy()
   expect(screen.queryByText('历史任务 5')).toBeNull()
   expect(screen.getByRole('navigation', { name: '执行记录分页' })).toBeTruthy()
   await user.click(screen.getByRole('button', { name: '第 3 页' }))

@@ -9,6 +9,7 @@ import {
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice'
 import { CheckAccount } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice'
 import { State as AccountState } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
+import type { Execution } from '@bindings/github.com/dongwlin/dan-tick/internal/history/models'
 import OverviewPage from './OverviewPage.vue'
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice', () => ({
@@ -29,7 +30,7 @@ async function show() {
       { path: '/settings', component: { template: '<p>设置</p>' } },
       { path: '/tasks', component: { template: '<p>任务</p>' } },
       { path: '/history', component: { template: '<p>历史</p>' } },
-      { path: '/history/:id', component: { template: '<p>详情</p>' } },
+      { path: '/history/:id', name: 'history-detail', component: { template: '<p>详情</p>' } },
       { path: '/rooms', component: { template: '<p>直播间</p>' } },
     ],
   })
@@ -76,6 +77,14 @@ it('shows live task summaries, a paused schedule notice, and navigable failure d
   expect(summary.textContent).toContain('B 站账号')
   expect(summary.textContent).toContain('已启用任务')
   expect(summary.textContent).toContain('正在执行 / 排队')
+  expect(summary.children).toHaveLength(4)
+  expect(summary.children[0]?.classList.contains('border-r')).toBe(true)
+  expect(summary.children[3]?.classList.contains('border-r')).toBe(false)
+  for (const title of ['即将执行', '最近异常', '最近执行']) {
+    const heading = screen.getByRole('heading', { name: title })
+    expect(heading.parentElement?.classList.contains('border-b')).toBe(false)
+    expect(screen.getByRole('region', { name: title }).classList.contains('shadow-sm')).toBe(false)
+  }
   expect(screen.getByText(/已暂停，以下计划目前不会触发/)).toBeTruthy()
   expect(screen.getByText('失败的任务')).toBeTruthy()
   expect(screen.getByRole('link', { name: '新任务' }).getAttribute('href')).toBe('/tasks/11/edit')
@@ -86,9 +95,20 @@ it('shows live task summaries, a paused schedule notice, and navigable failure d
   expect(screen.getByText('未配置')).toBeTruthy()
   const roomCountLink = screen.getByRole('link', { name: '3 个' })
   expect(roomCountLink.getAttribute('href')).toBe('/rooms')
+  const footerDivider = roomCountLink.parentElement
+  expect(footerDivider?.classList.contains('border-t')).toBe(true)
+  expect(footerDivider?.parentElement?.classList.contains('px-5')).toBe(true)
+  expect(footerDivider?.parentElement?.classList.contains('border-t')).toBe(false)
   expect(roomCountLink.classList.contains('text-text-secondary')).toBe(true)
   expect(roomCountLink.classList.contains('text-accent-text')).toBe(false)
   expect(roomCountLink.classList.contains('hover:text-accent-text')).toBe(true)
+  const recentPanel = screen.getByRole('region', { name: '最近执行' })
+  expect(recentPanel.querySelector('thead')).not.toBeNull()
+  expect(recentPanel.querySelector('tbody')?.classList.contains('overflow-y-auto')).toBe(true)
+  expect(recentPanel.querySelector('tbody')?.getAttribute('tabindex')).toBe('0')
+  expect(
+    [...recentPanel.querySelectorAll('th')].map((heading) => heading.textContent?.trim()),
+  ).toEqual(['任务 / 直播间', '执行时间', '发送结果', '状态', '操作'])
 })
 
 it('renders empty state and retries failed overview reads', async () => {
@@ -105,10 +125,52 @@ it('renders empty state and retries failed overview reads', async () => {
     })
   await show()
   expect(await screen.findByRole('alert')).toBeTruthy()
+  expect(screen.getByRole('alert').classList.contains('shadow-sm')).toBe(false)
   expect(document.body.textContent).not.toContain('private SQL text')
   screen.getByRole('button', { name: '重试读取' }).click()
   expect(await screen.findByText('暂无即将执行的任务')).toBeTruthy()
   expect(screen.queryByRole('link', { name: '创建任务' })).toBeNull()
   expect(screen.getByRole('link', { name: '新建任务' }).getAttribute('href')).toBe('/tasks/new')
   expect(screen.getByText('还没有执行记录。运行任务后可在此查看结果。')).toBeTruthy()
+  const recentPanel = screen.getByRole('region', { name: '最近执行' })
+  expect(recentPanel.querySelector('thead')).not.toBeNull()
+  expect(recentPanel.querySelector('tbody')?.classList.contains('overflow-y-auto')).toBe(true)
+  expect(recentPanel.querySelector('tbody')?.textContent).toContain('还没有执行记录')
+})
+
+it('uses the actual execution time in the compact overview table', async () => {
+  const recent: Execution = {
+    id: 19,
+    task_id: 4,
+    trigger_kind: 'manual',
+    scheduled_at: null,
+    status: 'completed',
+    created_at: 1700000000000,
+    queued_at: null,
+    started_at: 1700000001000,
+    finished_at: 1700000002000,
+    sent_count: 2,
+    failed_count: 0,
+    error_code: null,
+    task_name_snapshot: '最近任务',
+    platform_room_id_snapshot: '123456',
+  }
+  vi.mocked(GetOverview).mockResolvedValue({
+    totalTasks: 1,
+    enabledTasks: 1,
+    activeExecutions: 0,
+    roomCount: 1,
+    upcoming: [],
+    latestFailure: null,
+    recent: [recent],
+  })
+  await show()
+  expect(await screen.findByText('最近任务')).toBeTruthy()
+  const recentPanel = screen.getByRole('region', { name: '最近执行' })
+  expect(recentPanel.querySelector('tbody')?.textContent).toContain(
+    new Date(1700000001000).toLocaleString('zh-CN', { hour12: false }),
+  )
+  expect(screen.getByRole('link', { name: '查看 最近任务 的执行详情' }).getAttribute('href')).toBe(
+    '/history/19',
+  )
 })
