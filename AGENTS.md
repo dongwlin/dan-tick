@@ -40,7 +40,7 @@
 ## 3. 开发环境与可执行命令
 
 - `go.mod` 要求 **Go 1.25.0**；当前框架依赖是 `github.com/wailsapp/wails/v3 v3.0.0-beta.25`。前端由 **Vue 3 + TypeScript + Vite 8** 构成，仓库提供 Wails 3 CLI / Taskfile 流程。
-- 正式前端使用 **pnpm 11.28.4**，由 `frontend/package.json` 的 `packageManager` 固定；`frontend/.node-version` 指定 **Node.js 24.18.0**，`engines` 要求 `>=24.18.0 <25`。`Taskfile.yml` 的 `PACKAGE_MANAGER` 默认是 `pnpm`，安装使用已提交的 `frontend/pnpm-lock.yaml` 与 `pnpm install --frozen-lockfile`。`prototype/` 独立管理依赖，不合并 workspace。
+- 正式前端使用 **pnpm 12.6.0**，由 `frontend/package.json` 的 `packageManager` 固定；`frontend/.node-version` 指定 **Node.js 24.18.0**，`engines` 要求 `>=24.18.0 <25`。`Taskfile.yml` 的 `PACKAGE_MANAGER` 默认是 `pnpm`，安装使用已提交的 `frontend/pnpm-lock.yaml` 与 `pnpm install --frozen-lockfile`。`prototype/` 独立管理依赖，不合并 workspace。
 - `frontend/pnpm-workspace.yaml` 保存单包安装配置，启用 `minimumReleaseAge: 10080`（7 天）及 `engineStrict: true`；不再用旧 `.npmrc` 表达这些策略。Vite 开发服务器默认绑定 `127.0.0.1:9245`（可通过 `WAILS_VITE_PORT` 调整）。源码别名为 `@/*` → `src/*`、`@bindings/*` → `bindings/*`，TypeScript 与 Vite 保持一致。
 
 ```sh

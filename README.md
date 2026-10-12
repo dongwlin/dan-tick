@@ -18,7 +18,7 @@ pnpm dev
 
 ## 运行正式应用模板
 
-需要 Go 1.25、Node.js 24.18.0、pnpm 11.28.4、Wails 3 CLI，以及目标平台所需的 Wails 构建依赖。正式前端的 Node 版本记录在 `frontend/.node-version`，pnpm 版本由 `frontend/package.json` 的 `packageManager` 固定。
+需要 Go 1.25、Node.js 24.18.0、pnpm 12.6.0、Wails 3 CLI，以及目标平台所需的 Wails 构建依赖。正式前端的 Node 版本记录在 `frontend/.node-version`，pnpm 版本由 `frontend/package.json` 的 `packageManager` 固定。
 
 ```sh
 cd frontend

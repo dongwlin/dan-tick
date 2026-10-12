@@ -4,7 +4,7 @@
 
 ## 工具链与安装
 
-使用 Node.js 24.18.0（见 [`.node-version`](.node-version)）和 pnpm 11.28.4（见 [`package.json`](package.json) 的 `packageManager`）。Node 的允许范围是 `>=24.18.0 <25`；pnpm 的安装配置位于 [`pnpm-workspace.yaml`](pnpm-workspace.yaml)，启用严格引擎检查及 7 天的依赖发布时间限制。
+使用 Node.js 24.18.0（见 [`.node-version`](.node-version)）和 pnpm 12.6.0（见 [`package.json`](package.json) 的 `packageManager`）。Node 的允许范围是 `>=24.18.0 <25`；pnpm 的安装配置位于 [`pnpm-workspace.yaml`](pnpm-workspace.yaml)，启用严格引擎检查及 7 天的依赖发布时间限制。
 
 在本目录安装已锁定的依赖：
 
@@ -56,7 +56,7 @@ Vite 默认监听 `127.0.0.1:9245`，可以用 `WAILS_VITE_PORT` 调整。普通
 
 ## 前端持续集成（FE9）
 
-仓库根目录的 [Frontend CI](../.github/workflows/frontend-ci.yml) 在每次 Push / Pull Request 上运行，使用 Ubuntu 24.04、`.node-version` 中的 Node 24.18.0、固定 pnpm 11.28.4 和 `go.mod` 中的 Go 版本。先在 `frontend/` 执行 `pnpm install --frozen-lockfile`、`pnpm run lint`、`pnpm run format:check`，之后生成 Wails Binding，**再执行** `pnpm run test`、`pnpm run typecheck` 和 `pnpm run build`。任务测试和路由懒加载的业务页面会导入生成的 Binding，不能在生成前运行 Vitest；任一命令失败则该 Job 失败。
+仓库根目录的 [Frontend CI](../.github/workflows/frontend-ci.yml) 在每次 Push / Pull Request 上运行，使用 Ubuntu 24.04、`.node-version` 中的 Node 24.18.0、固定 pnpm 12.6.0 和 `go.mod` 中的 Go 版本。先在 `frontend/` 执行 `pnpm install --frozen-lockfile`、`pnpm run lint`、`pnpm run format:check`，之后生成 Wails Binding，**再执行** `pnpm run test`、`pnpm run typecheck` 和 `pnpm run build`。任务测试和路由懒加载的业务页面会导入生成的 Binding，不能在生成前运行 Vitest；任一命令失败则该 Job 失败。
 
 Binding 由固定的 Wails 3 CLI 版本（`v3.0.0-beta.25`）从 Go 根入口 `./...` 生成，需要 Ubuntu 的 GTK4 / WebKitGTK 6.0 开发头。由于干净 checkout 没有 `frontend/dist`，CI 先放一个临时 `dist/index.html` 满足 `main.go` 的 `go:embed`，随后生产构建替换它；不提交生成产物，也不修改独立的 `prototype/`。CI 仅作前端质量门禁，桌面构建、Windows / Linux WebView 与实际系统行为仍需另行验收。若要严格阻止不合格变更合并，在 GitHub 分支保护 / Ruleset 中将 `Lint, typecheck, test and build` 配为必需检查。
 
@@ -76,7 +76,7 @@ Binding 由固定的 Wails 3 CLI 版本（`v3.0.0-beta.25`）从 Go 根入口 `.
 
 `lucide-vue-next` 为正式侧栏、窗口标题栏与页面操作提供图标；已有可见文字的图标标记为 `aria-hidden`。设置页直接使用 Reka UI `RadioGroup` 实现带键盘焦点管理的主题选择，`src/components/ui/UiButton.vue` 供真正复用的按钮 / 导航链接使用，无业务语义的基础 UI 组件与共享样式统一放在 `src/components/ui/` 下。主题存储失败会显示提示，已选默认值时恢复按钮禁用。输入框、Select、Dialog 等仍随 F 阶段对应业务页面引入，不预建组件库。
 
-pnpm 11 的依赖构建许可仅为 Reka 传递依赖 `vue-demi` 的 Vue 3 选择脚本开放；保留 `pnpm install --frozen-lockfile` 与供应链策略。`lucide-vue-next` 当前已有上游弃用提示，迁移到不同包名时须先更新技术选型。
+pnpm 12 的依赖构建许可仅为 Reka 传递依赖 `vue-demi` 的 Vue 3 选择脚本开放；保留 `pnpm install --frozen-lockfile` 与供应链策略。`lucide-vue-next` 当前已有上游弃用提示，迁移到不同包名时须先更新技术选型。
 
 ## 代码质量与格式
 
