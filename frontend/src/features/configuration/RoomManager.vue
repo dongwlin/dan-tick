@@ -156,54 +156,64 @@ async function deleteRoom(room: Room) {
           </div>
           <div
             class="p-5"
-            :class="view === 'list' ? 'flex flex-wrap items-center gap-x-7 gap-y-3' : ''"
+            :class="view === 'list' ? 'flex flex-col gap-4 md:flex-row md:items-center' : ''"
           >
-            <div class="flex flex-wrap items-center gap-2">
-              <h2 class="min-w-0 truncate text-base font-semibold">
-                {{ room.remark || room.title || `房间 ${room.platformRoomId}` }}
-              </h2>
-              <span
-                v-if="room.remark"
-                class="rounded-md bg-soft-accent-bg px-2 py-0.5 text-xs text-soft-accent-fg"
-                >备注</span
+            <div :class="view === 'list' ? 'min-w-0 flex-1' : ''">
+              <div :class="view === 'list' ? 'flex flex-wrap items-center gap-x-7 gap-y-2' : ''">
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  <h2 class="min-w-0 truncate text-base font-semibold">
+                    {{ room.remark || room.title || `房间 ${room.platformRoomId}` }}
+                  </h2>
+                  <span
+                    v-if="room.remark"
+                    class="rounded-md bg-soft-accent-bg px-2 py-0.5 text-xs text-soft-accent-fg"
+                    >备注</span
+                  >
+                </div>
+                <p
+                  v-if="secondaryTitle(room)"
+                  class="truncate text-sm text-text-secondary"
+                  :class="view === 'list' ? 'min-w-0 max-w-full' : 'mt-1'"
+                >
+                  {{ secondaryTitle(room) }}
+                </p>
+                <p
+                  class="text-xs text-text-tertiary"
+                  :class="view === 'list' ? 'min-w-0 max-w-full' : 'mt-2'"
+                >
+                  主播：{{ room.anchorName || '未知' }} · 房间号 {{ room.platformRoomId }}
+                </p>
+              </div>
+              <form
+                v-if="editingID === room.id"
+                class="mt-3 flex flex-wrap gap-2"
+                @submit.prevent="saveRemark(room.id)"
               >
+                <span class="sr-only">备注名称</span>
+                <input
+                  :id="`remark-${room.id}`"
+                  v-model="remark"
+                  aria-label="备注名称"
+                  :class="fieldClass"
+                  class="min-w-30 flex-1"
+                  maxlength="100"
+                  placeholder="备注名称"
+                />
+                <button type="submit" :disabled="update.isPending.value" :class="primaryButton">
+                  保存备注
+                </button>
+                <button type="button" :class="secondaryButton" @click="editingID = null">
+                  取消
+                </button>
+              </form>
             </div>
-            <p
-              v-if="secondaryTitle(room)"
-              class="mt-1 truncate text-sm text-text-secondary"
-              :class="view === 'list' ? 'min-w-40 flex-1' : ''"
-            >
-              {{ secondaryTitle(room) }}
-            </p>
-            <p
-              class="mt-2 text-xs text-text-tertiary"
-              :class="view === 'list' ? 'mt-0 flex-1' : ''"
-            >
-              主播：{{ room.anchorName || '未知' }} · 房间号 {{ room.platformRoomId }}
-            </p>
-            <form
-              v-if="editingID === room.id"
-              class="mt-3 flex flex-wrap gap-2"
-              @submit.prevent="saveRemark(room.id)"
-            >
-              <span class="sr-only">备注名称</span>
-              <input
-                :id="`remark-${room.id}`"
-                v-model="remark"
-                aria-label="备注名称"
-                :class="fieldClass"
-                class="min-w-30 flex-1"
-                maxlength="100"
-                placeholder="备注名称"
-              />
-              <button type="submit" :disabled="update.isPending.value" :class="primaryButton">
-                保存备注
-              </button>
-              <button type="button" :class="secondaryButton" @click="editingID = null">取消</button>
-            </form>
             <div
-              class="mt-4 flex items-center justify-between border-t border-border-hairline pt-3"
-              :class="view === 'list' ? 'mt-0 gap-5 border-0 pt-0' : ''"
+              class="flex items-center justify-between"
+              :class="
+                view === 'list'
+                  ? 'shrink-0 gap-5 md:ml-auto'
+                  : 'mt-4 border-t border-border-hairline pt-3'
+              "
             >
               <span class="text-xs text-text-secondary"
                 >关联 <strong class="text-text-primary">{{ room.taskCount }}</strong> 个任务</span
