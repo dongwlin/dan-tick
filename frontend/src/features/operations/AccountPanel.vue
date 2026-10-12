@@ -48,7 +48,6 @@ async function setDialogOpen(open: boolean) {
   await qr.cancel()
   dialogOpen.value = false
   if (qr.errorMessage.value) errorMessage.value = qr.errorMessage.value
-  else feedback.value = '已取消扫码登录'
 }
 
 async function clearCredentials() {

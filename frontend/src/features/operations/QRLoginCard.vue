@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from 'reka-ui'
 import { QrCode, Smartphone, X } from 'lucide-vue-next'
-import { primaryButton, secondaryButton } from '@/features/configuration/style'
+import { primaryButton } from '@/features/configuration/style'
 import type { QRLoginState } from './useQRLogin'
 
 const props = defineProps<{
@@ -118,7 +118,10 @@ function preventClosingWhenLocked(event: Event) {
           <p v-if="errorMessage" role="alert" class="text-sm text-soft-danger-fg">
             {{ errorMessage }}
           </p>
-          <div class="flex flex-wrap justify-end gap-2">
+          <div
+            v-if="state === 'account_mismatch' || retryable"
+            class="flex flex-wrap justify-end gap-2"
+          >
             <button
               v-if="state === 'account_mismatch'"
               type="button"
@@ -137,15 +140,6 @@ function preventClosingWhenLocked(event: Event) {
             >
               {{ retryText }}
             </button>
-            <DialogClose as-child>
-              <button
-                type="button"
-                :class="[secondaryButton, 'min-h-11']"
-                :disabled="closingLocked"
-              >
-                {{ cancelPending ? '正在取消…' : '取消扫码' }}
-              </button>
-            </DialogClose>
           </div>
         </div>
       </DialogContent>
