@@ -18,6 +18,11 @@ const message = shallowRef('')
 const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
 const coverColors = ['bg-(--accent-panel)', 'bg-surface-muted', 'bg-(--accent-panel-alt)'] as const
 
+function secondaryTitle(room: Room): string {
+  if (!room.title) return '未获取到直播标题'
+  return room.title.trim() === (room.remark || room.title).trim() ? '' : room.title
+}
+
 async function addRoom(value: string) {
   message.value = ''
   try {
@@ -125,7 +130,7 @@ async function deleteRoom(room: Room) {
       <div
         :class="
           view === 'cards'
-            ? 'grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3'
+            ? 'grid grid-cols-1 gap-4 min-[601px]:grid-cols-2 min-[1101px]:grid-cols-3'
             : 'flex flex-col gap-3'
         "
       >
@@ -164,10 +169,11 @@ async function deleteRoom(room: Room) {
               >
             </div>
             <p
+              v-if="secondaryTitle(room)"
               class="mt-1 truncate text-sm text-text-secondary"
               :class="view === 'list' ? 'min-w-40 flex-1' : ''"
             >
-              {{ room.title || '未获取到直播标题' }}
+              {{ secondaryTitle(room) }}
             </p>
             <p
               class="mt-2 text-xs text-text-tertiary"
