@@ -41,6 +41,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 async function renderPanel() {
@@ -91,6 +92,10 @@ it('opens the QR in a modal and closes it after refreshing the confirmed account
   vi.mocked(CheckAccount).mockResolvedValue({ state: State.LoggedIn, uid: '123456' })
   await poll()
   expect(screen.getByText('扫码登录成功')).toBeTruthy()
+  expect(screen.getByRole('status', { name: '操作成功通知' })).toBeTruthy()
+  expect(
+    within(screen.getByRole('region', { name: 'B站账号凭证' })).queryByText('扫码登录成功'),
+  ).toBeNull()
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(vi.mocked(CancelQRLogin)).not.toHaveBeenCalled()
   expect(screen.getByText('已登录')).toBeTruthy()
@@ -106,6 +111,67 @@ it('opens the QR in a modal and closes it after refreshing the confirmed account
   ).not.toContain('fictional_qr_payload')
   expect(client.getMutationCache().getAll()).toHaveLength(0)
   expect(localStorage.length).toBe(0)
+})
+
+it('shows a dismissible toast for clearing credentials and hides it automatically', async () => {
+  vi.stubGlobal(
+    'confirm',
+    vi.fn(() => true),
+  )
+  await renderPanel()
+  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await vi.advanceTimersByTimeAsync(0)
+  expect(vi.mocked(ClearAccount)).toHaveBeenCalledTimes(1)
+  expect(screen.getByRole('status', { name: '操作成功通知' }).textContent).toContain(
+    '账号凭证已清除。',
+  )
+  expect(
+    within(screen.getByRole('region', { name: 'B站账号凭证' })).queryByText('账号凭证已清除。'),
+  ).toBeNull()
+  await vi.advanceTimersByTimeAsync(5000)
+  expect(screen.queryByRole('status', { name: '操作成功通知' })).toBeNull()
+  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await vi.advanceTimersByTimeAsync(0)
+  await fireEvent.click(screen.getByRole('button', { name: '关闭通知' }))
+  expect(screen.queryByRole('status', { name: '操作成功通知' })).toBeNull()
+})
+
+it('shows clearing errors in an alert toast instead of inside the account card', async () => {
+  vi.stubGlobal(
+    'confirm',
+    vi.fn(() => true),
+  )
+  vi.mocked(ClearAccount).mockRejectedValueOnce({
+    message: '系统安全凭证存储不可用，请检查系统密钥环',
+  })
+  await renderPanel()
+  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await vi.advanceTimersByTimeAsync(0)
+  expect(screen.getByRole('alert', { name: '操作失败通知' }).textContent).toContain(
+    '系统安全凭证存储不可用，请检查系统密钥环',
+  )
+  expect(
+    within(screen.getByRole('region', { name: 'B站账号凭证' })).queryByRole('alert'),
+  ).toBeNull()
+  await vi.advanceTimersByTimeAsync(8000)
+  expect(screen.queryByRole('alert', { name: '操作失败通知' })).toBeNull()
+})
+
+it('shows cancellation failures in a toast after closing the QR dialog', async () => {
+  vi.mocked(CancelQRLogin).mockRejectedValueOnce({
+    message: '操作已取消或超时',
+  })
+  await renderPanel()
+  await beginLogin()
+  await fireEvent.click(screen.getByRole('button', { name: '关闭扫码登录' }))
+  await vi.advanceTimersByTimeAsync(0)
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.getByRole('alert', { name: '操作失败通知' }).textContent).toContain(
+    '操作已取消或超时',
+  )
+  expect(
+    within(screen.getByRole('region', { name: 'B站账号凭证' })).queryByRole('alert'),
+  ).toBeNull()
 })
 
 it('closes without showing cancellation feedback while preserving the existing account', async () => {

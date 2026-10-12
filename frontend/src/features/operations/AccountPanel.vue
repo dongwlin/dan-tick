@@ -3,6 +3,7 @@ import { computed, shallowRef } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
 import { ShieldCheck, RefreshCw } from 'lucide-vue-next'
+import UiToast from '@/components/UiToast.vue'
 import { bindingError } from '@/features/configuration/queries'
 import { flatPanel, secondaryButton } from '@/features/configuration/style'
 import { accountStatusLabels, operationKeys, useAccountStatus, useClearAccount } from './queries'
@@ -13,12 +14,17 @@ const status = useAccountStatus()
 const client = useQueryClient()
 const clear = useClearAccount()
 const dialogOpen = shallowRef(false)
-const feedback = shallowRef('')
-const errorMessage = shallowRef('')
+const toast = shallowRef<{ id: number; message: string; tone: 'success' | 'error' } | null>(null)
+let nextToastId = 0
+
+function notify(message: string, tone: 'success' | 'error') {
+  toast.value = { id: ++nextToastId, message, tone }
+}
+
 const qr = useQRLogin({
   onConfirmed: async () => {
     dialogOpen.value = false
-    feedback.value = '扫码登录成功'
+    notify('扫码登录成功', 'success')
     await client.invalidateQueries({ queryKey: operationKeys.account })
   },
 })
@@ -34,8 +40,7 @@ const needsReauthentication = computed(
 async function beginLogin() {
   if (clear.isPending.value || qr.busy.value || qr.active.value) return
   dialogOpen.value = true
-  errorMessage.value = ''
-  feedback.value = ''
+  toast.value = null
   await qr.begin()
 }
 
@@ -47,18 +52,17 @@ async function setDialogOpen(open: boolean) {
   if (qr.cancelPending.value || (qr.state.value === 'account_mismatch' && qr.busy.value)) return
   await qr.cancel()
   dialogOpen.value = false
-  if (qr.errorMessage.value) errorMessage.value = qr.errorMessage.value
+  if (qr.errorMessage.value) notify(qr.errorMessage.value, 'error')
 }
 
 async function clearCredentials() {
   if (!window.confirm('清除已保存的 B 站登录凭证？已创建的任务不会删除。')) return
-  errorMessage.value = ''
-  feedback.value = ''
+  toast.value = null
   try {
     await clear.mutateAsync()
-    feedback.value = '账号凭证已清除。'
+    notify('账号凭证已清除。', 'success')
   } catch (error) {
-    errorMessage.value = bindingError(error)
+    notify(bindingError(error), 'error')
   }
 }
 </script>
@@ -106,7 +110,12 @@ async function clearCredentials() {
         清除凭证
       </button>
     </div>
-    <p v-if="feedback" aria-live="polite" class="text-sm text-text-secondary">{{ feedback }}</p>
-    <p v-if="errorMessage" role="alert" class="text-sm text-soft-danger-fg">{{ errorMessage }}</p>
+    <UiToast
+      v-if="toast"
+      :key="toast.id"
+      :message="toast.message"
+      :tone="toast.tone"
+      @dismiss="toast = null"
+    />
   </section>
 </template>
