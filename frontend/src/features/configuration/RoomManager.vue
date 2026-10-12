@@ -225,7 +225,12 @@ async function deleteRoom(room: Room) {
                   maxlength="100"
                   placeholder="备注名称"
                 />
-                <button type="submit" :disabled="update.isPending.value" :class="primaryButton">
+                <button
+                  type="submit"
+                  :disabled="update.isPending.value"
+                  :aria-busy="update.isPending.value"
+                  :class="primaryButton"
+                >
                   保存备注
                 </button>
                 <button type="button" :class="secondaryButton" @click="editingID = null">
@@ -286,6 +291,7 @@ async function deleteRoom(room: Room) {
           type="button"
           :class="secondaryButton"
           :disabled="pages.isFetchingNextPage.value"
+          :aria-busy="pages.isFetchingNextPage.value"
           @click="pages.fetchNextPage()"
         >
           {{ pages.isFetchingNextPage.value ? '加载中…' : '加载更多' }}

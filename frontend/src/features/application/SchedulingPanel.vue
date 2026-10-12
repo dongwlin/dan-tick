@@ -92,6 +92,7 @@ async function toggleScheduling(event: Event) {
           type="submit"
           :class="secondaryButton"
           :disabled="setTimezone.isPending.value || !timezone.trim()"
+          :aria-busy="setTimezone.isPending.value"
         >
           {{ setTimezone.isPending.value ? '正在保存…' : '保存默认时区' }}
         </button>

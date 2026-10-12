@@ -190,6 +190,7 @@ async function deleteTask(task: Task) {
               type="button"
               :class="secondaryButton"
               :disabled="tasks.isFetchingNextPage.value"
+              :aria-busy="tasks.isFetchingNextPage.value"
               @click="tasks.fetchNextPage()"
             >
               {{ tasks.isFetchingNextPage.value ? '加载中…' : '加载更多' }}

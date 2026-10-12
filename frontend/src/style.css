@@ -33,6 +33,8 @@
   --color-soft-danger-bg: var(--soft-danger-bg);
   --color-soft-danger-fg: var(--soft-danger-fg);
   --color-soft-danger-border: var(--soft-danger-border);
+  --color-danger-solid: var(--danger-solid);
+  --color-on-danger: var(--on-danger);
 }
 
 /* Match the approved prototype's semantic colors; dark is the first-run default. */
@@ -72,6 +74,8 @@
   --soft-danger-bg: #35191a;
   --soft-danger-fg: #ec9c95;
   --soft-danger-border: #5c2b28;
+  --danger-solid: #dd7b73;
+  --on-danger: #0f181f;
   --accent-panel: #0c1c25;
   --accent-panel-alt: #0f3040;
   color-scheme: dark;
@@ -113,6 +117,8 @@
   --soft-danger-bg: #f8dcda;
   --soft-danger-fg: #7a2520;
   --soft-danger-border: #e6a9a3;
+  --danger-solid: #bc3f38;
+  --on-danger: #ffffff;
   --accent-panel: #d5edf4;
   --accent-panel-alt: #b6dbe9;
   color-scheme: light;
@@ -187,6 +193,47 @@
 
 /* Opaque fallback remains readable without backdrop-filter (or with reduced transparency). */
 @layer components {
+  /* Small visual buttons retain at least a 44px pointer target. */
+  .ui-button--small::after,
+  .ui-button--default::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
+  }
+
+  .ui-button--default::after {
+    inset: -4px;
+  }
+
+  .ui-button[aria-busy='true']::before {
+    content: '';
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: ui-button-spin 1s linear infinite;
+  }
+
+  .ui-button[aria-busy='true'] > svg:first-child {
+    display: none;
+  }
+
+  @keyframes ui-button-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-button[aria-busy='true']::before {
+      animation: none;
+      border-top-color: currentColor;
+      border-right-color: transparent;
+    }
+  }
+
   .acrylic,
   .acrylic--thin,
   .acrylic--thick {

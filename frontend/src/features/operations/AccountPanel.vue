@@ -97,6 +97,7 @@ async function clearCredentials() {
         type="button"
         :class="[secondaryButton, 'min-h-11']"
         :disabled="status.isFetching.value || qr.active.value || qr.busy.value"
+        :aria-busy="status.isFetching.value"
         @click="status.refetch()"
       >
         <RefreshCw class="size-4" aria-hidden="true" />检查登录状态
@@ -105,6 +106,7 @@ async function clearCredentials() {
         type="button"
         :class="[secondaryButton, 'min-h-11']"
         :disabled="clear.isPending.value || qr.active.value || qr.busy.value"
+        :aria-busy="clear.isPending.value"
         @click="clearCredentials"
       >
         清除凭证

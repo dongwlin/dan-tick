@@ -127,6 +127,7 @@ function preventClosingWhenLocked(event: Event) {
               type="button"
               :class="[primaryButton, 'min-h-11']"
               :disabled="busy || disabled"
+              :aria-busy="busy"
               @click="emit('confirm')"
             >
               {{ busy ? '正在切换…' : '确认切换账号' }}
@@ -136,6 +137,7 @@ function preventClosingWhenLocked(event: Event) {
               type="button"
               :class="[primaryButton, 'min-h-11']"
               :disabled="busy || disabled"
+              :aria-busy="busy"
               @click="emit('begin')"
             >
               {{ retryText }}

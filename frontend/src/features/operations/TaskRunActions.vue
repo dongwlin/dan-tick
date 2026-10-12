@@ -50,6 +50,7 @@ async function cancel() {
       type="button"
       :class="secondaryButton"
       :disabled="stop.isPending.value"
+      :aria-busy="stop.isPending.value"
       :aria-label="`停止任务 ${taskId} 当前执行`"
       @click="cancel"
     >
@@ -62,6 +63,7 @@ async function cancel() {
       type="button"
       :class="secondaryButton"
       :disabled="start.isPending.value"
+      :aria-busy="start.isPending.value"
       :aria-label="`立即执行任务 ${taskId}`"
       @click="run"
     >

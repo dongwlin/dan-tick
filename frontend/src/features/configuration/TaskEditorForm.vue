@@ -459,6 +459,7 @@ const submit = handleSubmit(async (data) => {
         <button
           type="submit"
           :disabled="save.isPending.value || rooms.isPending.value || !rooms.data.value?.length"
+          :aria-busy="save.isPending.value"
           :class="primaryButton"
         >
           <Check class="size-4" aria-hidden="true" />{{

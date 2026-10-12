@@ -51,6 +51,7 @@ async function run(action: 'logs' | 'data' | 'export') {
         type="button"
         :class="secondaryButton"
         :disabled="data.isPending.value"
+        :aria-busy="data.isPending.value"
         @click="run('data')"
       >
         <FolderOpen class="size-4" aria-hidden="true" />打开数据目录
@@ -70,6 +71,7 @@ async function run(action: 'logs' | 'data' | 'export') {
         type="button"
         :class="secondaryButton"
         :disabled="logs.isPending.value"
+        :aria-busy="logs.isPending.value"
         @click="run('logs')"
       >
         <FolderOpen class="size-4" aria-hidden="true" />打开日志目录
@@ -85,6 +87,7 @@ async function run(action: 'logs' | 'data' | 'export') {
       type="button"
       :class="secondaryButton"
       :disabled="exportAction.isPending.value"
+      :aria-busy="exportAction.isPending.value"
       @click="run('export')"
     >
       <FileArchive class="size-4" aria-hidden="true" />

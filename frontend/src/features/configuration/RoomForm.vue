@@ -33,7 +33,7 @@ function submit() {
     <p class="mt-2 text-xs text-text-tertiary">主播与标题由 B 站查询，备注可添加后修改。</p>
     <div class="mt-4 flex justify-end gap-2">
       <button type="button" :class="secondaryButton" @click="emit('cancel')">取消</button>
-      <button type="submit" :disabled="pending" :class="primaryButton">
+      <button type="submit" :disabled="pending" :aria-busy="pending" :class="primaryButton">
         <Plus class="size-4" aria-hidden="true" />
         {{ pending ? '正在验证…' : '添加到列表' }}
       </button>

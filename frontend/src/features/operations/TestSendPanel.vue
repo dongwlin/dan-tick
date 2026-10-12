@@ -63,6 +63,7 @@ async function submit() {
         type="submit"
         :class="primaryButton"
         :disabled="send.isPending.value || !roomID || !message.trim()"
+        :aria-busy="send.isPending.value"
       >
         <Send class="size-4" aria-hidden="true" />{{
           send.isPending.value ? '正在发送…' : '发送测试弹幕'
