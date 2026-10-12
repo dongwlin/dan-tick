@@ -57,7 +57,6 @@ async function deleteTask(task: Task) {
     <header class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1>弹幕任务</h1>
-        <p class="text-sm">创建任务并安排自动发送计划</p>
       </div>
       <RouterLink :to="{ name: 'task-create' }" :class="primaryButton">
         <Plus class="size-4" aria-hidden="true" />新建任务

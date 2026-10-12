@@ -30,7 +30,6 @@ const statusLabels: Record<string, string> = {
     <header class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1>总览</h1>
-        <p class="text-sm text-text-secondary">任务、调度与执行结果的实时摘要</p>
       </div>
       <RouterLink to="/tasks/new" :class="primaryButton">
         <Plus class="size-4" aria-hidden="true" />新建任务

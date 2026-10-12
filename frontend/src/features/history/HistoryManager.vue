@@ -72,7 +72,6 @@ onUnmounted(() => {
   <section class="flex min-h-0 flex-1 flex-col gap-4">
     <header>
       <h1>执行记录</h1>
-      <p class="text-sm">查看实际执行结果与每一次发送尝试</p>
     </header>
     <div ref="panelElement" :class="[panel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
       <div

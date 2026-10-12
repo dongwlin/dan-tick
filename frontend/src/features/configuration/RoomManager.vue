@@ -61,7 +61,6 @@ async function deleteRoom(room: Room) {
     <header class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1>直播间</h1>
-        <p class="text-sm">管理弹幕任务的目标直播间</p>
       </div>
       <div class="flex items-center gap-2">
         <div

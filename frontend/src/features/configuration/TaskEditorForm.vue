@@ -193,7 +193,6 @@ const submit = handleSubmit(async (data) => {
     >
     <header>
       <h1>{{ task ? '编辑任务' : '新建任务' }}</h1>
-      <p class="text-sm">配置目标直播间、弹幕内容和执行计划</p>
     </header>
     <form
       class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]"
