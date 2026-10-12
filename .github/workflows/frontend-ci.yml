@@ -27,10 +27,6 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        working-directory: frontend
-        run: pnpm run lint
-
       - name: Check formatting
         working-directory: frontend
         run: pnpm run format:check
@@ -57,6 +53,12 @@ jobs:
           mkdir -p frontend/dist
           printf '%s\n' '<!doctype html><title>CI binding placeholder</title>' > frontend/dist/index.html
           "$(go env GOPATH)/bin/wails3" generate bindings -clean=true -ts -i ./...
+
+      # Typed ESLint resolves the generated @bindings modules, so run it after
+      # binding generation in a clean checkout.
+      - name: Lint
+        working-directory: frontend
+        run: pnpm run lint
 
       # The test suites and lazy-loaded pages import these generated modules.
       # Run Vitest only after binding generation in a clean checkout.
