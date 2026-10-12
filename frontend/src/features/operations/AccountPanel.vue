@@ -5,6 +5,7 @@ import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/m
 import { ShieldCheck, RefreshCw } from 'lucide-vue-next'
 import { flatPanel } from '@/components/ui/uiStyles'
 import { secondaryButton } from '@/components/ui/buttonStyles'
+import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 import { accountStatusLabels, operationKeys, useAccountStatus, useClearAccount } from './queries'
@@ -15,6 +16,7 @@ const status = useAccountStatus()
 const client = useQueryClient()
 const clear = useClearAccount()
 const dialogOpen = shallowRef(false)
+const clearDialogOpen = shallowRef(false)
 const { notify, dismiss } = useToast()
 
 const qr = useQRLogin({
@@ -51,8 +53,12 @@ async function setDialogOpen(open: boolean) {
   if (qr.errorMessage.value) notify(qr.errorMessage.value, 'error')
 }
 
+function requestClearCredentials() {
+  clearDialogOpen.value = true
+}
+
 async function clearCredentials() {
-  if (!window.confirm('清除已保存的 B 站登录凭证？已创建的任务不会删除。')) return
+  clearDialogOpen.value = false
   dismiss()
   try {
     await clear.mutateAsync()
@@ -103,10 +109,19 @@ async function clearCredentials() {
         :class="[secondaryButton, 'min-h-11']"
         :disabled="clear.isPending.value || qr.active.value || qr.busy.value"
         :aria-busy="clear.isPending.value"
-        @click="clearCredentials"
+        @click="requestClearCredentials"
       >
         清除凭证
       </button>
     </div>
+    <UiConfirmDialog
+      :open="clearDialogOpen"
+      title="清除 B 站登录凭证"
+      description="清除已保存的 B 站登录凭证？已创建的任务不会删除。"
+      confirm-label="清除凭证"
+      variant="danger"
+      @update:open="clearDialogOpen = $event"
+      @confirm="clearCredentials"
+    />
   </section>
 </template>

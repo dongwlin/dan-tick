@@ -67,6 +67,14 @@ async function poll() {
   await nextTick()
 }
 
+async function clearCredentialsThroughDialog() {
+  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await nextTick()
+  const dialog = screen.getByRole('alertdialog', { name: '清除 B 站登录凭证' })
+  await fireEvent.click(within(dialog).getByRole('button', { name: '清除凭证' }))
+  await nextTick()
+}
+
 it('opens the QR in a modal and closes it after refreshing the confirmed account', async () => {
   vi.mocked(PollQRLogin)
     .mockResolvedValueOnce({ state: 'scanned' })
@@ -116,12 +124,8 @@ it('opens the QR in a modal and closes it after refreshing the confirmed account
 })
 
 it('shows a dismissible toast for clearing credentials and hides it automatically', async () => {
-  vi.stubGlobal(
-    'confirm',
-    vi.fn(() => true),
-  )
   await renderPanel()
-  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await clearCredentialsThroughDialog()
   await vi.advanceTimersByTimeAsync(0)
   expect(vi.mocked(ClearAccount)).toHaveBeenCalledTimes(1)
   expect(screen.getByRole('status', { name: '操作成功通知' }).textContent).toContain(
@@ -132,33 +136,25 @@ it('shows a dismissible toast for clearing credentials and hides it automaticall
   ).toBeNull()
   await vi.advanceTimersByTimeAsync(5000)
   expect(screen.queryByRole('status', { name: '操作成功通知' })).toBeNull()
-  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await clearCredentialsThroughDialog()
   await vi.advanceTimersByTimeAsync(0)
   await fireEvent.click(screen.getByRole('button', { name: '关闭通知' }))
   expect(screen.queryByRole('status', { name: '操作成功通知' })).toBeNull()
 })
 
 it('keeps toast accessibility markup outside the account card layout', async () => {
-  vi.stubGlobal(
-    'confirm',
-    vi.fn(() => true),
-  )
   await renderPanel()
   const card = screen.getByRole('region', { name: 'B站账号凭证' })
   const originalChildCount = card.children.length
-  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await clearCredentialsThroughDialog()
   await vi.advanceTimersByTimeAsync(1500)
   expect(screen.getByRole('status', { name: '操作成功通知' })).toBeTruthy()
   expect(card.children).toHaveLength(originalChildCount)
 })
 
 it('pauses a toast timeout while its viewport has focus', async () => {
-  vi.stubGlobal(
-    'confirm',
-    vi.fn(() => true),
-  )
   await renderPanel()
-  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await clearCredentialsThroughDialog()
   await vi.advanceTimersByTimeAsync(0)
   const viewport = within(screen.getByRole('region', { name: '通知 (F8)' })).getByRole('list')
   await fireEvent.focusIn(viewport)
@@ -170,15 +166,11 @@ it('pauses a toast timeout while its viewport has focus', async () => {
 })
 
 it('shows clearing errors in an alert toast instead of inside the account card', async () => {
-  vi.stubGlobal(
-    'confirm',
-    vi.fn(() => true),
-  )
   vi.mocked(ClearAccount).mockRejectedValueOnce({
     message: '系统安全凭证存储不可用，请检查系统密钥环',
   })
   await renderPanel()
-  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await clearCredentialsThroughDialog()
   await vi.advanceTimersByTimeAsync(0)
   expect(screen.getByRole('alert', { name: '操作失败通知' }).textContent).toContain(
     '系统安全凭证存储不可用，请检查系统密钥环',
