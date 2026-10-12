@@ -1,9 +1,13 @@
 package credential
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -186,4 +190,208 @@ func TestKeyringFailuresAreSafeAndDistinguishable(t *testing.T) {
 	backend := &fakeKeyring{setErr: keyring.ErrSetDataTooBig}
 	require.ErrorIs(t, (&Store{backend: backend}).Save(Credentials{SESSDATA: "a", BiliJCT: "b"}), ErrInvalid)
 	require.False(t, errors.Is(ErrInvalid, ErrUnavailable))
+}
+
+func qrCredentials() Credentials {
+	return Credentials{
+		SESSDATA: "qr_session", BiliJCT: "qr_csrf", Version: 1,
+		Source: "qr", UID: "123456", RefreshToken: "qr_refresh_token", RefreshState: "ready",
+	}
+}
+
+func TestLegacyCredentialsRemainStoredUntilExplicitQRMigration(t *testing.T) {
+	legacySecret := `{"sessdata":"legacy_session","bili_jct":"legacy_csrf"}`
+	backend := &fakeKeyring{secret: legacySecret, present: true}
+	store := NewStoreWithBackend(backend)
+
+	got, err := store.Load()
+	require.NoError(t, err)
+	require.Equal(t, Credentials{SESSDATA: "legacy_session", BiliJCT: "legacy_csrf"}, got)
+	require.Equal(t, legacySecret, backend.secret)
+	require.Zero(t, backend.writes)
+
+	require.NoError(t, store.Save(qrCredentials()))
+	got, err = NewStoreWithBackend(backend).Load()
+	require.NoError(t, err)
+	require.Equal(t, qrCredentials(), got)
+	require.NotContains(t, backend.secret, "legacy_session")
+	require.NotContains(t, backend.secret, "legacy_csrf")
+}
+
+func TestQRRefreshStoresWholeGroupsAndSurvivesReopening(t *testing.T) {
+	backend := &fakeKeyring{}
+	store := NewStoreWithBackend(backend)
+	original := qrCredentials()
+	require.NoError(t, store.Save(original))
+
+	pending := original
+	pending.RefreshState = "pending"
+	require.NoError(t, store.Save(pending))
+	got, err := NewStoreWithBackend(backend).Load()
+	require.NoError(t, err)
+	require.Equal(t, pending, got)
+
+	rotated := original
+	rotated.SESSDATA, rotated.BiliJCT, rotated.RefreshToken = "new_session", "new_csrf", "new_token"
+	require.NoError(t, store.Save(rotated))
+	got, err = NewStoreWithBackend(backend).Load()
+	require.NoError(t, err)
+	require.Equal(t, rotated, got)
+	for _, oldSecret := range []string{original.SESSDATA, original.BiliJCT, original.RefreshToken} {
+		require.NotContains(t, backend.secret, oldSecret)
+	}
+
+	uncertain := rotated
+	uncertain.RefreshState = "uncertain"
+	require.NoError(t, store.Save(uncertain))
+	got, err = NewStoreWithBackend(backend).Load()
+	require.NoError(t, err)
+	require.Equal(t, uncertain, got)
+}
+
+func TestFailedQRRotationPreservesPersistedGroupAndHidesSecrets(t *testing.T) {
+	backend := &fakeKeyring{}
+	store := NewStoreWithBackend(backend)
+	pending := qrCredentials()
+	pending.RefreshState = "pending"
+	require.NoError(t, store.Save(pending))
+	previous := backend.secret
+
+	rotated := qrCredentials()
+	rotated.SESSDATA, rotated.BiliJCT, rotated.RefreshToken = "new_session", "new_csrf", "new_token"
+	backend.setErr = fmt.Errorf("failed saving %s, %s and %s", rotated.SESSDATA, rotated.BiliJCT, rotated.RefreshToken)
+	err := store.Save(rotated)
+	require.ErrorIs(t, err, ErrUnavailable)
+	for _, secret := range []string{rotated.SESSDATA, rotated.BiliJCT, rotated.RefreshToken} {
+		require.NotContains(t, err.Error(), secret)
+	}
+	require.Equal(t, previous, backend.secret)
+	got, err := NewStoreWithBackend(backend).Load()
+	require.NoError(t, err)
+	require.Equal(t, pending, got)
+	require.Equal(t, 1, backend.writes)
+}
+
+func TestQRFormatRejectsPartialAndInvalidGroupsWithoutChangingSavedValue(t *testing.T) {
+	for name, change := range map[string]func(*Credentials){
+		"legacy with qr metadata": func(c *Credentials) { c.Version = 0 },
+		"unsupported version":     func(c *Credentials) { c.Version = 2 },
+		"missing source":          func(c *Credentials) { c.Source = "" },
+		"unsupported source":      func(c *Credentials) { c.Source = "chrome" },
+		"missing uid":             func(c *Credentials) { c.UID = "" },
+		"zero uid":                func(c *Credentials) { c.UID = "0" },
+		"ambiguous uid":           func(c *Credentials) { c.UID = "0123" },
+		"negative uid":            func(c *Credentials) { c.UID = "-123" },
+		"uid spaces":              func(c *Credentials) { c.UID = " 123" },
+		"uid injection":           func(c *Credentials) { c.UID = "123;bad" },
+		"uid overflow":            func(c *Credentials) { c.UID = "18446744073709551616" },
+		"missing refresh token":   func(c *Credentials) { c.RefreshToken = "" },
+		"refresh token injection": func(c *Credentials) { c.RefreshToken = "secret;other=1" },
+		"refresh token spaces":    func(c *Credentials) { c.RefreshToken = " secret " },
+		"refresh token control":   func(c *Credentials) { c.RefreshToken = "secret\x00value" },
+		"missing refresh state":   func(c *Credentials) { c.RefreshState = "" },
+		"invalid refresh state":   func(c *Credentials) { c.RefreshState = "unknown" },
+		"oversized group":         func(c *Credentials) { c.RefreshToken = strings.Repeat("x", maxStoredBytes) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			backend := &fakeKeyring{}
+			store := NewStoreWithBackend(backend)
+			require.NoError(t, store.Save(qrCredentials()))
+			previous := backend.secret
+			invalid := qrCredentials()
+			change(&invalid)
+			require.ErrorIs(t, store.Save(invalid), ErrInvalid)
+			require.Equal(t, previous, backend.secret)
+			require.Equal(t, 1, backend.writes)
+
+			saved, err := json.Marshal(invalid)
+			require.NoError(t, err)
+			backend.secret = string(saved)
+			got, err := store.Load()
+			require.ErrorIs(t, err, ErrCorrupt)
+			require.Equal(t, Credentials{}, got)
+			require.Equal(t, string(saved), backend.secret)
+		})
+	}
+}
+
+func TestLoadRejectsOversizedOrUnrecognizedJSONWithoutDeletingIt(t *testing.T) {
+	for name, secret := range map[string]string{
+		"oversized":      `{"sessdata":"` + strings.Repeat("x", maxStoredBytes) + `","bili_jct":"csrf"}`,
+		"unknown fields": `{"sessdata":"session","bili_jct":"csrf","refreshToken":"token"}`,
+		"extra object":   `{"sessdata":"session","bili_jct":"csrf"} {"version":1}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			backend := &fakeKeyring{secret: secret, present: true}
+			got, err := NewStoreWithBackend(backend).Load()
+			require.ErrorIs(t, err, ErrCorrupt)
+			require.Equal(t, Credentials{}, got)
+			require.Equal(t, secret, backend.secret)
+			require.True(t, backend.present)
+			require.Zero(t, backend.writes)
+		})
+	}
+}
+
+type serializedKeyring struct {
+	fakeKeyring
+	active  atomic.Bool
+	overlap atomic.Bool
+}
+
+func (f *serializedKeyring) enter() {
+	if !f.active.CompareAndSwap(false, true) {
+		f.overlap.Store(true)
+	}
+	runtime.Gosched()
+}
+
+func (f *serializedKeyring) Set(service, account, secret string) error {
+	f.enter()
+	defer f.active.Store(false)
+	return f.fakeKeyring.Set(service, account, secret)
+}
+
+func (f *serializedKeyring) Get(service, account string) (string, error) {
+	f.enter()
+	defer f.active.Store(false)
+	return f.fakeKeyring.Get(service, account)
+}
+
+func (f *serializedKeyring) Delete(service, account string) error {
+	f.enter()
+	defer f.active.Store(false)
+	return f.fakeKeyring.Delete(service, account)
+}
+
+func TestStoreSerializesConcurrentSaveLoadAndClear(t *testing.T) {
+	backend := &serializedKeyring{}
+	store := NewStoreWithBackend(backend)
+	var workers sync.WaitGroup
+	results := make(chan error, 20)
+	for range 20 {
+		workers.Go(func() {
+			if err := store.Save(qrCredentials()); err != nil {
+				results <- err
+				return
+			}
+			got, err := store.Load()
+			if err == nil {
+				if got != qrCredentials() {
+					results <- errors.New("read returned a mixed credential group")
+					return
+				}
+			} else if !errors.Is(err, ErrNotConfigured) {
+				results <- err
+				return
+			}
+			results <- store.Clear()
+		})
+	}
+	workers.Wait()
+	close(results)
+	for err := range results {
+		require.NoError(t, err)
+	}
+	require.False(t, backend.overlap.Load())
 }
