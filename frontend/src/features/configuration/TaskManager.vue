@@ -3,7 +3,8 @@ import { computed, shallowRef } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Clock3, ListTodo, Plus, Search, Trash2 } from 'lucide-vue-next'
 import { useDeleteTask, useSetTaskEnabled, useTaskPages } from './queries'
-import { fieldClass, flatPanel } from '@/components/ui/uiStyles'
+import { fieldClass } from '@/components/ui/uiStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import { bindingError } from '@/lib/bindingError'
@@ -81,7 +82,7 @@ async function deleteTask() {
         <Plus class="size-4" aria-hidden="true" />新建任务
       </RouterLink>
     </header>
-    <div :class="[flatPanel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
+    <UiPanel as="div" :padded="false" class="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
         class="flex flex-wrap items-center justify-between gap-3 border-b border-border-hairline px-5 py-4"
       >
@@ -231,7 +232,7 @@ async function deleteTask() {
           </div>
         </template>
       </div>
-    </div>
+    </UiPanel>
     <p v-if="message" role="alert" class="rounded-lg bg-soft-danger-bg p-3 text-soft-danger-fg">
       {{ message }}
     </p>

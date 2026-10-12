@@ -15,7 +15,8 @@ import { usePreferences } from '@/features/application/queries'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import UiField from '@/components/ui/UiField.vue'
-import { fieldClass, flatPanel } from '@/components/ui/uiStyles'
+import { fieldClass } from '@/components/ui/uiStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 
@@ -266,7 +267,7 @@ const submit = handleSubmit(
         tabindex="0"
         aria-label="任务配置表单"
       >
-        <section :class="[flatPanel, 'p-5']">
+        <UiPanel>
           <h2 class="mb-4 text-base font-semibold">基本信息</h2>
           <div class="grid gap-4 md:grid-cols-2">
             <UiField
@@ -349,8 +350,8 @@ const submit = handleSubmit(
             <input id="task-enabled" v-model="enabled" type="checkbox" />
             <label for="task-enabled">启用这个任务的自动执行</label>
           </div>
-        </section>
-        <section :class="[flatPanel, 'p-5']">
+        </UiPanel>
+        <UiPanel>
           <h2 class="mb-3 text-base font-semibold">弹幕内容</h2>
           <UiField
             id="task-messages"
@@ -426,8 +427,8 @@ const submit = handleSubmit(
               />
             </UiField>
           </div>
-        </section>
-        <section :class="[flatPanel, 'p-5']">
+        </UiPanel>
+        <UiPanel>
           <h2 class="mb-4 text-base font-semibold">执行计划</h2>
           <div class="grid gap-4 md:grid-cols-2">
             <UiField
@@ -527,10 +528,10 @@ const submit = handleSubmit(
               </div>
             </div>
           </UiField>
-        </section>
+        </UiPanel>
       </div>
       <aside class="flex flex-col gap-4">
-        <section :class="[flatPanel, 'p-5']">
+        <UiPanel>
           <h2 class="mb-4 text-base font-semibold">执行预览</h2>
           <dl class="space-y-3 text-sm">
             <div class="flex justify-between gap-3">
@@ -552,7 +553,7 @@ const submit = handleSubmit(
             </div>
           </dl>
           <p class="mt-4 text-xs text-text-tertiary">仅预览配置，不会立即发送弹幕。</p>
-        </section>
+        </UiPanel>
         <UiButton
           type="submit"
           variant="primary"

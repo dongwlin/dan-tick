@@ -4,6 +4,7 @@ import { Plus, X } from 'lucide-vue-next'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiField from '@/components/ui/UiField.vue'
 import { fieldClass } from '@/components/ui/uiStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
 
 defineProps<{ pending: boolean }>()
 const emit = defineEmits<{ submit: [value: string]; cancel: [] }>()
@@ -14,7 +15,7 @@ function submit() {
 </script>
 
 <template>
-  <form class="acrylic rounded-[14px] p-5" @submit.prevent="submit">
+  <UiPanel as="form" @submit.prevent="submit">
     <div class="mb-4 flex items-center justify-between">
       <h2 class="text-base font-semibold">添加直播间</h2>
       <button
@@ -49,5 +50,5 @@ function submit() {
         <Plus class="size-4" aria-hidden="true" />添加到列表
       </UiButton>
     </div>
-  </form>
+  </UiPanel>
 </template>

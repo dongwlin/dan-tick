@@ -3,8 +3,9 @@ import { computed, shallowRef } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
 import { ShieldCheck, RefreshCw } from 'lucide-vue-next'
-import { flatPanel } from '@/components/ui/uiStyles'
+
 import { secondaryButton } from '@/components/ui/buttonStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
@@ -70,7 +71,7 @@ async function clearCredentials() {
 </script>
 
 <template>
-  <section :class="[flatPanel, 'space-y-4 p-5']" aria-labelledby="account-heading">
+  <UiPanel class="space-y-4" aria-labelledby="account-heading">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h2 id="account-heading" class="text-base font-semibold">B站账号凭证</h2>
       <span class="flex items-center gap-2 text-sm text-text-secondary" aria-live="polite">
@@ -123,5 +124,5 @@ async function clearCredentials() {
       @update:open="clearDialogOpen = $event"
       @confirm="clearCredentials"
     />
-  </section>
+  </UiPanel>
 </template>

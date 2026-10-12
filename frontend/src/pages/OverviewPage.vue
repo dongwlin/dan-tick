@@ -5,7 +5,7 @@ import { CalendarClock, ChevronRight, CircleAlert, CircleCheck, Plus } from 'luc
 import { useAccountStatus } from '@/features/operations/queries'
 import { useOverview, usePreferences } from '@/features/application/queries'
 import { bindingError } from '@/lib/bindingError'
-import { flatPanel } from '@/components/ui/uiStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import { primaryButton } from '@/components/ui/buttonStyles'
 import { displayTime, statusText } from '@/features/history/presentation'
 import HistoryTable from '@/features/history/HistoryTable.vue'
@@ -44,13 +44,14 @@ const statusLabels: Record<string, string> = {
     >
       正在加载总览…
     </div>
-    <div v-else-if="overview.isError.value" role="alert" :class="[flatPanel, 'p-6 text-sm']">
+    <UiPanel v-else-if="overview.isError.value" :padded="false" role="alert" class="p-6 text-sm">
       {{ bindingError(overview.error.value) }}
       <button type="button" class="ml-2 underline" @click="overview.refetch()">重试读取</button>
-    </div>
+    </UiPanel>
     <template v-else-if="overview.data.value">
-      <div
-        :class="[flatPanel, 'grid shrink-0 grid-cols-2 overflow-hidden min-[851px]:grid-cols-4']"
+      <UiPanel
+        :padded="false"
+        class="grid shrink-0 grid-cols-2 overflow-hidden min-[851px]:grid-cols-4"
         aria-label="系统状态"
       >
         <div
@@ -105,10 +106,11 @@ const statusLabels: Record<string, string> = {
             overview.data.value.activeExecutions
           }}</strong>
         </div>
-      </div>
+      </UiPanel>
       <div class="grid min-h-0 max-h-62 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
-        <section
-          :class="[flatPanel, 'flex min-h-0 flex-col overflow-hidden']"
+        <UiPanel
+          :padded="false"
+          class="flex min-h-0 flex-col overflow-hidden"
           aria-labelledby="upcoming-heading"
         >
           <div class="flex shrink-0 items-center justify-between gap-3 px-5 pt-4 pb-2">
@@ -159,9 +161,10 @@ const statusLabels: Record<string, string> = {
             <CalendarClock class="size-7 text-text-tertiary" aria-hidden="true" />
             暂无即将执行的任务
           </div>
-        </section>
-        <section
-          :class="[flatPanel, 'flex flex-col overflow-hidden']"
+        </UiPanel>
+        <UiPanel
+          :padded="false"
+          class="flex flex-col overflow-hidden"
           aria-labelledby="alerts-heading"
         >
           <div class="flex shrink-0 items-center justify-between gap-3 px-5 pt-4 pb-2">
@@ -211,10 +214,11 @@ const statusLabels: Record<string, string> = {
               /></RouterLink>
             </div>
           </div>
-        </section>
+        </UiPanel>
       </div>
-      <section
-        :class="[flatPanel, 'flex min-h-35 flex-1 flex-col overflow-hidden']"
+      <UiPanel
+        :padded="false"
+        class="flex min-h-35 flex-1 flex-col overflow-hidden"
         aria-labelledby="recent-heading"
       >
         <div class="flex shrink-0 items-center justify-between gap-3 px-5 pt-4 pb-2">
@@ -228,7 +232,7 @@ const statusLabels: Record<string, string> = {
         <div class="min-h-0 min-w-0 flex-1 overflow-x-auto px-5 pb-2">
           <HistoryTable :items="recent" compact />
         </div>
-      </section>
+      </UiPanel>
     </template>
   </section>
 </template>

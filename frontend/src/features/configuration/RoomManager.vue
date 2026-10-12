@@ -4,7 +4,8 @@ import { Browser } from '@wailsio/runtime'
 import { ExternalLink, LayoutGrid, List, Pencil, Plus, Radio, Trash2 } from 'lucide-vue-next'
 import type { Room } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import { useAddRoom, useDeleteRoom, useRoomPages, useUpdateRoom } from './queries'
-import { fieldClass, flatPanel } from '@/components/ui/uiStyles'
+import { fieldClass } from '@/components/ui/uiStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import { bindingError } from '@/lib/bindingError'
@@ -176,18 +177,18 @@ async function deleteRoom() {
     <div v-if="pages.isPending.value" role="status" class="p-6 text-text-secondary">
       正在加载直播间…
     </div>
-    <div v-else-if="pages.isError.value" role="alert" :class="[flatPanel, 'p-6']">
+    <UiPanel v-else-if="pages.isError.value" :padded="false" role="alert" class="p-6">
       <p class="text-soft-danger-fg">{{ bindingError(pages.error.value) }}</p>
       <button type="button" :class="secondaryButton" class="mt-3" @click="pages.refetch()">
         重试读取
       </button>
-    </div>
-    <div v-else-if="!rooms.length" :class="[flatPanel, 'p-8 text-center']">
+    </UiPanel>
+    <UiPanel v-else-if="!rooms.length" :padded="false" class="p-8 text-center">
       <Radio class="mx-auto mb-3 size-9 text-text-tertiary" aria-hidden="true" />
       <h2 class="mb-1 text-base font-medium">还没有添加直播间</h2>
       <p class="mb-4 text-sm text-text-secondary">添加一个直播间即可创建弹幕任务。</p>
       <button type="button" :class="secondaryButton" @click="showForm = true">添加直播间</button>
-    </div>
+    </UiPanel>
     <div v-else class="min-h-0 flex-1 overflow-y-auto pb-3" aria-label="直播间内容" tabindex="0">
       <div
         :class="
@@ -196,10 +197,12 @@ async function deleteRoom() {
             : 'flex flex-col gap-3'
         "
       >
-        <article
+        <UiPanel
           v-for="(room, index) in rooms"
           :key="room.id"
-          :class="[flatPanel, 'min-w-0 overflow-hidden']"
+          as="article"
+          :padded="false"
+          class="min-w-0 overflow-hidden"
         >
           <RoomCover v-if="view === 'cards'" :cover-url="room.coverUrl" :index="index" />
           <div
@@ -306,7 +309,7 @@ async function deleteRoom() {
               </div>
             </div>
           </div>
-        </article>
+        </UiPanel>
       </div>
       <div class="mt-5 flex justify-center">
         <button

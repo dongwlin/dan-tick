@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { FolderOpen, FileArchive } from 'lucide-vue-next'
 import { secondaryButton } from '@/components/ui/buttonStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import { useToast } from '@/composables/useToast'
 import {
   useDiagnosticsStatus,
@@ -42,7 +43,7 @@ async function run(action: 'logs' | 'data' | 'export') {
 </script>
 
 <template>
-  <section class="acrylic rounded-[14px] p-5" aria-label="数据与日志">
+  <UiPanel aria-label="数据与日志">
     <h2 class="mb-2 text-base font-semibold">数据与日志</h2>
     <div
       class="flex flex-wrap items-center justify-between gap-4 border-b border-border-hairline py-4"
@@ -96,5 +97,5 @@ async function run(action: 'logs' | 'data' | 'export') {
       <FileArchive class="size-4" aria-hidden="true" />
       {{ exportAction.isPending.value ? '正在检查并导出…' : '导出诊断包…' }}
     </button>
-  </section>
+  </UiPanel>
 </template>

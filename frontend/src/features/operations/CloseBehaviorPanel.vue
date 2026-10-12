@@ -4,6 +4,7 @@ import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
 import { Check } from 'lucide-vue-next'
 import { shallowRef, watch } from 'vue'
 import { useToast } from '@/composables/useToast'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import {
   GetCloseBehavior,
   SetCloseBehavior,
@@ -48,7 +49,7 @@ function onChange(value: unknown) {
 </script>
 
 <template>
-  <section class="acrylic rounded-[14px] p-5" aria-labelledby="close-behavior-heading">
+  <UiPanel aria-labelledby="close-behavior-heading">
     <h2 id="close-behavior-heading" class="mb-2 text-base font-semibold">窗口与后台运行</h2>
     <p id="close-behavior-description" class="mb-4 text-sm text-text-tertiary">
       无系统托盘时，可再次启动 dan-tick 找回已隐藏的窗口；不会启动第二份调度器。
@@ -99,5 +100,5 @@ function onChange(value: unknown) {
     <p class="mt-3 text-sm text-text-tertiary">
       标题栏的「退出应用」始终可以明确结束后台任务；存在已启用或运行中的任务时会询问确认。
     </p>
-  </section>
+  </UiPanel>
 </template>

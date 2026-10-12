@@ -5,7 +5,8 @@ import { Outcome } from '@bindings/github.com/dongwlin/dan-tick/internal/danmaku
 import UiButton from '@/components/ui/UiButton.vue'
 import UiField from '@/components/ui/UiField.vue'
 import { useRoomOptions } from '@/features/configuration/queries'
-import { fieldClass, flatPanel } from '@/components/ui/uiStyles'
+import { fieldClass } from '@/components/ui/uiStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 import { sendFailureText, useTestSend } from './queries'
@@ -35,7 +36,7 @@ async function submit() {
 </script>
 
 <template>
-  <section :class="[flatPanel, 'space-y-4 p-5']" aria-labelledby="send-heading">
+  <UiPanel class="space-y-4" aria-labelledby="send-heading">
     <div>
       <h2 id="send-heading" class="text-base font-semibold">测试发送</h2>
       <p class="mt-1 text-sm text-text-tertiary">
@@ -82,5 +83,5 @@ async function submit() {
     <p v-if="rooms.isError.value" role="alert" class="text-sm text-soft-danger-fg">
       {{ bindingError(rooms.error.value) }}
     </p>
-  </section>
+  </UiPanel>
 </template>

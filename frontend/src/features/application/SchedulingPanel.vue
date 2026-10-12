@@ -2,6 +2,7 @@
 import { shallowRef, watch } from 'vue'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
 import { fieldClass } from '@/components/ui/uiStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import { secondaryButton } from '@/components/ui/buttonStyles'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
@@ -46,7 +47,7 @@ async function toggleScheduling(enabled: boolean) {
 </script>
 
 <template>
-  <section class="acrylic rounded-[14px] p-5" aria-label="调度设置">
+  <UiPanel aria-label="调度设置">
     <h2 class="mb-2 text-base font-semibold">调度设置</h2>
     <div v-if="preferences.isPending.value" role="status" class="py-4 text-sm text-text-secondary">
       正在读取调度设置…
@@ -111,5 +112,5 @@ async function toggleScheduling(enabled: boolean) {
         </button>
       </form>
     </div>
-  </section>
+  </UiPanel>
 </template>

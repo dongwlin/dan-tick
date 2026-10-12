@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
 import UiAvatar from '@/components/ui/UiAvatar.vue'
-import { flatPanel } from '@/components/ui/uiStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
+
 import { useAccountStatus } from './queries'
 
 const account = useAccountStatus()
@@ -20,7 +21,7 @@ const uid = computed(() => (loggedIn.value ? account.data.value?.uid || '暂不�
 </script>
 
 <template>
-  <section :class="[flatPanel, 'flex min-w-0 items-center gap-4 px-5 py-5']" aria-label="账号资料">
+  <UiPanel class="flex min-w-0 items-center gap-4" aria-label="账号资料">
     <UiAvatar
       :url="loggedIn ? account.data.value?.avatarUrl : undefined"
       class="size-15 border border-border-hairline"
@@ -29,5 +30,5 @@ const uid = computed(() => (loggedIn.value ? account.data.value?.uid || '暂不�
       <p class="truncate text-lg font-semibold text-text-primary" :title="name">{{ name }}</p>
       <p class="mt-1 text-sm text-text-secondary">UID：{{ uid }}</p>
     </div>
-  </section>
+  </UiPanel>
 </template>

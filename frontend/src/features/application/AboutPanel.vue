@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import titlebarWordmark from '@/assets/branding/titlebar-wordmark.png'
+import UiPanel from '@/components/ui/UiPanel.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -30,7 +31,7 @@ const shortCommit = computed(() => props.commit?.trim().slice(0, 8) || '未提�
 </script>
 
 <template>
-  <section class="acrylic rounded-[14px] p-5" aria-labelledby="about-heading">
+  <UiPanel aria-labelledby="about-heading">
     <h2 id="about-heading" class="text-base font-semibold">关于</h2>
     <div class="flex flex-col items-center px-2 pt-7 pb-5 text-center">
       <img
@@ -50,5 +51,5 @@ const shortCommit = computed(() => props.commit?.trim().slice(0, 8) || '未提�
         <dd class="font-mono text-text-primary tabular-nums">{{ shortCommit }}</dd>
       </dl>
     </div>
-  </section>
+  </UiPanel>
 </template>

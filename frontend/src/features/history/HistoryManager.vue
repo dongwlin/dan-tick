@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { ChevronLeft, ChevronRight, History } from 'lucide-vue-next'
-import { flatPanel } from '@/components/ui/uiStyles'
+
 import { secondaryButton } from '@/components/ui/buttonStyles'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import { bindingError } from '@/lib/bindingError'
 import { historyPageSize } from './pagination'
 import { useExecutionHistoryPages } from './queries'
@@ -74,104 +75,108 @@ onUnmounted(() => {
     <header>
       <h1>执行记录</h1>
     </header>
-    <div ref="panelElement" :class="[flatPanel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
-      <div
-        ref="toolbarElement"
-        class="flex shrink-0 items-center justify-between gap-3 border-b border-border-hairline px-5 py-4"
-      >
-        <h2 class="font-semibold">
-          执行历史
-          <span class="ml-1 text-sm text-text-tertiary tabular-nums">{{ knownTotal }}</span>
-        </h2>
-        <span class="text-xs text-text-tertiary">最近 30 天 · 按执行时间倒序</span>
-      </div>
-      <div
-        ref="scrollElement"
-        class="min-h-0 min-w-0 flex-1 overflow-auto"
-        :class="
-          !history.isPending.value && !history.isError.value && !items.length ? 'flex flex-col' : ''
-        "
-        tabindex="0"
-        aria-label="执行记录表格"
-      >
-        <div v-if="history.isPending.value" class="p-6 text-text-secondary" role="status">
-          正在加载执行记录…
-        </div>
-        <div v-else-if="history.isError.value" class="p-6" role="alert">
-          <p class="text-soft-danger-fg">{{ bindingError(history.error.value) }}</p>
-          <button type="button" :class="secondaryButton" class="mt-3" @click="history.refetch()">
-            重试读取
-          </button>
+    <div ref="panelElement" class="flex min-h-0 flex-1 flex-col">
+      <UiPanel :padded="false" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div
+          ref="toolbarElement"
+          class="flex shrink-0 items-center justify-between gap-3 border-b border-border-hairline px-5 py-4"
+        >
+          <h2 class="font-semibold">
+            执行历史
+            <span class="ml-1 text-sm text-text-tertiary tabular-nums">{{ knownTotal }}</span>
+          </h2>
+          <span class="text-xs text-text-tertiary">最近 30 天 · 按执行时间倒序</span>
         </div>
         <div
-          v-else-if="!items.length"
-          class="flex min-h-40 flex-1 flex-col items-center justify-center gap-2 p-8 text-center"
+          ref="scrollElement"
+          class="min-h-0 min-w-0 flex-1 overflow-auto"
+          :class="
+            !history.isPending.value && !history.isError.value && !items.length
+              ? 'flex flex-col'
+              : ''
+          "
+          tabindex="0"
+          aria-label="执行记录表格"
         >
-          <History class="size-7 text-text-tertiary" aria-hidden="true" />
-          <p class="text-text-secondary">
-            {{ knownTotal ? '当前页没有记录' : '还没有执行记录' }}
-          </p>
-        </div>
-        <template v-else>
-          <HistoryTable :items="items" />
-          <div
-            v-if="isEnd"
-            class="mx-4 border-t border-border-hairline py-4 text-center text-xs text-text-tertiary"
-          >
-            {{
-              showPagination
-                ? `已到最后一页，共 ${knownTotal} 条记录`
-                : `共 ${knownTotal} 条记录，已全部显示`
-            }}
+          <div v-if="history.isPending.value" class="p-6 text-text-secondary" role="status">
+            正在加载执行记录…
           </div>
-        </template>
-      </div>
-      <nav
-        v-if="showPagination"
-        aria-label="执行记录分页"
-        class="flex min-h-[54px] shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border-hairline px-5 py-2"
-      >
-        <span class="text-xs text-text-tertiary tabular-nums">
-          显示 {{ (page - 1) * pageSize + 1 }}–{{ Math.min(knownTotal, page * pageSize) }} 条，共
-          {{ knownTotal }} 条
-        </span>
-        <div class="flex items-center gap-1">
-          <button
-            type="button"
-            class="inline-flex size-11 items-center justify-center rounded-lg hover:bg-surface-muted active:bg-surface-solid-hover disabled:opacity-40"
-            :disabled="page === 1"
-            aria-label="上一页"
-            @click="changePage(page - 1)"
+          <div v-else-if="history.isError.value" class="p-6" role="alert">
+            <p class="text-soft-danger-fg">{{ bindingError(history.error.value) }}</p>
+            <button type="button" :class="secondaryButton" class="mt-3" @click="history.refetch()">
+              重试读取
+            </button>
+          </div>
+          <div
+            v-else-if="!items.length"
+            class="flex min-h-40 flex-1 flex-col items-center justify-center gap-2 p-8 text-center"
           >
-            <ChevronLeft class="size-4" aria-hidden="true" />
-          </button>
-          <button
-            v-for="number in pageNumbers"
-            :key="number"
-            type="button"
-            class="inline-flex size-11 items-center justify-center rounded-lg border text-xs tabular-nums"
-            :class="
-              number === page
-                ? 'border-accent-solid bg-accent-solid text-on-accent hover:brightness-110'
-                : 'border-transparent text-text-secondary hover:bg-surface-muted active:bg-surface-solid-hover'
-            "
-            :aria-current="number === page ? 'page' : undefined"
-            :aria-label="`第 ${number} 页`"
-            @click="changePage(number)"
-          >
-            {{ number }}
-          </button>
-          <button
-            type="button"
-            class="inline-flex size-11 items-center justify-center rounded-lg hover:bg-surface-muted active:bg-surface-solid-hover disabled:opacity-40"
-            :disabled="page === totalPages"
-            aria-label="下一页"
-            @click="changePage(page + 1)"
-          >
-            <ChevronRight class="size-4" aria-hidden="true" />
-          </button>
+            <History class="size-7 text-text-tertiary" aria-hidden="true" />
+            <p class="text-text-secondary">
+              {{ knownTotal ? '当前页没有记录' : '还没有执行记录' }}
+            </p>
+          </div>
+          <template v-else>
+            <HistoryTable :items="items" />
+            <div
+              v-if="isEnd"
+              class="mx-4 border-t border-border-hairline py-4 text-center text-xs text-text-tertiary"
+            >
+              {{
+                showPagination
+                  ? `已到最后一页，共 ${knownTotal} 条记录`
+                  : `共 ${knownTotal} 条记录，已全部显示`
+              }}
+            </div>
+          </template>
         </div>
-      </nav>
+        <nav
+          v-if="showPagination"
+          aria-label="执行记录分页"
+          class="flex min-h-[54px] shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border-hairline px-5 py-2"
+        >
+          <span class="text-xs text-text-tertiary tabular-nums">
+            显示 {{ (page - 1) * pageSize + 1 }}–{{ Math.min(knownTotal, page * pageSize) }} 条，共
+            {{ knownTotal }} 条
+          </span>
+          <div class="flex items-center gap-1">
+            <button
+              type="button"
+              class="inline-flex size-11 items-center justify-center rounded-lg hover:bg-surface-muted active:bg-surface-solid-hover disabled:opacity-40"
+              :disabled="page === 1"
+              aria-label="上一页"
+              @click="changePage(page - 1)"
+            >
+              <ChevronLeft class="size-4" aria-hidden="true" />
+            </button>
+            <button
+              v-for="number in pageNumbers"
+              :key="number"
+              type="button"
+              class="inline-flex size-11 items-center justify-center rounded-lg border text-xs tabular-nums"
+              :class="
+                number === page
+                  ? 'border-accent-solid bg-accent-solid text-on-accent hover:brightness-110'
+                  : 'border-transparent text-text-secondary hover:bg-surface-muted active:bg-surface-solid-hover'
+              "
+              :aria-current="number === page ? 'page' : undefined"
+              :aria-label="`第 ${number} 页`"
+              @click="changePage(number)"
+            >
+              {{ number }}
+            </button>
+            <button
+              type="button"
+              class="inline-flex size-11 items-center justify-center rounded-lg hover:bg-surface-muted active:bg-surface-solid-hover disabled:opacity-40"
+              :disabled="page === totalPages"
+              aria-label="下一页"
+              @click="changePage(page + 1)"
+            >
+              <ChevronRight class="size-4" aria-hidden="true" />
+            </button>
+          </div>
+        </nav>
+      </UiPanel>
     </div>
   </section>
 </template>

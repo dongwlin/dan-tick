@@ -3,6 +3,7 @@ import { AlertTriangle, Check } from 'lucide-vue-next'
 import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
 import { useTheme, type ThemePreference } from '@/app/theme'
 import AccountPanel from '@/features/operations/AccountPanel.vue'
+import UiPanel from '@/components/ui/UiPanel.vue'
 import AccountProfileCard from '@/features/operations/AccountProfileCard.vue'
 import TestSendPanel from '@/features/operations/TestSendPanel.vue'
 import CloseBehaviorPanel from '@/features/operations/CloseBehaviorPanel.vue'
@@ -34,7 +35,7 @@ function updateTheme(value: unknown): void {
         <TestSendPanel />
         <CloseBehaviorPanel />
         <SchedulingPanel />
-        <section class="acrylic rounded-[14px] p-5" aria-labelledby="theme-heading">
+        <UiPanel aria-labelledby="theme-heading">
           <h2 id="theme-heading" class="mb-4 text-base font-semibold">界面主题</h2>
           <RadioGroupRoot
             :model-value="preference"
@@ -70,7 +71,7 @@ function updateTheme(value: unknown): void {
             <AlertTriangle class="size-4 shrink-0" aria-hidden="true" />
             当前环境无法保存主题偏好，本次打开期间仍可切换。
           </p>
-        </section>
+        </UiPanel>
         <DiagnosticsPanel />
         <AboutPanel />
       </div>
