@@ -8,6 +8,7 @@ import TestSendPanel from '@/features/operations/TestSendPanel.vue'
 import CloseBehaviorPanel from '@/features/operations/CloseBehaviorPanel.vue'
 import SchedulingPanel from '@/features/application/SchedulingPanel.vue'
 import DiagnosticsPanel from '@/features/application/DiagnosticsPanel.vue'
+import AboutPanel from '@/features/application/AboutPanel.vue'
 
 const { preference, storageAvailable, setPreference } = useTheme()
 const choices: { value: ThemePreference; label: string }[] = [
@@ -71,6 +72,7 @@ function updateTheme(value: unknown): void {
           </p>
         </section>
         <DiagnosticsPanel />
+        <AboutPanel />
       </div>
     </div>
   </section>

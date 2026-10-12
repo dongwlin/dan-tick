@@ -57,9 +57,24 @@ it('renders settings cards without shadows', () => {
     '调度设置',
     '界面主题',
     '数据与日志',
+    '关于',
   ]) {
     expect(screen.getByRole('region', { name }).classList.contains('shadow-sm')).toBe(false)
   }
+})
+
+it('places the about section after diagnostics with the existing brand mark', () => {
+  render(SettingsPage, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+
+  const diagnostics = screen.getByRole('region', { name: '数据与日志' })
+  const about = screen.getByRole('region', { name: '关于' })
+  expect(diagnostics.nextElementSibling).toBe(about)
+  expect(about.querySelector('img')?.getAttribute('alt')).toBe('dan-tick')
+  expect(about.textContent).toContain('版本号')
+  expect(about.textContent).toContain('构建时间')
+  expect(about.textContent).toContain('Git Commit')
 })
 
 it('shows the verified nickname, avatar and UID above credentials, then clears them on expiry', async () => {
