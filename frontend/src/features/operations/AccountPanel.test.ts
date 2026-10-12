@@ -142,6 +142,18 @@ it('shows a dismissible toast for clearing credentials and hides it automaticall
   expect(screen.queryByRole('status', { name: '操作成功通知' })).toBeNull()
 })
 
+it('keeps credentials when the clearing confirmation is cancelled', async () => {
+  await renderPanel()
+  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await nextTick()
+  const dialog = screen.getByRole('alertdialog', { name: '清除 B 站登录凭证' })
+  await fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+  await nextTick()
+
+  expect(screen.queryByRole('alertdialog')).toBeNull()
+  expect(vi.mocked(ClearAccount)).not.toHaveBeenCalled()
+})
+
 it('keeps toast accessibility markup outside the account card layout', async () => {
   await renderPanel()
   const card = screen.getByRole('region', { name: 'B站账号凭证' })
