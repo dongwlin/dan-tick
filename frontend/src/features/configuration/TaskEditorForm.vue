@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, shallowRef, watch } from 'vue'
 import { RouterLink, onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ArrowLeft, Check } from 'lucide-vue-next'
 import { useForm } from 'vee-validate'
@@ -78,34 +78,37 @@ const schema = z
 
 type EditorValues = z.input<typeof schema>
 const original = props.task
-const { defineField, values, errors, meta, submitCount, handleSubmit, setFieldValue, resetForm } =
-  useForm<EditorValues, EditorValues, typeof schema>({
-    validationSchema: schema,
-    initialValues: {
-      name: original?.name ?? '',
-      roomId: original ? String(original.roomId) : '',
-      kind: original?.kind === TaskKind.Loop ? 'loop' : 'single',
-      messages: original?.messages?.join('\n') ?? '',
-      interval: String(original?.intervalSeconds ?? 15),
-      maxCount: String(original?.maxCount ?? 1),
-      maxDuration: String(original?.maxDurationSeconds ?? ''),
-      scheduleKind:
-        original?.schedule.kind === ScheduleKind.Weekly
-          ? 'weekly'
-          : original?.schedule.kind === ScheduleKind.Once
-            ? 'once'
-            : 'daily',
-      localDate: original?.schedule.localDate ?? '',
-      localTime: original?.schedule.localTime ?? '21:00:00',
-      timezone: original?.schedule.timezone ?? 'Asia/Shanghai',
-      weekdays: original
-        ? weekdays
-            .filter((day) => (original.schedule.weekdays & (1 << day.bit)) !== 0)
-            .map((day) => day.bit)
-        : [0, 1, 2, 3, 4],
-      enabled: original?.enabled ?? true,
-    },
-  })
+const { defineField, values, errors, meta, handleSubmit, setFieldValue, resetForm } = useForm<
+  EditorValues,
+  EditorValues,
+  typeof schema
+>({
+  validationSchema: schema,
+  initialValues: {
+    name: original?.name ?? '',
+    roomId: original ? String(original.roomId) : '',
+    kind: original?.kind === TaskKind.Loop ? 'loop' : 'single',
+    messages: original?.messages?.join('\n') ?? '',
+    interval: String(original?.intervalSeconds ?? 15),
+    maxCount: String(original?.maxCount ?? 1),
+    maxDuration: String(original?.maxDurationSeconds ?? ''),
+    scheduleKind:
+      original?.schedule.kind === ScheduleKind.Weekly
+        ? 'weekly'
+        : original?.schedule.kind === ScheduleKind.Once
+          ? 'once'
+          : 'daily',
+    localDate: original?.schedule.localDate ?? '',
+    localTime: original?.schedule.localTime ?? '21:00:00',
+    timezone: original?.schedule.timezone ?? 'Asia/Shanghai',
+    weekdays: original
+      ? weekdays
+          .filter((day) => (original.schedule.weekdays & (1 << day.bit)) !== 0)
+          .map((day) => day.bit)
+      : [0, 1, 2, 3, 4],
+    enabled: original?.enabled ?? true,
+  },
+})
 // Apply the persisted default only before the user edits a new task. Reset
 // the initial value too, so asynchronously loading it doesn't mark a fresh
 // editor as dirty or trigger an unnecessary leave confirmation.
@@ -144,14 +147,6 @@ const fieldNames = {
   weekdays: '选择星期',
 } as const
 type ErrorField = keyof typeof fieldNames
-const errorSummary = computed(() =>
-  submitCount.value > 0
-    ? (Object.keys(fieldNames) as ErrorField[])
-        .filter((field) => Boolean(errors.value[field]))
-        .map((field) => ({ field, label: fieldNames[field] }))
-    : [],
-)
-const errorSummaryElement = useTemplateRef<HTMLDivElement>('errorSummary')
 
 function focusErrorField(field: ErrorField) {
   document.getElementById(`task-${field}`)?.focus()
@@ -218,10 +213,19 @@ const submit = handleSubmit(
       }
     }
   },
-  () => {
+  ({ errors: invalidErrors }) => {
+    const invalidFields = (Object.keys(fieldNames) as ErrorField[]).filter((field) =>
+      Boolean(invalidErrors[field]),
+    )
+    toast.value = {
+      id: ++nextToastId,
+      message: `请检查 ${invalidFields.length} 处填写问题：${invalidFields
+        .map((field) => fieldNames[field])
+        .join('、')}`,
+      tone: 'error',
+    }
     void nextTick(() => {
-      if (errorSummary.value.length > 1) errorSummaryElement.value?.focus()
-      else if (errorSummary.value[0]) focusErrorField(errorSummary.value[0].field)
+      if (invalidFields[0]) focusErrorField(invalidFields[0])
     })
   },
 )
@@ -234,27 +238,8 @@ const submit = handleSubmit(
       class="inline-flex w-fit items-center gap-2 text-sm text-text-secondary hover:text-text-primary"
       ><ArrowLeft class="size-4" aria-hidden="true" />返回任务列表</RouterLink
     >
-    <header class="flex min-w-0 items-start justify-between gap-3">
+    <header>
       <h1>{{ task ? '编辑任务' : '新建任务' }}</h1>
-      <div
-        ref="errorSummary"
-        tabindex="-1"
-        aria-live="polite"
-        class="flex min-w-0 items-center gap-2 overflow-x-auto py-1 text-xs whitespace-nowrap text-soft-danger-fg"
-      >
-        <template v-if="errorSummary.length">
-          <span>请检查 {{ errorSummary.length }} 处填写问题：</span>
-          <button
-            v-for="entry in errorSummary"
-            :key="entry.field"
-            type="button"
-            class="shrink-0 underline"
-            @click="focusErrorField(entry.field)"
-          >
-            {{ entry.label }}
-          </button>
-        </template>
-      </div>
     </header>
     <form
       class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]"

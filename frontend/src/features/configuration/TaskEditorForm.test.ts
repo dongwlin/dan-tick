@@ -112,6 +112,9 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   await user.type(screen.getByRole('textbox', { name: '发送队列' }), '你好\n晚上好')
   await user.click(screen.getByRole('button', { name: '创建任务' }))
   expect(await screen.findByText('单次任务只能填写一条弹幕')).toBeTruthy()
+  expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
+    '请检查 1 处填写问题：发送队列',
+  )
   expect(screen.getByRole('textbox', { name: '发送队列' }).getAttribute('aria-invalid')).toBe(
     'true',
   )
@@ -128,8 +131,10 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   await user.type(messages, '你好')
   await waitFor(() => expect(errorSlot.textContent).toBe(''))
   await user.click(screen.getByRole('button', { name: '创建任务' }))
-  expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
-    '输入无效，请检查填写内容',
+  await waitFor(() =>
+    expect(screen.getByRole('alert', { name: '操作失败通知' }).textContent).toContain(
+      '输入无效，请检查填写内容',
+    ),
   )
   expect(actions.children).toHaveLength(actionChildren)
   expect(within(actions).queryByText('输入无效，请检查填写内容')).toBeNull()
@@ -155,7 +160,7 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   })
 })
 
-it('keeps field error slots mounted and focuses the submitted error summary', async () => {
+it('shows validation summary in a toast while keeping field errors and focusing the first field', async () => {
   vi.mocked(ListRooms).mockResolvedValue([
     {
       id: 2,
@@ -178,14 +183,21 @@ it('keeps field error slots mounted and focuses the submitted error summary', as
   const nameError = requiredElement(document.getElementById('task-name-error'))
   const roomError = requiredElement(document.getElementById('task-roomId-error'))
   const messageError = requiredElement(document.getElementById('task-messages-error'))
+  const header = requiredElement(
+    screen.getByRole('heading', { name: '新建任务' }).closest('header'),
+  )
+  expect(header.textContent).toBe('新建任务')
   await user.click(screen.getByRole('button', { name: '创建任务' }))
-  const summary = requiredElement((await screen.findByText('请检查 3 处填写问题：')).parentElement)
-  await waitFor(() => expect(document.activeElement).toBe(summary))
+  const toast = await screen.findByRole('alert', { name: '操作失败通知' })
+  expect(toast.textContent).toContain('请检查 3 处填写问题：任务名称、目标直播间、发送队列')
+  expect(toast.closest('form')).toBeNull()
+  expect(header.textContent).toBe('新建任务')
+  await waitFor(() =>
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: '任务名称' })),
+  )
   expect(nameError.textContent).toBe('请输入任务名称')
   expect(roomError.textContent).toBe('请选择直播间')
   expect(messageError.textContent).toBe('请填写至少一条弹幕')
-  await user.click(within(summary).getByRole('button', { name: '发送队列' }))
-  expect(document.activeElement).toBe(screen.getByRole('textbox', { name: '发送队列' }))
   expect(document.getElementById('task-name-error')).toBe(nameError)
   expect(document.getElementById('task-roomId-error')).toBe(roomError)
   expect(document.getElementById('task-messages-error')).toBe(messageError)
