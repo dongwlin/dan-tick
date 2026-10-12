@@ -211,7 +211,7 @@ func sanitizeLog(data []byte) ([]byte, error) {
 func allowedEvent(name, component, result, level, category string) bool {
 	known := []Event{
 		AppStarting, AppStopped, AppFailed, AppPanicked, DatabaseReady,
-		DatabaseOpenFailed, DatabaseCloseFailed, DesktopRunFailed,
+		DatabaseOpenFailed, DatabaseCloseFailed, DesktopInitFailed, DesktopRunFailed, DesktopError,
 		ExecutionStarted, ExecutionQueued, ExecutionConflict, ExecutionCompleted,
 		ExecutionStopped, ExecutionFailed, ExecutionPersistFailed, ExecutionInterrupted,
 		SendAccepted, SendRejected, SendNotSent, SendUnknown,

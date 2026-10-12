@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dongwlin/dan-tick/internal/app"
@@ -32,7 +34,11 @@ func main() {
 	os.Exit(start())
 }
 
-func start() (code int) {
+func start() int {
+	return startWithRun(run)
+}
+
+func startWithRun(runApplication func(*diagnostic.Logger) error) (code int) {
 	logger := diagnostic.New(diagnostic.DefaultDir())
 	defer logger.Close()
 	defer func() {
@@ -44,7 +50,7 @@ func start() (code int) {
 		}
 	}()
 	logger.Record(diagnostic.AppStarting)
-	if err := run(logger); err != nil {
+	if err := runApplication(logger); err != nil {
 		logger.Record(diagnostic.AppFailed)
 		// The underlying error may contain credentials or private paths.
 		_, _ = fmt.Fprintln(os.Stderr, "dan-tick: application failed; see diagnostic logs for the failure stage")
@@ -52,6 +58,36 @@ func start() (code int) {
 	}
 	logger.Record(diagnostic.AppStopped)
 	return 0
+}
+
+func newDesktopApplication(logger *diagnostic.Logger, options application.Options) *application.App {
+	var initialized atomic.Bool
+	options.ErrorHandler = func(err error) {
+		var fatal *application.FatalError
+		if !errors.As(err, &fatal) {
+			logger.Record(diagnostic.DesktopError)
+			return
+		}
+		if initialized.Load() {
+			logger.Record(diagnostic.DesktopRunFailed)
+		} else {
+			logger.Record(diagnostic.DesktopInitFailed)
+		}
+		// Wails exits after this handler returns, without running our defers.
+		// Record the final category synchronously and never print the raw error.
+		logger.Record(diagnostic.AppFailed)
+		_, _ = fmt.Fprintln(os.Stderr, "dan-tick: desktop failed; see diagnostic logs for the failure stage")
+	}
+	options.PanicHandler = func(*application.PanicDetails) {
+		// Wails recovers some callback goroutines itself. Preserve its default
+		// fatal termination, but omit the panic value and stack from diagnostics.
+		logger.Record(diagnostic.AppPanicked)
+		_, _ = fmt.Fprintln(os.Stderr, "dan-tick: unexpected application failure; see diagnostic logs")
+		os.Exit(1)
+	}
+	desktopApp := application.New(options)
+	initialized.Store(true)
+	return desktopApp
 }
 
 func run(logger *diagnostic.Logger) error {
@@ -68,7 +104,7 @@ func run(logger *diagnostic.Logger) error {
 	var windowMu sync.RWMutex
 	var mainWindow application.Window
 	var windowReady bool
-	desktopApp := application.New(application.Options{
+	desktopApp := newDesktopApplication(logger, application.Options{
 		Name:        "dan-tick",
 		Description: "B 站直播弹幕定时发送桌面工具",
 		Assets: application.AssetOptions{

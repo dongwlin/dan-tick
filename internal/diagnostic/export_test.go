@@ -19,6 +19,8 @@ func TestExportIncludesOnlyReviewedLogsAndPlatformMetadata(t *testing.T) {
 	logger := New(t.TempDir())
 	defer logger.Close()
 	logger.Record(AppStarting)
+	logger.Record(DesktopInitFailed)
+	logger.Record(DesktopError)
 	logger.RecordExecution(ExecutionFailed, 20, 10, "timeout")
 	path := filepath.Join(t.TempDir(), "diagnostics.zip")
 	require.NoError(t, logger.Export(path, "v1.2.3"))
@@ -46,6 +48,8 @@ func TestExportIncludesOnlyReviewedLogsAndPlatformMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, reader.Close())
 	require.Contains(t, string(buffer), `"event":"execution.failed"`)
+	require.Contains(t, string(buffer), `"event":"desktop.init_failed"`)
+	require.Contains(t, string(buffer), `"event":"desktop.error"`)
 	require.NotContains(t, string(buffer), "Cookie")
 }
 

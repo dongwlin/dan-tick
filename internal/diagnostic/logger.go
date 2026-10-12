@@ -31,7 +31,9 @@ var (
 	DatabaseReady          = Event{name: "database.ready", component: "storage", result: "ok", level: zerolog.InfoLevel}
 	DatabaseOpenFailed     = Event{name: "database.open_failed", component: "storage", result: "failed", errorCategory: "database_open", level: zerolog.ErrorLevel}
 	DatabaseCloseFailed    = Event{name: "database.close_failed", component: "storage", result: "failed", errorCategory: "database_close", level: zerolog.ErrorLevel}
+	DesktopInitFailed      = Event{name: "desktop.init_failed", component: "desktop", result: "failed", errorCategory: "desktop_init", level: zerolog.ErrorLevel}
 	DesktopRunFailed       = Event{name: "desktop.run_failed", component: "desktop", result: "failed", errorCategory: "desktop_runtime", level: zerolog.ErrorLevel}
+	DesktopError           = Event{name: "desktop.error", component: "desktop", result: "failed", errorCategory: "desktop_error", level: zerolog.ErrorLevel}
 	ExecutionStarted       = Event{name: "execution.started", component: "executor", result: "running", level: zerolog.InfoLevel}
 	ExecutionQueued        = Event{name: "execution.queued", component: "executor", result: "queued", level: zerolog.InfoLevel}
 	ExecutionConflict      = Event{name: "execution.conflict", component: "executor", result: "rejected", errorCategory: "task_busy", level: zerolog.WarnLevel}
