@@ -33,17 +33,12 @@ function updateTheme(value: unknown): void {
       <section
         class="rounded-2xl border border-border-hairline bg-surface-solid p-5"
         aria-labelledby="theme-heading"
-        aria-describedby="theme-description"
       >
-        <h2 id="theme-heading" class="mb-2 text-lg font-semibold">界面主题</h2>
-        <p id="theme-description" class="mb-4 text-sm text-text-tertiary">
-          仅保存显示偏好，不保存业务数据
-        </p>
+        <h2 id="theme-heading" class="mb-4 text-lg font-semibold">界面主题</h2>
         <RadioGroupRoot
           :model-value="preference"
           orientation="horizontal"
           aria-label="界面主题"
-          aria-describedby="theme-description"
           class="flex flex-wrap gap-3"
           @update:model-value="updateTheme"
         >

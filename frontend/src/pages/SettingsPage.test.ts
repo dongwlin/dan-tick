@@ -54,6 +54,7 @@ it('switches the theme with persistent preferences and warns when storage fails'
   expect(section.tagName).toBe('SECTION')
   expect(section.querySelector('h2')?.textContent).toBe('界面主题')
   expect(section.querySelector('legend')).toBeNull()
+  expect(screen.queryByText('仅保存显示偏好，不保存业务数据')).toBeNull()
   expect(screen.queryByText(/^当前显示：/)).toBeNull()
   expect(screen.queryByRole('button', { name: '恢复默认主题' })).toBeNull()
   await user.click(screen.getByRole('radio', { name: '浅色' }))
