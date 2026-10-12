@@ -13,6 +13,7 @@ import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/int
 import { useRoomOptions, useSaveTask } from './queries'
 import { usePreferences } from '@/features/application/queries'
 import UiButton from '@/components/ui/UiButton.vue'
+import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import UiField from '@/components/ui/UiField.vue'
 import { fieldClass, flatPanel } from '@/components/ui/uiStyles'
 import { useToast } from '@/composables/useToast'
@@ -26,6 +27,8 @@ const save = useSaveTask(props.task?.id)
 const saveWarning = shallowRef('')
 const { notify, dismiss } = useToast()
 const navigatingAfterSave = shallowRef(false)
+const leaveDialogOpen = shallowRef(false)
+let leaveDecision: ((leave: boolean) => void) | null = null
 
 const weekdays = [
   { name: '周一', bit: 0 },
@@ -162,9 +165,26 @@ function toggleWeekday(bit: number, selected: boolean) {
     selected ? [...values.weekdays, bit] : values.weekdays.filter((d) => d !== bit),
   )
 }
+function askToLeave(): Promise<boolean> {
+  leaveDialogOpen.value = true
+  return new Promise((resolve) => {
+    leaveDecision = resolve
+  })
+}
+
+function decideLeave(leave: boolean) {
+  leaveDialogOpen.value = false
+  const resolve = leaveDecision
+  leaveDecision = null
+  resolve?.(leave)
+}
+
+function handleLeaveDialogOpen(open: boolean) {
+  if (!open) decideLeave(false)
+}
+
 onBeforeRouteLeave(() => {
-  if (!navigatingAfterSave.value && meta.value.dirty)
-    return window.confirm('任务尚未保存，确定放弃修改并离开吗？')
+  if (!navigatingAfterSave.value && meta.value.dirty) return askToLeave()
 })
 
 const submit = handleSubmit(
@@ -551,5 +571,17 @@ const submit = handleSubmit(
         </p>
       </aside>
     </form>
+    <UiConfirmDialog
+      :open="leaveDialogOpen"
+      dismissible
+      title="放弃未保存的修改？"
+      description="离开后，当前任务尚未保存的修改会丢失。"
+      cancel-label="继续编辑"
+      confirm-label="放弃更改"
+      variant="danger"
+      @update:open="handleLeaveDialogOpen"
+      @confirm="decideLeave(true)"
+      @cancel="decideLeave(false)"
+    />
   </section>
 </template>

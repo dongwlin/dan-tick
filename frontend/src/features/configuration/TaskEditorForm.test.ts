@@ -325,3 +325,43 @@ it('uses the persisted IANA default for new tasks without dirtying the form', as
   const input = await screen.findByRole<HTMLInputElement>('textbox', { name: '时区（IANA）' })
   await waitFor(() => expect(input.value).toBe('Europe/Berlin'))
 })
+
+it('asks before discarding dirty edits and keeps them when the user continues editing', async () => {
+  vi.mocked(ListRooms).mockResolvedValue([
+    {
+      id: 1,
+      platformRoomId: '98765',
+      title: '测试直播间',
+      anchorName: '',
+      remark: '',
+      coverUrl: '',
+      taskCount: 0,
+    },
+  ])
+  window.history.replaceState(null, '', '/#/tasks/new')
+  const user = userEvent.setup()
+  render(App, {
+    global: {
+      plugins: [createAppRouter(), [VueQueryPlugin, { queryClient: createAppQueryClient() }]],
+    },
+  })
+  const name = await screen.findByRole<HTMLInputElement>('textbox', { name: '任务名称' })
+  await user.type(name, '未保存的任务')
+  await user.click(screen.getByRole('link', { name: '返回任务列表' }))
+
+  const dialog = await screen.findByRole('dialog', { name: '放弃未保存的修改？' })
+  expect(dialog.textContent).toContain('离开后，当前任务尚未保存的修改会丢失。')
+  await user.click(within(dialog).getByRole('button', { name: '继续编辑' }))
+
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog', { name: '放弃未保存的修改？' })).toBeNull(),
+  )
+  expect(window.location.hash).toBe('#/tasks/new')
+  expect(name.value).toBe('未保存的任务')
+
+  await user.click(screen.getByRole('link', { name: '返回任务列表' }))
+  const confirmDialog = await screen.findByRole('dialog', { name: '放弃未保存的修改？' })
+  await user.click(within(confirmDialog).getByRole('button', { name: '放弃更改' }))
+
+  await waitFor(() => expect(window.location.hash).toBe('#/tasks'))
+})
