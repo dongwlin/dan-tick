@@ -3,6 +3,7 @@ import { AlertTriangle, Check } from 'lucide-vue-next'
 import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
 import { useTheme, type ThemePreference } from '@/app/theme'
 import AccountPanel from '@/features/operations/AccountPanel.vue'
+import AccountProfileCard from '@/features/operations/AccountProfileCard.vue'
 import TestSendPanel from '@/features/operations/TestSendPanel.vue'
 import CloseBehaviorPanel from '@/features/operations/CloseBehaviorPanel.vue'
 import SchedulingPanel from '@/features/application/SchedulingPanel.vue'
@@ -27,6 +28,7 @@ function updateTheme(value: unknown): void {
     <h1 class="mx-auto w-full max-w-[1520px] px-7 max-[1100px]:px-5">设置</h1>
     <div class="min-h-0 flex-1 overflow-y-auto" tabindex="0" aria-label="设置内容">
       <div class="mx-auto w-full max-w-[1520px] space-y-5 px-7 pb-4 max-[1100px]:px-5">
+        <AccountProfileCard />
         <AccountPanel />
         <TestSendPanel />
         <CloseBehaviorPanel />

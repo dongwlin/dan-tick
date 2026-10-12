@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/vue'
+import { render, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { describe, expect, it, vi } from 'vitest'
+import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
+import { CheckAccount } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice'
 import App from './App.vue'
 import { createAppRouter } from './router'
 import { createAppQueryClient } from './queryClient'
@@ -70,6 +72,26 @@ function renderAtHash(path: string) {
 }
 
 describe('application navigation', () => {
+  it('displays only the account avatar in the sidebar and opens the profile in settings', async () => {
+    vi.mocked(CheckAccount).mockResolvedValueOnce({
+      state: State.LoggedIn,
+      uid: '123456789',
+      name: '测试用户',
+      avatarUrl: 'https://i0.hdslb.com/bfs/face/avatar.jpg',
+    })
+    const user = renderAtHash('/')
+    const link = screen.getByRole('link', { name: '打开 B 站账号设置' })
+    await waitFor(() =>
+      expect(link.querySelector('img')?.getAttribute('src')).toBe(
+        'https://i0.hdslb.com/bfs/face/avatar.jpg',
+      ),
+    )
+    expect(link.textContent?.trim()).toBe('')
+    await user.click(link)
+    expect(await screen.findByText('测试用户')).toBeTruthy()
+    expect(screen.getByText('UID：123456789')).toBeTruthy()
+  })
+
   it('navigates from a deep link using the real Hash Router', async () => {
     const user = renderAtHash('/rooms')
 

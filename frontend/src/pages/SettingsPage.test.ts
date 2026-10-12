@@ -1,9 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/vue'
+import { fireEvent, render, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import { VueQueryPlugin } from '@tanstack/vue-query'
+import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
+import { CheckAccount } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice'
 import { createAppQueryClient } from '@/app/queryClient'
 import { initTheme, useTheme } from '@/app/theme'
+import { operationKeys } from '@/features/operations/queries'
 import SettingsPage from './SettingsPage.vue'
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice', () => ({
@@ -41,6 +44,7 @@ it('renders settings cards without shadows', () => {
   })
 
   for (const name of [
+    '账号资料',
     'B 站账号',
     '测试发送',
     '窗口与后台运行',
@@ -50,6 +54,33 @@ it('renders settings cards without shadows', () => {
   ]) {
     expect(screen.getByRole('region', { name }).classList.contains('shadow-sm')).toBe(false)
   }
+})
+
+it('shows the verified nickname, avatar and UID above credentials, then clears them on expiry', async () => {
+  const client = createAppQueryClient()
+  vi.mocked(CheckAccount).mockResolvedValueOnce({
+    state: State.LoggedIn,
+    uid: '123456789',
+    name: '测试用户',
+    avatarUrl: 'https://i0.hdslb.com/bfs/face/avatar.jpg',
+  })
+  render(SettingsPage, { global: { plugins: [[VueQueryPlugin, { queryClient: client }]] } })
+
+  const profile = screen.getByRole('region', { name: '账号资料' })
+  expect(profile.nextElementSibling).toBe(screen.getByRole('region', { name: 'B 站账号' }))
+  expect(await screen.findByText('测试用户')).toBeTruthy()
+  expect(screen.getByText('UID：123456789')).toBeTruthy()
+  const avatar = profile.querySelector('img')
+  expect(avatar?.getAttribute('src')).toBe('https://i0.hdslb.com/bfs/face/avatar.jpg')
+
+  if (avatar) await fireEvent.error(avatar)
+  expect(profile.querySelector('img')).toBeNull()
+  expect(profile.querySelector('svg')).toBeTruthy()
+
+  client.setQueryData(operationKeys.account, { state: State.Expired })
+  await waitFor(() => expect(screen.getByText('登录已过期')).toBeTruthy())
+  expect(screen.getByText('UID：—')).toBeTruthy()
+  expect(screen.queryByText('测试用户')).toBeNull()
 })
 
 it('keeps settings cards inset within a full-width scroll area', () => {

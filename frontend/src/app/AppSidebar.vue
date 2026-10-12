@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { History, LayoutDashboard, ListTodo, Radio, Settings2, UserRound } from 'lucide-vue-next'
+import { History, LayoutDashboard, ListTodo, Radio, Settings2 } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
+import AccountAvatar from '@/components/AccountAvatar.vue'
+import { useAccountStatus } from '@/features/operations/queries'
 
 const route = useRoute()
+const account = useAccountStatus()
 const currentSection = computed(() => {
   if (route.name === 'task-create' || route.name === 'task-edit') return 'tasks'
   if (route.name === 'history-detail') return 'history'
@@ -54,12 +58,12 @@ const navigation = [
         aria-label="打开 B 站账号设置"
         title="账号设置"
       >
-        <span
-          class="flex size-[39px] items-center justify-center rounded-full border-2 border-soft-accent-border bg-(--accent-panel-alt) text-accent-text"
-          aria-hidden="true"
-        >
-          <UserRound class="size-[19px]" :stroke-width="1.8" />
-        </span>
+        <AccountAvatar
+          :url="
+            account.data.value?.state === State.LoggedIn ? account.data.value.avatarUrl : undefined
+          "
+          class="size-[39px] border-2 border-soft-accent-border"
+        />
       </RouterLink>
     </div>
   </aside>

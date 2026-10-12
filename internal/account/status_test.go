@@ -109,15 +109,51 @@ func TestCheckSuccessfulLoginOnlySendsSessionCookie(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, sessionSecret, cookie.Value)
 		require.NotContains(t, r.Header.Get("Cookie"), csrfSecret)
-		_, _ = w.Write([]byte(`{"code":0,"data":{"isLogin":true,"uname":"Example"}}`))
+		_, _ = w.Write([]byte(`{"code":0,"data":{"isLogin":true,"mid":123456789,"uname":" Example ","face":"https://i0.hdslb.com/bfs/face/abc.jpg"}}`))
 	}))
 	defer server.Close()
 
 	store := configured()
 	status, err := testService(store, server).Check(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, Status{State: LoggedIn}, status)
+	require.Equal(t, Status{State: LoggedIn, UID: "123456789", Name: "Example", AvatarURL: "https://i0.hdslb.com/bfs/face/abc.jpg"}, status)
 	require.Equal(t, 1, store.calls)
+	assertSafeResult(t, status, err)
+}
+
+func TestCheckProfileAllowsMissingFieldsAndRejectsUnsafeAvatars(t *testing.T) {
+	for name, test := range map[string]struct {
+		body       string
+		wantAvatar string
+	}{
+		"missing profile":    {`{"code":0,"data":{"isLogin":true}}`, ""},
+		"unsafe origin":      {`{"code":0,"data":{"isLogin":true,"mid":42,"face":"https://attacker.example/bfs/face/abc.jpg"}}`, ""},
+		"upgrade CDN scheme": {`{"code":0,"data":{"isLogin":true,"mid":42,"face":"http://i0.hdslb.com/bfs/face/abc.jpg"}}`, "https://i0.hdslb.com/bfs/face/abc.jpg"},
+		"unsafe path":        {`{"code":0,"data":{"isLogin":true,"mid":42,"face":"https://i0.hdslb.com/collect"}}`, ""},
+		"strip query":        {`{"code":0,"data":{"isLogin":true,"mid":42,"face":"https://i0.hdslb.com/bfs/face/abc.jpg?token=private#secret"}}`, "https://i0.hdslb.com/bfs/face/abc.jpg"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(test.body))
+			}))
+			defer server.Close()
+			status, err := testService(configured(), server).Check(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, LoggedIn, status.State)
+			require.Equal(t, test.wantAvatar, status.AvatarURL)
+			assertSafeResult(t, status, err)
+		})
+	}
+}
+
+func TestCheckDoesNotEchoCredentialsInProfile(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"code":0,"data":{"isLogin":true,"mid":42,"uname":"` + sessionSecret + `","face":"https://i0.hdslb.com/bfs/face/` + csrfSecret + `.jpg"}}`))
+	}))
+	defer server.Close()
+	status, err := testService(configured(), server).Check(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, Status{State: LoggedIn, UID: "42"}, status)
 	assertSafeResult(t, status, err)
 }
 

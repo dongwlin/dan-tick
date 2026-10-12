@@ -8,6 +8,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dongwlin/dan-tick/internal/credential"
@@ -35,9 +38,13 @@ const (
 	VerificationFailed State = "verification_failed"
 )
 
-// Status intentionally excludes credentials, upstream messages and raw data.
+// Status exposes only the login state and safe public profile fields.
+// Credentials and untrusted upstream messages never leave the Go backend.
 type Status struct {
-	State State `json:"state"`
+	State     State  `json:"state"`
+	UID       string `json:"uid,omitempty"`
+	Name      string `json:"name,omitempty"`
+	AvatarURL string `json:"avatarUrl,omitempty"`
 }
 
 // credentialLoader isolates the real OS keyring in tests.
@@ -111,7 +118,10 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 	var response struct {
 		Code *int `json:"code"`
 		Data *struct {
-			IsLogin *bool `json:"isLogin"`
+			IsLogin *bool  `json:"isLogin"`
+			MID     int64  `json:"mid"`
+			Uname   string `json:"uname"`
+			Face    string `json:"face"`
 		} `json:"data"`
 	}
 	if json.Unmarshal(body, &response) != nil || response.Code == nil {
@@ -129,5 +139,37 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 	if !*response.Data.IsLogin {
 		return Status{State: Expired}, nil
 	}
-	return Status{State: LoggedIn}, nil
+	status := Status{State: LoggedIn}
+	if response.Data.MID > 0 {
+		status.UID = strconv.FormatInt(response.Data.MID, 10)
+	}
+	status.Name = strings.TrimSpace(response.Data.Uname)
+	status.AvatarURL = safeAvatarURL(response.Data.Face)
+	for _, secret := range []string{credentials.SESSDATA, credentials.BiliJCT} {
+		if secret == "" {
+			continue
+		}
+		if strings.Contains(status.Name, secret) {
+			status.Name = ""
+		}
+		if strings.Contains(status.AvatarURL, secret) {
+			status.AvatarURL = ""
+		}
+	}
+	return status, nil
+}
+
+// Only pass through Bilibili CDN profile images. Never expose arbitrary URLs
+// from an upstream response to the WebView or retain their query parameters.
+func safeAvatarURL(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Port() != "" ||
+		!strings.HasSuffix(strings.ToLower(u.Hostname()), ".hdslb.com") ||
+		!strings.HasPrefix(u.EscapedPath(), "/bfs/face/") {
+		return ""
+	}
+	u.Scheme = "https"
+	u.RawQuery = ""
+	u.Fragment = ""
+	return u.String()
 }
