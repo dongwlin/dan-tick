@@ -12,7 +12,7 @@ import { Kind as TaskKind } from '@bindings/github.com/dongwlin/dan-tick/interna
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
 import { bindingError, useRoomOptions, useSaveTask } from './queries'
 import { usePreferences } from '@/features/application/queries'
-import { fieldClass, labelClass, panel, primaryButton, secondaryButton } from './style'
+import { fieldClass, flatPanel, labelClass, primaryButton, secondaryButton } from './style'
 
 const props = defineProps<{ task?: Task }>()
 const router = useRouter()
@@ -204,7 +204,7 @@ const submit = handleSubmit(async (data) => {
         tabindex="0"
         aria-label="任务配置表单"
       >
-        <section :class="[panel, 'p-5']">
+        <section :class="[flatPanel, 'p-5']">
           <h2 class="text-base font-semibold">基本信息</h2>
           <p class="mb-4 text-sm text-text-secondary">先决定把什么内容发到哪里</p>
           <div class="grid gap-4 md:grid-cols-2">
@@ -266,7 +266,7 @@ const submit = handleSubmit(async (data) => {
             />启用这个任务的自动执行
           </div>
         </section>
-        <section :class="[panel, 'p-5']">
+        <section :class="[flatPanel, 'p-5']">
           <h2 class="text-base font-semibold">弹幕内容</h2>
           <p class="mb-3 text-sm text-text-secondary">
             {{ kind === 'loop' ? '每行一条，按照顺序依次发送，到末尾后循环' : '单次发送一条弹幕' }}
@@ -340,7 +340,7 @@ const submit = handleSubmit(async (data) => {
             </div>
           </div>
         </section>
-        <section :class="[panel, 'p-5']">
+        <section :class="[flatPanel, 'p-5']">
           <h2 class="text-base font-semibold">执行计划</h2>
           <p class="mb-4 text-sm text-text-secondary">指定触发方式和时间</p>
           <div class="grid gap-4 md:grid-cols-2">
@@ -428,7 +428,7 @@ const submit = handleSubmit(async (data) => {
         </section>
       </div>
       <aside class="flex flex-col gap-4">
-        <section :class="[panel, 'p-5']">
+        <section :class="[flatPanel, 'p-5']">
           <h2 class="mb-4 text-base font-semibold">执行预览</h2>
           <dl class="space-y-3 text-sm">
             <div class="flex justify-between gap-3">

@@ -73,6 +73,10 @@ it('validates task conditions, retains edits on failure and submits typed bindin
     global: { plugins: [router, [VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
   expect(await screen.findByRole('heading', { name: '新建任务' })).toBeTruthy()
+  for (const name of ['基本信息', '弹幕内容', '执行计划', '执行预览']) {
+    const card = screen.getByRole('heading', { name }).closest('section')
+    expect(card?.classList.contains('shadow-sm')).toBe(false)
+  }
   await screen.findByRole('option', { name: '测试直播间 · 98765' })
   await user.type(screen.getByRole('textbox', { name: '任务名称' }), '自动问候')
   await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '1')
