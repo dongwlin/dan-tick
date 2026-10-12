@@ -68,9 +68,6 @@ const statusLabels: Record<string, string> = {
                     : '已暂停'
             }}
           </strong>
-          <RouterLink to="/settings" class="text-xs text-accent-text hover:underline"
-            >调度设置 <ChevronRight class="inline size-3" aria-hidden="true"
-          /></RouterLink>
         </div>
         <div :class="[panel, 'flex flex-col gap-2 p-4']">
           <span class="text-xs text-text-tertiary">B 站账号</span>
@@ -81,9 +78,6 @@ const statusLabels: Record<string, string> = {
                 ? '状态不可用'
                 : (statusLabels[account.data.value?.state ?? ''] ?? '暂不可用')
           }}</strong>
-          <RouterLink to="/settings" class="text-xs text-accent-text hover:underline"
-            >账号设置 <ChevronRight class="inline size-3" aria-hidden="true"
-          /></RouterLink>
         </div>
         <div :class="[panel, 'flex flex-col gap-2 p-4']">
           <span class="text-xs text-text-tertiary">已启用任务</span>
@@ -93,18 +87,12 @@ const statusLabels: Record<string, string> = {
               >/ {{ overview.data.value.totalTasks }}</span
             ></strong
           >
-          <RouterLink to="/tasks" class="text-xs text-accent-text hover:underline"
-            >全部任务 <ChevronRight class="inline size-3" aria-hidden="true"
-          /></RouterLink>
         </div>
         <div :class="[panel, 'flex flex-col gap-2 p-4']">
           <span class="text-xs text-text-tertiary">正在执行 / 排队</span>
           <strong class="text-2xl font-semibold tabular-nums">{{
             overview.data.value.activeExecutions
           }}</strong>
-          <RouterLink to="/history" class="text-xs text-accent-text hover:underline"
-            >执行记录 <ChevronRight class="inline size-3" aria-hidden="true"
-          /></RouterLink>
         </div>
       </div>
       <div class="grid min-h-0 max-h-62 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
