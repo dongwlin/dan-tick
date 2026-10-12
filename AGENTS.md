@@ -47,6 +47,7 @@
 cd frontend && pnpm install --frozen-lockfile
 cd ..
 wails3 dev                 # 桌面开发，前端热更新
+WAILS_MCP=1 wails3 dev     # 桌面开发 + Wails MCP service；调试真实窗口见下文
 wails3 build               # 构建当前平台桌面应用
 
 # 前端检查 / 构建（类型检查和构建需要已生成 Wails bindings）
@@ -66,6 +67,28 @@ pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
 - **已有 Go 集成测试、前端 `pnpm run test`、ESLint / Prettier、独立 `typecheck` 和 FE9 GitHub Actions 前端 CI。** Vitest 通过 `frontend/vitest.config.ts` 使用 Vue 插件与 happy-dom，行为测试位于 `src/app/`、`src/pages/` 和 `src/features/configuration/`；不启动 Wails 桌面插件。`typecheck` 通过 `vue-tsc` 检查 Vue 源码与生成 Binding、通过 `tsc` 检查 `vite.config.ts` 和 `vitest.config.ts`；`build` 和 `build:dev` 均先执行 `typecheck`。`.github/workflows/frontend-ci.yml` 在 Push / PR 上冻结安装，执行 Lint / 格式 / 测试，生成 Wails Binding 后执行类型检查和生产构建；桌面实机验收独立进行。
 - ESLint 采用 Flat Config，启用 JavaScript、TypeScript 类型感知、Vue 与 Vue 可访问性推荐规则，以及重复导入、类型导入和非空断言检查；`lint` / `lint:fix` 使用 `--max-warnings 0`。Prettier 独立执行，`eslint-config-prettier` 最后关闭冲突规则，不通过 ESLint 执行格式化。检查限定 `frontend/`，忽略依赖、生成 Binding、构建与覆盖率产物；Prettier 另外忽略锁文件、第三方 SVG 和许可证。
 
+### 调试真实桌面窗口
+
+涉及 Wails binding、原生窗口行为，或需要在真实 WebView 中复现的交互时，使用运行中 dan-tick 开发版提供的 [Wails 应用 MCP service](https://v3.wails.io/zh-cn/guides/mcp-service/)，不要用 `frontend/` 下 `pnpm dev` 打开的普通浏览器页面替代桌面验证：普通页面没有 Wails bridge。`wails3 mcp` 是管理 Wails 项目生命周期的另一个命令，不检查运行中的 WebView。
+
+从仓库根目录启动，`WAILS_MCP=1` 会让 Wails CLI 通过 `EXTRA_TAGS` 为开发构建加上 `mcp` build tag：
+
+```sh
+WAILS_MCP=1 wails3 dev
+```
+
+Windows PowerShell 需先设置 `$env:WAILS_MCP = "1"`（`WAILS_MCP_PORT` 同理）。应用启动日志会打印 Streamable HTTP MCP endpoint，默认通常是 `http://127.0.0.1:9099/mcp`，以日志实际打印的地址为准。如果 9099 已占用，可使用：
+
+```sh
+WAILS_MCP=1 WAILS_MCP_PORT=0 wails3 dev
+```
+
+让 Wails 选择空闲端口；该端口与 `wails3 dev -port <vite-port>` 的 Vite 端口彼此独立。
+
+调试时先用 `app_info` 或 `windows_list` 确认当前窗口，再用 `dom_query`、`dom_html` 或 `screenshot_dom` 检查 WebView 结构，用 `mouse_click`、`keyboard_type`、`keyboard_press` 复现交互；鼠标和键盘工具用 `selector: "#id"` 或 `x` / `y` 视口坐标定位元素，鼠标工具还会在窗口内显示动画光标（`WAILS_MCP_HIDE_CURSOR=1` 可关闭）。需要直接验证 Go binding / event 时使用 `call_bound_method`、`emit_event`、`wait_for_event`。`js_eval` 在 WebView 中执行任意代码并可能改变应用状态，只在必要时使用。`screenshot_dom` 返回结构化 DOM snapshot（视口、滚动位置、可见元素轮廓），不是像素截图；判断视觉外观时仍要在真实窗口中观察或使用系统截图。
+
+该 MCP service 是实验性的，仅用于本地开发：保持默认 loopback 绑定，不要把 `mcp` build tag 加入生产构建（`wails3 build` 默认不含服务器代码，只有显式设置 `WAILS_MCP=1` 才添加该 tag）。它能通过程序读取 DOM、执行 JavaScript、点击按钮并调用 Go 方法；未设置 `WAILS_MCP_TOKEN` 时同机本地进程与环回浏览器来源都会被信任，需要更强隔离时设置高熵令牌，非 loopback 绑定则必须设置令牌。调试结束后停止开发版应用；开发版与打包版共用单实例 ID（`io.github.dongwlin.dan-tick`）和用户数据目录，遗留实例会让后续启动只唤醒它并立即退出，而不是启动新进程。
+
 ## 4. 新代码的架构与风格约束
 
 - Go 后端已采用 **Bun + `modernc.org/sqlite` + Bun Migrations** 与 testify，已按业务需求接入 zerolog、`robfig/cron/v3`、`go-keyring` 和 `net/http`；F1 已完成调度 / 执行装配及直播间 / 任务 Binding，正式业务页面仍待 F4。优先具体类型与清晰的 Service / 业务边界，不引入 Gin、本地 REST Server、分布式调度或没有实际需求的 Repository 接口。
@@ -82,7 +105,7 @@ pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
 1. 读对应 PRD 条目、技术选型和相关 Pack，区分已有行为与计划行为；确认需要修改的 Go、Binding、前端边界及平台影响。
 2. 先用最小可维护实现满足场景；不要为了“未来扩展”提前拆层、重复维护业务状态或加与任务无关的防御分支。
 3. 为新增或修改的**关键行为**补测试，而不是机械追求覆盖率：Go 侧用 `testing` / testify、可控时钟、真实临时 SQLite（包括重新打开后的恢复）及 `httptest` 验证调度防重、时区、状态变更、停止条件、限流和异常响应。测试不得访问真实 B 站生产接口或使用实际账号凭证。
-4. 前端默认用 Vitest + Vue Testing Library + user-event 验证用户可见行为；对 Binding / Events 外部边界做替换，不断言内部实现。真实焦点、键盘或 WebView 差异按需做浏览器和 Windows / Linux 实机验证；不要为纯文档或简单模板调整搭建完整测试框架。
+4. 前端默认用 Vitest + Vue Testing Library + user-event 验证用户可见行为；对 Binding / Events 外部边界做替换，不断言内部实现。真实焦点、键盘或 WebView 差异按需做浏览器和 Windows / Linux 实机验证；需要复现 Wails binding、Events 或原生窗口行为时按[调试真实桌面窗口](#调试真实桌面窗口)启动应用，不要用普通浏览器页面替代桌面验证；不要为纯文档或简单模板调整搭建完整测试框架。
 5. 影响托盘、窗口隐藏、单实例、自启动、Keyring、睡眠恢复或后台运行的变更，记录对应平台的人工验证；Go 单元测试和普通浏览器测试不能替代桌面验收。
 
 提交改动前至少检查：
