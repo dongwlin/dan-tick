@@ -102,8 +102,14 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   expect(errorSlot.parentElement?.nextElementSibling).toBe(
     screen.getByRole('textbox', { name: '发送队列' }),
   )
-  expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' }).placeholder).toBe(
-    '在这里输入弹幕内容…\n每行一条，空行自动忽略；实际发送仍受平台规则限制。',
+  expect(screen.getByLabelText('任务名称')).toBe(screen.getByRole('textbox', { name: '任务名称' }))
+  const messagesInput = screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' })
+  expect(messagesInput.placeholder).toBe('在这里输入弹幕内容…')
+  expect(messagesInput.getAttribute('aria-describedby')).toBe(
+    'task-messages-error task-messages-description',
+  )
+  expect(screen.getByText('每行一条，空行自动忽略；实际发送仍受平台规则限制。').id).toBe(
+    'task-messages-description',
   )
   expect(messageCard.querySelector('p')).toBeNull()
   expect(screen.queryByText('执行计划使用明确时区，保存后由后端计算下次执行时间。')).toBeNull()
@@ -316,6 +322,6 @@ it('uses the persisted IANA default for new tasks without dirtying the form', as
   render(App, {
     global: { plugins: [router, [VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
-  const input = await screen.findByRole<HTMLInputElement>('textbox', { name: '时区' })
+  const input = await screen.findByRole<HTMLInputElement>('textbox', { name: '时区（IANA）' })
   await waitFor(() => expect(input.value).toBe('Europe/Berlin'))
 })

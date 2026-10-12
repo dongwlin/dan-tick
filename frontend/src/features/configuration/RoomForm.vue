@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue'
 import { Plus, X } from 'lucide-vue-next'
+import UiButton from '@/components/UiButton.vue'
+import UiField from '@/components/UiField.vue'
 import { fieldClass } from '@/components/uiStyles'
-import { primaryButton, secondaryButton } from '@/components/buttonStyles'
 
 defineProps<{ pending: boolean }>()
 const emit = defineEmits<{ submit: [value: string]; cancel: [] }>()
@@ -25,24 +26,28 @@ function submit() {
         <X class="size-5" aria-hidden="true" />
       </button>
     </div>
-    <span class="block text-sm font-medium text-text-secondary">直播间 ID 或链接</span>
-    <input
+    <UiField
       id="room-input"
-      v-model="value"
-      aria-label="直播间 ID 或链接"
-      :class="fieldClass"
-      class="mt-2"
-      required
-      autocomplete="off"
-      placeholder="例如 22625025 或 https://live.bilibili.com/22625025"
-    />
-    <p class="mt-2 text-xs text-text-tertiary">主播与标题由 B 站查询，备注可添加后修改。</p>
+      v-slot="{ id, ariaInvalid, describedBy }"
+      label="直播间 ID 或链接"
+      description="主播与标题由 B 站查询，备注可添加后修改。"
+    >
+      <input
+        :id="id"
+        v-model="value"
+        :class="fieldClass"
+        :aria-invalid="ariaInvalid"
+        :aria-describedby="describedBy"
+        required
+        autocomplete="off"
+        placeholder="例如 22625025 或 https://live.bilibili.com/22625025"
+      />
+    </UiField>
     <div class="mt-4 flex justify-end gap-2">
-      <button type="button" :class="secondaryButton" @click="emit('cancel')">取消</button>
-      <button type="submit" :disabled="pending" :aria-busy="pending" :class="primaryButton">
-        <Plus class="size-4" aria-hidden="true" />
-        {{ pending ? '正在验证…' : '添加到列表' }}
-      </button>
+      <UiButton @click="emit('cancel')">取消</UiButton>
+      <UiButton type="submit" variant="primary" :loading="pending">
+        <Plus class="size-4" aria-hidden="true" />添加到列表
+      </UiButton>
     </div>
   </form>
 </template>

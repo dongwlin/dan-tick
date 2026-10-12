@@ -2,10 +2,11 @@
 import { shallowRef } from 'vue'
 import { Send } from 'lucide-vue-next'
 import { Outcome } from '@bindings/github.com/dongwlin/dan-tick/internal/danmaku/models'
+import UiButton from '@/components/UiButton.vue'
+import UiField from '@/components/UiField.vue'
 import UiToast from '@/components/UiToast.vue'
 import { useRoomOptions } from '@/features/configuration/queries'
-import { fieldClass, flatPanel, labelClass } from '@/components/uiStyles'
-import { primaryButton } from '@/components/buttonStyles'
+import { fieldClass, flatPanel } from '@/components/uiStyles'
 import { bindingError } from '@/lib/bindingError'
 import { sendFailureText, useTestSend } from './queries'
 
@@ -51,36 +52,41 @@ async function submit() {
       </p>
     </div>
     <form class="space-y-3" @submit.prevent="submit">
-      <label for="test-room-id" :class="labelClass">
-        目标直播间
-        <select id="test-room-id" v-model.number="roomID" :class="fieldClass" required>
+      <UiField id="test-room-id" v-slot="{ id, ariaInvalid, describedBy }" label="目标直播间">
+        <select
+          :id="id"
+          v-model.number="roomID"
+          :class="fieldClass"
+          :aria-invalid="ariaInvalid"
+          :aria-describedby="describedBy"
+          required
+        >
           <option :value="0" disabled>请选择已保存的直播间</option>
           <option v-for="room in rooms.data.value ?? []" :key="room.id" :value="room.id">
             {{ room.remark || room.title || `房间 ${room.platformRoomId}` }}
           </option>
         </select>
-      </label>
-      <label for="test-message" :class="labelClass">
-        测试弹幕内容
+      </UiField>
+      <UiField id="test-message" v-slot="{ id, ariaInvalid, describedBy }" label="测试弹幕内容">
         <textarea
-          id="test-message"
+          :id="id"
           v-model="message"
           :class="fieldClass"
+          :aria-invalid="ariaInvalid"
+          :aria-describedby="describedBy"
           rows="2"
           required
           placeholder="输入要实际发送到直播间的内容"
         />
-      </label>
-      <button
+      </UiField>
+      <UiButton
         type="submit"
-        :class="primaryButton"
-        :disabled="send.isPending.value || !roomID || !message.trim()"
-        :aria-busy="send.isPending.value"
+        variant="primary"
+        :loading="send.isPending.value"
+        :disabled="!roomID || !message.trim()"
       >
-        <Send class="size-4" aria-hidden="true" />{{
-          send.isPending.value ? '正在发送…' : '发送测试弹幕'
-        }}
-      </button>
+        <Send class="size-4" aria-hidden="true" />发送测试弹幕
+      </UiButton>
     </form>
     <p v-if="rooms.isError.value" role="alert" class="text-sm text-soft-danger-fg">
       {{ bindingError(rooms.error.value) }}

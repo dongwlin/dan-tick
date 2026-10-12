@@ -12,11 +12,11 @@ import { Kind as TaskKind } from '@bindings/github.com/dongwlin/dan-tick/interna
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
 import { useRoomOptions, useSaveTask } from './queries'
 import { usePreferences } from '@/features/application/queries'
+import UiButton from '@/components/UiButton.vue'
+import UiField from '@/components/UiField.vue'
 import UiToast from '@/components/UiToast.vue'
-import { fieldClass, flatPanel, labelClass } from '@/components/uiStyles'
-import { primaryButton, secondaryButton } from '@/components/buttonStyles'
+import { fieldClass, flatPanel } from '@/components/uiStyles'
 import { bindingError } from '@/lib/bindingError'
-import TaskFieldLabel from './TaskFieldLabel.vue'
 
 const props = defineProps<{ task?: Task }>()
 const router = useRouter()
@@ -254,34 +254,37 @@ const submit = handleSubmit(
         <section :class="[flatPanel, 'p-5']">
           <h2 class="mb-4 text-base font-semibold">基本信息</h2>
           <div class="grid gap-4 md:grid-cols-2">
-            <div :class="[labelClass, 'md:col-span-2']">
-              <TaskFieldLabel label="任务名称" :error="errors.name" error-id="task-name-error" />
+            <UiField
+              id="task-name"
+              v-slot="{ id, ariaInvalid, describedBy }"
+              label="任务名称"
+              :error="errors.name"
+              class="md:col-span-2"
+            >
               <input
-                id="task-name"
+                :id="id"
                 v-model="name"
                 v-bind="nameAttrs"
                 :class="fieldClass"
+                :aria-invalid="ariaInvalid"
+                :aria-describedby="describedBy"
                 placeholder="例如：每日晚安问候"
-                aria-label="任务名称"
-                :aria-invalid="!!errors.name"
-                aria-describedby="task-name-error"
               />
-            </div>
-            <div :class="labelClass">
-              <TaskFieldLabel
-                label="目标直播间"
-                :error="errors.roomId"
-                error-id="task-roomId-error"
-              />
+            </UiField>
+            <UiField
+              id="task-roomId"
+              v-slot="{ id, ariaInvalid, describedBy }"
+              label="目标直播间"
+              :error="errors.roomId"
+            >
               <select
                 v-if="rooms.isPending.value || (!rooms.isError.value && rooms.data.value?.length)"
-                id="task-roomId"
+                :id="id"
                 v-model="roomId"
                 v-bind="roomAttrs"
                 :class="fieldClass"
-                aria-label="目标直播间"
-                :aria-invalid="!!errors.roomId"
-                aria-describedby="task-roomId-error"
+                :aria-invalid="ariaInvalid"
+                :aria-describedby="describedBy"
                 :disabled="rooms.isPending.value"
               >
                 <option value="">
@@ -297,7 +300,7 @@ const submit = handleSubmit(
               </select>
               <button
                 v-else-if="rooms.isError.value"
-                id="task-roomId"
+                :id="id"
                 type="button"
                 :class="[fieldClass, 'text-left text-soft-danger-fg']"
                 :aria-label="`${bindingError(rooms.error.value)}，重试读取直播间`"
@@ -307,189 +310,189 @@ const submit = handleSubmit(
               </button>
               <RouterLink
                 v-else
-                id="task-roomId"
+                :id="id"
                 to="/rooms"
                 :class="[fieldClass, 'flex items-center text-accent-text']"
                 >暂无直播间，先添加直播间</RouterLink
               >
-            </div>
-            <div :class="labelClass">
-              任务类型
-              <select v-model="kind" v-bind="kindAttrs" :class="fieldClass" aria-label="任务类型">
+            </UiField>
+            <UiField id="task-kind" v-slot="{ id, ariaInvalid, describedBy }" label="任务类型">
+              <select
+                :id="id"
+                v-model="kind"
+                v-bind="kindAttrs"
+                :class="fieldClass"
+                :aria-invalid="ariaInvalid"
+                :aria-describedby="describedBy"
+              >
                 <option value="single">单次发送</option>
                 <option value="loop">循环发送</option>
               </select>
-            </div>
+            </UiField>
           </div>
           <div class="mt-4 flex items-center gap-2 text-sm">
-            <input
-              v-model="enabled"
-              type="checkbox"
-              aria-label="启用自动执行"
-            />启用这个任务的自动执行
+            <input id="task-enabled" v-model="enabled" type="checkbox" />
+            <label for="task-enabled">启用这个任务的自动执行</label>
           </div>
         </section>
         <section :class="[flatPanel, 'p-5']">
           <h2 class="mb-3 text-base font-semibold">弹幕内容</h2>
-          <div :class="labelClass">
-            <TaskFieldLabel
-              label="发送队列"
-              :error="errors.messages"
-              error-id="task-messages-error"
-            />
+          <UiField
+            id="task-messages"
+            v-slot="{ id, ariaInvalid, describedBy }"
+            label="发送队列"
+            :error="errors.messages"
+            description="每行一条，空行自动忽略；实际发送仍受平台规则限制。"
+          >
             <textarea
-              id="task-messages"
+              :id="id"
               v-model="messages"
               v-bind="messagesAttrs"
-              :class="fieldClass"
+              :class="[fieldClass, 'resize-y']"
+              :aria-invalid="ariaInvalid"
+              :aria-describedby="describedBy"
               rows="5"
-              class="resize-y"
-              placeholder="在这里输入弹幕内容…&#10;每行一条，空行自动忽略；实际发送仍受平台规则限制。"
-              aria-label="发送队列"
-              :aria-invalid="!!errors.messages"
-              aria-describedby="task-messages-error task-messages-help"
+              placeholder="在这里输入弹幕内容…"
             />
-            <span id="task-messages-help" class="sr-only"
-              >每行一条，空行自动忽略；实际发送仍受平台规则限制。</span
-            >
-          </div>
+          </UiField>
           <div v-if="kind === 'loop'" class="mt-4 grid gap-3 md:grid-cols-3">
-            <div :class="labelClass">
-              <TaskFieldLabel
-                label="发送间隔（秒）"
-                :error="errors.interval"
-                error-id="task-interval-error"
-              />
+            <UiField
+              id="task-interval"
+              v-slot="{ id, ariaInvalid, describedBy }"
+              label="发送间隔（秒）"
+              :error="errors.interval"
+            >
               <input
-                id="task-interval"
+                :id="id"
                 v-model="interval"
                 v-bind="intervalAttrs"
                 :class="fieldClass"
+                :aria-invalid="ariaInvalid"
+                :aria-describedby="describedBy"
                 type="number"
                 min="1"
                 step="1"
-                aria-label="发送间隔"
-                :aria-invalid="!!errors.interval"
-                aria-describedby="task-interval-error"
               />
-            </div>
-            <div :class="labelClass">
-              <TaskFieldLabel
-                label="最大发送次数"
-                :error="errors.maxCount"
-                error-id="task-maxCount-error"
-              />
+            </UiField>
+            <UiField
+              id="task-maxCount"
+              v-slot="{ id, ariaInvalid, describedBy }"
+              label="最大发送次数"
+              :error="errors.maxCount"
+            >
               <input
-                id="task-maxCount"
+                :id="id"
                 v-model="maxCount"
                 v-bind="countAttrs"
                 :class="fieldClass"
+                :aria-invalid="ariaInvalid"
+                :aria-describedby="describedBy"
                 type="number"
                 min="1"
                 step="1"
-                aria-label="最大发送次数"
-                :aria-invalid="!!errors.maxCount"
-                aria-describedby="task-maxCount-error"
               />
-            </div>
-            <div :class="labelClass">
-              <TaskFieldLabel
-                label="最长运行时长（秒）"
-                :error="errors.maxDuration"
-                error-id="task-maxDuration-error"
-              />
+            </UiField>
+            <UiField
+              id="task-maxDuration"
+              v-slot="{ id, ariaInvalid, describedBy }"
+              label="最长运行时长（秒）"
+              :error="errors.maxDuration"
+            >
               <input
-                id="task-maxDuration"
+                :id="id"
                 v-model="maxDuration"
                 v-bind="durationAttrs"
                 :class="fieldClass"
+                :aria-invalid="ariaInvalid"
+                :aria-describedby="describedBy"
                 type="number"
                 min="1"
                 step="1"
-                aria-label="最长运行时长"
-                :aria-invalid="!!errors.maxDuration"
-                aria-describedby="task-maxDuration-error"
               />
-            </div>
+            </UiField>
           </div>
         </section>
         <section :class="[flatPanel, 'p-5']">
           <h2 class="mb-4 text-base font-semibold">执行计划</h2>
           <div class="grid gap-4 md:grid-cols-2">
-            <div :class="labelClass">
-              调度方式
+            <UiField
+              id="task-scheduleKind"
+              v-slot="{ id, ariaInvalid, describedBy }"
+              label="调度方式"
+            >
               <select
+                :id="id"
                 v-model="scheduleKind"
                 v-bind="scheduleAttrs"
                 :class="fieldClass"
-                aria-label="调度方式"
+                :aria-invalid="ariaInvalid"
+                :aria-describedby="describedBy"
               >
                 <option value="daily">每天</option>
                 <option value="weekly">每周</option>
                 <option value="once">一次性</option>
               </select>
-            </div>
-            <div :class="labelClass">
-              <TaskFieldLabel
-                label="执行时间"
-                :error="errors.localTime"
-                error-id="task-localTime-error"
-              />
+            </UiField>
+            <UiField
+              id="task-localTime"
+              v-slot="{ id, ariaInvalid, describedBy }"
+              label="执行时间"
+              :error="errors.localTime"
+            >
               <input
-                id="task-localTime"
+                :id="id"
                 v-model="localTime"
                 v-bind="timeAttrs"
                 :class="fieldClass"
+                :aria-invalid="ariaInvalid"
+                :aria-describedby="describedBy"
                 type="time"
                 step="1"
-                aria-label="执行时间"
-                :aria-invalid="!!errors.localTime"
-                aria-describedby="task-localTime-error"
               />
-            </div>
-            <div v-if="scheduleKind === 'once'" :class="labelClass">
-              <TaskFieldLabel
-                label="执行日期"
-                :error="errors.localDate"
-                error-id="task-localDate-error"
-              />
+            </UiField>
+            <UiField
+              v-if="scheduleKind === 'once'"
+              id="task-localDate"
+              v-slot="{ id, ariaInvalid, describedBy }"
+              label="执行日期"
+              :error="errors.localDate"
+            >
               <input
-                id="task-localDate"
+                :id="id"
                 v-model="localDate"
                 v-bind="dateAttrs"
                 :class="fieldClass"
+                :aria-invalid="ariaInvalid"
+                :aria-describedby="describedBy"
                 type="date"
-                aria-label="执行日期"
-                :aria-invalid="!!errors.localDate"
-                aria-describedby="task-localDate-error"
               />
-            </div>
-            <div :class="labelClass">
-              <TaskFieldLabel
-                label="时区（IANA）"
-                :error="errors.timezone"
-                error-id="task-timezone-error"
-              />
+            </UiField>
+            <UiField
+              id="task-timezone"
+              v-slot="{ id, ariaInvalid, describedBy }"
+              label="时区（IANA）"
+              :error="errors.timezone"
+            >
               <input
-                id="task-timezone"
+                :id="id"
                 v-model="timezone"
                 v-bind="timezoneAttrs"
                 :class="fieldClass"
-                aria-label="时区"
+                :aria-invalid="ariaInvalid"
+                :aria-describedby="describedBy"
                 placeholder="Asia/Shanghai"
-                :aria-invalid="!!errors.timezone"
-                aria-describedby="task-timezone-error"
               />
-            </div>
+            </UiField>
           </div>
-          <fieldset v-if="scheduleKind === 'weekly'" class="mt-4">
-            <legend class="mb-2 w-full text-sm text-text-secondary">
-              <TaskFieldLabel
-                label="选择星期"
-                :error="errors.weekdays"
-                error-id="task-weekdays-error"
-              />
-            </legend>
+          <UiField
+            v-if="scheduleKind === 'weekly'"
+            id="task-weekdays"
+            v-slot="{ describedBy }"
+            group
+            class="mt-4"
+            label="选择星期"
+            :error="errors.weekdays"
+          >
             <div class="flex flex-wrap gap-2">
               <div
                 v-for="day in weekdays"
@@ -500,15 +503,15 @@ const submit = handleSubmit(
                   :id="day.bit === 0 ? 'task-weekdays' : undefined"
                   type="checkbox"
                   :aria-label="day.name"
-                  :aria-invalid="!!errors.weekdays"
-                  aria-describedby="task-weekdays-error"
+                  :aria-invalid="errors.weekdays ? true : undefined"
+                  :aria-describedby="describedBy"
                   :checked="values.weekdays.includes(day.bit)"
                   @change="toggleWeekday(day.bit, ($event.target as HTMLInputElement).checked)"
                 />
                 {{ day.name }}
               </div>
             </div>
-          </fieldset>
+          </UiField>
         </section>
       </div>
       <aside class="flex flex-col gap-4">
@@ -535,17 +538,15 @@ const submit = handleSubmit(
           </dl>
           <p class="mt-4 text-xs text-text-tertiary">仅预览配置，不会立即发送弹幕。</p>
         </section>
-        <button
+        <UiButton
           type="submit"
-          :disabled="save.isPending.value || rooms.isPending.value || !rooms.data.value?.length"
-          :aria-busy="save.isPending.value"
-          :class="primaryButton"
+          variant="primary"
+          :loading="save.isPending.value"
+          :disabled="rooms.isPending.value || !rooms.data.value?.length"
         >
-          <Check class="size-4" aria-hidden="true" />{{
-            save.isPending.value ? '保存中…' : task ? '保存修改' : '创建任务'
-          }}
-        </button>
-        <RouterLink to="/tasks" :class="secondaryButton">取消</RouterLink>
+          <Check class="size-4" aria-hidden="true" />{{ task ? '保存修改' : '创建任务' }}
+        </UiButton>
+        <UiButton to="/tasks">取消</UiButton>
         <p
           v-if="saveWarning"
           role="alert"
