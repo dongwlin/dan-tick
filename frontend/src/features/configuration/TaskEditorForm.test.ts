@@ -38,6 +38,7 @@ it('validates task conditions, retains edits on failure and submits typed bindin
       title: '测试直播间',
       anchorName: '主播',
       remark: '',
+      coverUrl: '',
       taskCount: 0,
     },
   ])
@@ -115,6 +116,7 @@ it('loads and edits a weekly loop task without losing message order', async () =
       title: '测试直播间',
       anchorName: '',
       remark: '',
+      coverUrl: '',
       taskCount: 1,
     },
   ])

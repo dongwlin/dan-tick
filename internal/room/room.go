@@ -35,6 +35,7 @@ type Info struct {
 	RoomID     string
 	Title      string
 	AnchorName string
+	CoverURL   string
 }
 
 type roomData struct {
@@ -129,8 +130,9 @@ func (c *Client) Resolve(ctx context.Context, input string) (Info, error) {
 		return Info{}, err
 	}
 	info := Info{
-		RoomID: strconv.FormatInt(data.RoomID, 10),
-		Title:  data.Title,
+		RoomID:   strconv.FormatInt(data.RoomID, 10),
+		Title:    data.Title,
+		CoverURL: coverFromData(data),
 	}
 	if err := ctx.Err(); err != nil {
 		return Info{}, err
@@ -156,23 +158,13 @@ func (c *Client) Resolve(ctx context.Context, input string) (Info, error) {
 	return info, nil
 }
 
-// Cover looks up only optional artwork, without requesting the anchor name.
-// Empty or untrusted image URLs are treated as missing artwork.
-func (c *Client) Cover(ctx context.Context, roomID string) (string, error) {
-	id, err := canonicalID(roomID)
-	if err != nil {
-		return "", err
-	}
-	data, err := c.getRoomData(ctx, id)
-	if err != nil {
-		return "", err
-	}
+func coverFromData(data roomData) string {
 	for _, candidate := range []string{data.UserCover, data.Cover} {
 		if cover := safeCoverURL(candidate); cover != "" {
-			return cover, nil
+			return cover
 		}
 	}
-	return "", nil
+	return ""
 }
 
 // Cover URLs are controlled by Bilibili, not users. Only display HTTPS images

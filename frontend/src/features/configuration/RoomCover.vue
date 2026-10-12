@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { computed, shallowRef, watch } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { shallowRef, watch } from 'vue'
 import { Radio } from 'lucide-vue-next'
-import { GetRoomCover } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice'
 
 const props = defineProps<{
-  roomId: number
+  coverUrl: string
   platformRoomId: string
   index: number
 }>()
@@ -13,16 +11,13 @@ const props = defineProps<{
 const coverColors = ['bg-(--accent-panel)', 'bg-surface-muted', 'bg-(--accent-panel-alt)'] as const
 const imageLoaded = shallowRef(false)
 const imageFailed = shallowRef(false)
-const { data: coverURL } = useQuery({
-  queryKey: computed(() => ['room-cover', props.roomId]),
-  queryFn: () => GetRoomCover(props.roomId),
-  staleTime: 60 * 60 * 1000,
-})
-
-watch(coverURL, () => {
-  imageLoaded.value = false
-  imageFailed.value = false
-})
+watch(
+  () => props.coverUrl,
+  () => {
+    imageLoaded.value = false
+    imageFailed.value = false
+  },
+)
 </script>
 
 <template>
@@ -42,8 +37,8 @@ watch(coverURL, () => {
       </span>
     </template>
     <img
-      v-if="coverURL && !imageFailed"
-      :src="coverURL"
+      v-if="coverUrl && !imageFailed"
+      :src="coverUrl"
       alt=""
       loading="lazy"
       referrerpolicy="no-referrer"

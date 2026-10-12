@@ -52,6 +52,11 @@ func TestOpenReopenAndConstraints(t *testing.T) {
 	require.Error(t, err)
 	_, err = db.ExecContext(ctx, "INSERT INTO rooms (id, platform_room_id, created_at, updated_at) VALUES (1, '42', 1000, 1000)")
 	require.NoError(t, err)
+	var cover string
+	var checked int64
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT cover_url, metadata_checked_at FROM rooms WHERE id = 1").Scan(&cover, &checked))
+	require.Empty(t, cover)
+	require.Zero(t, checked, "legacy rooms must be stale for the first metadata refresh")
 	_, err = db.ExecContext(ctx, "INSERT INTO rooms (platform_room_id, created_at, updated_at) VALUES ('42', 1000, 1000)")
 	require.Error(t, err)
 	_, err = db.ExecContext(ctx, `INSERT INTO tasks
@@ -86,7 +91,7 @@ func TestOpenReopenAndConstraints(t *testing.T) {
 	require.NoError(t, err)
 	var count int
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT count(*) FROM bun_migrations").Scan(&count))
-	require.Equal(t, 1, count)
+	require.Equal(t, 2, count)
 	var due int64
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT next_due_at FROM tasks WHERE id = 1").Scan(&due))
 	require.Equal(t, int64(1791710400000), due)
@@ -137,7 +142,47 @@ THIS IS NOT SQL;
 	require.NoError(t, err)
 	defer db.Close()
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT count(*) FROM bun_migrations").Scan(&count))
-	require.Equal(t, 1, count)
+	require.Equal(t, 2, count)
+}
+
+func TestUpgradeExistingRoomsKeepsUserDataAndMarksMetadataStale(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "existing.db")
+	uri := url.URL{Scheme: "file", Path: filepath.ToSlash(path)}
+	q := uri.Query()
+	q.Add("_pragma", "foreign_keys(1)")
+	q.Add("_pragma", "busy_timeout(5000)")
+	uri.RawQuery = q.Encode()
+	db, err := connectSQLite(ctx, uri.String())
+	require.NoError(t, err)
+	initial, err := migrationFiles.ReadFile("migrations/20261011000100_initial_schema.tx.up.sql")
+	require.NoError(t, err)
+	legacy := fstest.MapFS{
+		"20261011000100_initial_schema.tx.up.sql": &fstest.MapFile{Data: initial},
+	}
+	require.NoError(t, runMigrations(ctx, db, legacy))
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO rooms (platform_room_id, title, anchor_name, remark, created_at, updated_at)
+		VALUES ('5440', 'Saved title', 'Saved anchor', 'User remark', 1000, 1000)`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	db, err = Open(ctx, path)
+	require.NoError(t, err)
+	defer db.Close()
+	var title, anchor, remark, cover string
+	var checked int64
+	require.NoError(t, db.QueryRowContext(ctx, `
+		SELECT title, anchor_name, remark, cover_url, metadata_checked_at
+		FROM rooms WHERE platform_room_id = '5440'`).Scan(&title, &anchor, &remark, &cover, &checked))
+	require.Equal(t, "Saved title", title)
+	require.Equal(t, "Saved anchor", anchor)
+	require.Equal(t, "User remark", remark)
+	require.Empty(t, cover)
+	require.Zero(t, checked)
+	var count int
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT count(*) FROM bun_migrations").Scan(&count))
+	require.Equal(t, 2, count)
 }
 
 func TestOpenDoesNotOverwriteCorruptDatabase(t *testing.T) {

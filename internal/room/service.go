@@ -20,16 +20,18 @@ var (
 
 // Room represents a saved room. TaskCount includes only nondeleted tasks.
 type Room struct {
-	bun.BaseModel  `bun:"table:rooms,alias:r"`
-	ID             int64  `bun:"id,pk,autoincrement"`
-	PlatformRoomID string `bun:"platform_room_id"`
-	Title          string `bun:"title"`
-	AnchorName     string `bun:"anchor_name"`
-	Remark         string `bun:"remark"`
-	CreatedAt      int64  `bun:"created_at"`
-	UpdatedAt      int64  `bun:"updated_at"`
-	DeletedAt      *int64 `bun:"deleted_at"`
-	TaskCount      int    `bun:"task_count,scanonly"`
+	bun.BaseModel     `bun:"table:rooms,alias:r"`
+	ID                int64  `bun:"id,pk,autoincrement"`
+	PlatformRoomID    string `bun:"platform_room_id"`
+	Title             string `bun:"title"`
+	AnchorName        string `bun:"anchor_name"`
+	Remark            string `bun:"remark"`
+	CoverURL          string `bun:"cover_url"`
+	MetadataCheckedAt int64  `bun:"metadata_checked_at"`
+	CreatedAt         int64  `bun:"created_at"`
+	UpdatedAt         int64  `bun:"updated_at"`
+	DeletedAt         *int64 `bun:"deleted_at"`
+	TaskCount         int    `bun:"task_count,scanonly"`
 }
 
 // Service manages the local room list. External lookup always finishes before
@@ -78,26 +80,61 @@ func (s *Service) ListPage(ctx context.Context, cursor *int64, limit int) ([]Roo
 	return rooms, &next, nil
 }
 
-// Cover fetches optional artwork for an existing active room. Remote failures
-// are not configuration failures: the UI simply keeps its placeholder.
-func (s *Service) Cover(ctx context.Context, id int64) (string, error) {
+const metadataRefreshInterval = 30 * time.Minute
+
+// RefreshMetadata updates display-only fields for a saved room when its last
+// attempt is stale. Requests run outside database transactions; a guarded
+// update prevents a slower concurrent response from replacing newer data.
+// Missing upstream fields never erase an existing title or anchor name, and
+// an outage is recorded as an attempt so reopening the page does not retry
+// immediately. User remarks are never touched.
+func (s *Service) RefreshMetadata(ctx context.Context, id int64) (bool, error) {
 	if id <= 0 {
-		return "", ErrNotSaved
+		return false, ErrNotSaved
 	}
-	var platformID string
-	err := s.db.QueryRowContext(ctx,
-		"SELECT platform_room_id FROM rooms WHERE id = ? AND deleted_at IS NULL", id).Scan(&platformID)
+	var saved Room
+	err := s.db.NewSelect().Model(&saved).Where("r.id = ? AND r.deleted_at IS NULL", id).Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", ErrNotSaved
+		return false, ErrNotSaved
 	}
 	if err != nil {
-		return "", fmt.Errorf("read room cover target: %w", err)
+		return false, fmt.Errorf("read room metadata: %w", err)
 	}
-	cover, err := s.client.Cover(ctx, platformID)
+	now := s.now().UTC().UnixMilli()
+	cutoff := now - metadataRefreshInterval.Milliseconds()
+	if saved.MetadataCheckedAt > cutoff {
+		return false, nil
+	}
+	info, err := s.client.Resolve(ctx, saved.PlatformRoomID)
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
+	// Never alter the room identity from a refresh result.
+	valid := err == nil && info.RoomID == saved.PlatformRoomID
+	title, anchor, cover := saved.Title, saved.AnchorName, saved.CoverURL
+	if valid {
+		if info.Title != "" {
+			title = info.Title
+		}
+		if info.AnchorName != "" {
+			anchor = info.AnchorName
+		}
+		cover = info.CoverURL
+	}
+	changed := title != saved.Title || anchor != saved.AnchorName || cover != saved.CoverURL
+	result, err := s.db.ExecContext(ctx, `
+		UPDATE rooms SET title = ?, anchor_name = ?, cover_url = ?, metadata_checked_at = ?,
+			updated_at = CASE WHEN title != ? OR anchor_name != ? OR cover_url != ? THEN ? ELSE updated_at END
+		WHERE id = ? AND deleted_at IS NULL AND metadata_checked_at <= ?`,
+		title, anchor, cover, now, title, anchor, cover, now, id, cutoff)
 	if err != nil {
-		return "", nil
+		return false, fmt.Errorf("save room metadata: %w", err)
 	}
-	return cover, nil
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("check room metadata update: %w", err)
+	}
+	return affected > 0 && changed, nil
 }
 
 // Add validates the input with Bilibili and persists its canonical room ID.
@@ -115,15 +152,17 @@ func (s *Service) Add(ctx context.Context, input string) (Room, error) {
 		// SQLite's unique constraint serializes simultaneous additions; only a
 		// previously deleted row can be changed by the conflict handler.
 		err := tx.QueryRowContext(ctx, `
-			INSERT INTO rooms (platform_room_id, title, anchor_name, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?)
+			INSERT INTO rooms (platform_room_id, title, anchor_name, cover_url, metadata_checked_at, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (platform_room_id) DO UPDATE SET
 				title = CASE WHEN excluded.title != '' THEN excluded.title ELSE rooms.title END,
 				anchor_name = CASE WHEN excluded.anchor_name != '' THEN excluded.anchor_name ELSE rooms.anchor_name END,
+				cover_url = excluded.cover_url,
+				metadata_checked_at = excluded.metadata_checked_at,
 				updated_at = excluded.updated_at,
 				deleted_at = NULL
 			WHERE rooms.deleted_at IS NOT NULL
-			RETURNING id`, info.RoomID, info.Title, info.AnchorName, now, now).Scan(&id)
+			RETURNING id`, info.RoomID, info.Title, info.AnchorName, info.CoverURL, now, now, now).Scan(&id)
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrAlreadyAdded
 		}

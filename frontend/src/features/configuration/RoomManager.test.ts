@@ -16,7 +16,7 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationse
   AddRoom: vi.fn(),
   UpdateRoom: vi.fn(),
   DeleteRoom: vi.fn(),
-  GetRoomCover: vi.fn().mockResolvedValue(''),
+  RefreshRoomMetadata: vi.fn().mockResolvedValue(false),
 }))
 vi.mock('@wailsio/runtime', () => ({ Browser: { OpenURL: vi.fn() } }))
 
@@ -29,6 +29,7 @@ it('opens rooms in the system browser in both views and reports failures safely'
         title: '直播三',
         anchorName: '主播',
         remark: '',
+        coverUrl: '',
         taskCount: 0,
       },
     ],
@@ -64,16 +65,33 @@ it('opens rooms in the system browser in both views and reports failures safely'
 
 it('loads real binding pages, switches views, adds rooms and retains input on failure', async () => {
   const rows = [
-    { id: 3, platformRoomId: '300', title: '直播三', anchorName: '主播', remark: '', taskCount: 0 },
+    {
+      id: 3,
+      platformRoomId: '300',
+      title: '直播三',
+      anchorName: '主播',
+      remark: '',
+      coverUrl: '',
+      taskCount: 0,
+    },
     {
       id: 2,
       platformRoomId: '200',
       title: '直播二',
       anchorName: '',
       remark: '直播二',
+      coverUrl: '',
       taskCount: 1,
     },
-    { id: 1, platformRoomId: '100', title: '直播一', anchorName: '', remark: '', taskCount: 0 },
+    {
+      id: 1,
+      platformRoomId: '100',
+      title: '直播一',
+      anchorName: '',
+      remark: '',
+      coverUrl: '',
+      taskCount: 0,
+    },
   ]
   const first = rows[0]
   if (!first) throw new Error('missing test room')
@@ -165,6 +183,7 @@ it('shows a different room title or its missing-title hint without duplicating t
         title: '原标题',
         anchorName: '主播',
         remark: '自定义备注',
+        coverUrl: '',
         taskCount: 0,
       },
       {
@@ -173,6 +192,7 @@ it('shows a different room title or its missing-title hint without duplicating t
         title: '',
         anchorName: '',
         remark: '',
+        coverUrl: '',
         taskCount: 0,
       },
       {
@@ -181,6 +201,7 @@ it('shows a different room title or its missing-title hint without duplicating t
         title: '相同标题',
         anchorName: '',
         remark: ' 相同标题 ',
+        coverUrl: '',
         taskCount: 0,
       },
     ],

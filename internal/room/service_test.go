@@ -132,39 +132,105 @@ func TestRoomCRUDAndPersistence(t *testing.T) {
 	assert.Equal(t, second.ID, rooms[0].ID)
 }
 
-func TestCoverIsAvailableForExistingRoomsAndFailsOpen(t *testing.T) {
-	var available = true
+func TestRefreshMetadataPersistsChangesPreservesRemarkAndThrottles(t *testing.T) {
+	ctx := context.Background()
 	lookups := 0
-	s, _ := setupRoomService(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/room/v1/Room/get_info" {
+	title, anchor, cover := "Old title", "Old anchor", "https://i0.hdslb.com/bfs/live/old.jpg"
+	available := true
+	s, db := setupRoomService(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/room/v1/Room/get_info":
 			lookups++
 			if !available {
 				http.Error(w, "offline", http.StatusBadGateway)
 				return
 			}
-			fmt.Fprint(w, `{"code":0,"data":{"room_id":5440,"user_cover":"https://i0.hdslb.com/bfs/live/cover.jpg"}}`)
-			return
+			fmt.Fprintf(w, `{"code":0,"data":{"room_id":5440,"uid":8,"title":%q,"user_cover":%q}}`, title, cover)
+		case "/live_user/v1/Master/info":
+			fmt.Fprintf(w, `{"code":0,"data":{"info":{"uname":%q}}}`, anchor)
+		default:
+			http.NotFound(w, r)
 		}
-		http.NotFound(w, r)
 	})
-	ctx := context.Background()
 	for _, id := range []int64{-1, 0, 42} {
-		_, err := s.Cover(ctx, id)
+		_, err := s.RefreshMetadata(ctx, id)
 		require.ErrorIs(t, err, ErrNotSaved)
 	}
 	assert.Zero(t, lookups)
 	saved, err := s.Add(ctx, "1")
 	require.NoError(t, err)
-	cover, err := s.Cover(ctx, saved.ID)
+	assert.Equal(t, cover, saved.CoverURL)
+	assert.Equal(t, testNow, saved.MetadataCheckedAt)
+	_, err = s.UpdateRemark(ctx, saved.ID, "My note")
 	require.NoError(t, err)
-	assert.Equal(t, "https://i0.hdslb.com/bfs/live/cover.jpg", cover)
+	changed, err := s.RefreshMetadata(ctx, saved.ID)
+	require.NoError(t, err)
+	assert.False(t, changed)
+	assert.Equal(t, 1, lookups)
+
+	// Refresh an already saved room after the deadline.
+	title, anchor, cover = "New title", "New anchor", "https://i1.hdslb.com/bfs/live/new.jpg"
+	now := testNow + metadataRefreshInterval.Milliseconds() + 1
+	s.now = func() time.Time { return time.UnixMilli(now) }
+	changed, err = s.RefreshMetadata(ctx, saved.ID)
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.Equal(t, 2, lookups)
+	rooms, err := s.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, rooms, 1)
+	assert.Equal(t, "New title", rooms[0].Title)
+	assert.Equal(t, "New anchor", rooms[0].AnchorName)
+	assert.Equal(t, "My note", rooms[0].Remark)
+	assert.Equal(t, "https://i1.hdslb.com/bfs/live/new.jpg", rooms[0].CoverURL)
+	assert.Equal(t, now, rooms[0].MetadataCheckedAt)
+	assert.Equal(t, now, rooms[0].UpdatedAt)
+
+	// Reopening/repeating a refresh soon afterward must not call Bilibili.
+	other := NewService(db, s.client)
+	other.now = s.now
+	changed, err = other.RefreshMetadata(ctx, saved.ID)
+	require.NoError(t, err)
+	assert.False(t, changed)
+	assert.Equal(t, 2, lookups)
+
+	// Transient upstream failure retains saved metadata and postpones retry.
+	now += metadataRefreshInterval.Milliseconds() + 1
 	available = false
-	cover, err = s.Cover(ctx, saved.ID)
+	changed, err = s.RefreshMetadata(ctx, saved.ID)
 	require.NoError(t, err)
-	assert.Empty(t, cover)
+	assert.False(t, changed)
+	assert.Equal(t, 3, lookups)
+	changed, err = other.RefreshMetadata(ctx, saved.ID)
+	require.NoError(t, err)
+	assert.False(t, changed)
+	assert.Equal(t, 3, lookups)
+	rooms, err = s.List(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "New title", rooms[0].Title)
+	assert.Equal(t, "New anchor", rooms[0].AnchorName)
+	assert.Equal(t, "My note", rooms[0].Remark)
+	assert.Equal(t, now, rooms[0].MetadataCheckedAt)
+	assert.Equal(t, testNow+metadataRefreshInterval.Milliseconds()+1, rooms[0].UpdatedAt)
+
+	// Valid responses missing optional fields do not wipe names; an absent
+	// cover removes the artwork so the UI can show its normal fallback.
+	now += metadataRefreshInterval.Milliseconds() + 1
+	available = true
+	title, anchor, cover = "", "", ""
+	changed, err = s.RefreshMetadata(ctx, saved.ID)
+	require.NoError(t, err)
+	assert.True(t, changed)
+	rooms, err = s.List(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "New title", rooms[0].Title)
+	assert.Equal(t, "New anchor", rooms[0].AnchorName)
+	assert.Empty(t, rooms[0].CoverURL)
+	assert.Equal(t, "My note", rooms[0].Remark)
+
 	require.NoError(t, s.Delete(ctx, saved.ID))
 	before := lookups
-	_, err = s.Cover(ctx, saved.ID)
+	_, err = s.RefreshMetadata(ctx, saved.ID)
 	require.ErrorIs(t, err, ErrNotSaved)
 	assert.Equal(t, before, lookups)
 }

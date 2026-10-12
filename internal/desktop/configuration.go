@@ -42,6 +42,7 @@ type Room struct {
 	PlatformRoomID string `json:"platformRoomId"`
 	Title          string `json:"title"`
 	AnchorName     string `json:"anchorName"`
+	CoverURL       string `json:"coverUrl"`
 	Remark         string `json:"remark"`
 	TaskCount      int    `json:"taskCount"`
 }
@@ -49,7 +50,7 @@ type Room struct {
 func roomView(saved room.Room) Room {
 	return Room{
 		ID: saved.ID, PlatformRoomID: saved.PlatformRoomID,
-		Title: saved.Title, AnchorName: saved.AnchorName,
+		Title: saved.Title, AnchorName: saved.AnchorName, CoverURL: saved.CoverURL,
 		Remark: saved.Remark, TaskCount: saved.TaskCount,
 	}
 }
@@ -103,11 +104,11 @@ func (s *ConfigurationService) ListRooms(ctx context.Context) ([]Room, error) {
 	return result, nil
 }
 
-// GetRoomCover is presentation-only and never blocks room list queries or
-// scheduled tasks when Bilibili is unavailable.
-func (s *ConfigurationService) GetRoomCover(ctx context.Context, id int64) (string, error) {
-	cover, err := s.rooms.Cover(ctx, id)
-	return cover, protect(err)
+// RefreshRoomMetadata only updates descriptive fields for an active room.
+// A true result requests a reload of authoritative list data.
+func (s *ConfigurationService) RefreshRoomMetadata(ctx context.Context, id int64) (bool, error) {
+	changed, err := s.rooms.RefreshMetadata(ctx, id)
+	return changed, protect(err)
 }
 
 func (s *ConfigurationService) AddRoom(ctx context.Context, input AddRoomInput) (Room, error) {

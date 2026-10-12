@@ -7,6 +7,7 @@ import { bindingError, useAddRoom, useDeleteRoom, useRoomPages, useUpdateRoom } 
 import { fieldClass, panel, primaryButton, secondaryButton } from './style'
 import RoomCover from './RoomCover.vue'
 import RoomForm from './RoomForm.vue'
+import { useRoomMetadataRefresh } from './useRoomMetadataRefresh'
 
 const pages = useRoomPages()
 const add = useAddRoom()
@@ -18,6 +19,7 @@ const editingID = shallowRef<number | null>(null)
 const remark = shallowRef('')
 const message = shallowRef('')
 const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
+useRoomMetadataRefresh(rooms)
 const roomActionClass =
   'inline-flex size-8 items-center justify-center rounded-md hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring'
 
@@ -157,7 +159,7 @@ async function deleteRoom(room: Room) {
         >
           <RoomCover
             v-if="view === 'cards'"
-            :room-id="room.id"
+            :cover-url="room.coverUrl"
             :platform-room-id="room.platformRoomId"
             :index="index"
           />

@@ -130,13 +130,13 @@ func TestCoverPrefersCustomArtworkAndUsesOnlyTrustedCDN(t *testing.T) {
 				roomCalls++
 				assert.Equal(t, "5440", r.URL.Query().Get("room_id"))
 				_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{
-					"room_id": 5440, "uid": 8, "user_cover": tt.userCover, "cover": tt.cover,
+					"room_id": 5440, "uid": 0, "user_cover": tt.userCover, "cover": tt.cover,
 				}})
 			}))
 			defer server.Close()
-			got, err := testClient(server).Cover(context.Background(), "5440")
+			got, err := testClient(server).Resolve(context.Background(), "5440")
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got.CoverURL)
 			assert.Equal(t, 1, roomCalls)
 			assert.Zero(t, masterCalls)
 		})
@@ -149,9 +149,9 @@ func TestCoverLookupErrorsAndInvalidRoomID(t *testing.T) {
 	}))
 	defer server.Close()
 	client := testClient(server)
-	_, err := client.Cover(context.Background(), "not a room")
+	_, err := client.Resolve(context.Background(), "not a room")
 	require.ErrorIs(t, err, ErrInvalidInput)
-	_, err = client.Cover(context.Background(), "123")
+	_, err = client.Resolve(context.Background(), "123")
 	require.ErrorIs(t, err, ErrUnavailable)
 }
 

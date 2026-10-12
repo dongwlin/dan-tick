@@ -24,6 +24,7 @@ it('requires a saved room, distinguishes test send results, and never starts a t
       platformRoomId: '98765',
       anchorName: '',
       remark: '',
+      coverUrl: '',
       taskCount: 0,
     },
   ])
