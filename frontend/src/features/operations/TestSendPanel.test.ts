@@ -6,6 +6,7 @@ import { Outcome } from '@bindings/github.com/dongwlin/dan-tick/internal/danmaku
 import { ListRooms } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice'
 import { TestSend } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice'
 import { createAppQueryClient } from '@/app/queryClient'
+import { mountToastHost } from '@/test/toastHost'
 import TestSendPanel from './TestSendPanel.vue'
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice', () => ({
@@ -31,6 +32,7 @@ it('requires a saved room, distinguishes test send results, and never starts a t
   vi.mocked(TestSend)
     .mockResolvedValueOnce({ outcome: Outcome.Accepted, errorCode: '' })
     .mockResolvedValueOnce({ outcome: Outcome.Unknown, errorCode: 'send_failed' })
+  mountToastHost()
   render(TestSendPanel, {
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })

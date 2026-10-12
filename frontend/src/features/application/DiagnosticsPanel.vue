@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { shallowRef } from 'vue'
 import { FolderOpen, FileArchive } from 'lucide-vue-next'
-import UiToast from '@/components/UiToast.vue'
 import { secondaryButton } from '@/components/buttonStyles'
+import { useToast } from '@/composables/useToast'
 import {
   useDiagnosticsStatus,
   useExportDiagnostics,
@@ -14,19 +13,10 @@ const status = useDiagnosticsStatus()
 const logs = useOpenLogDirectory()
 const data = useOpenDataDirectory()
 const exportAction = useExportDiagnostics()
-const toast = shallowRef<{
-  id: number
-  message: string
-  tone: 'success' | 'error' | 'info'
-} | null>(null)
-let nextToastId = 0
-
-function notify(message: string, tone: 'success' | 'error' | 'info') {
-  toast.value = { id: ++nextToastId, message, tone }
-}
+const { notify, dismiss } = useToast()
 
 async function run(action: 'logs' | 'data' | 'export') {
-  toast.value = null
+  dismiss()
   try {
     if (action === 'export') {
       const result = await exportAction.mutateAsync()
@@ -106,12 +96,5 @@ async function run(action: 'logs' | 'data' | 'export') {
       <FileArchive class="size-4" aria-hidden="true" />
       {{ exportAction.isPending.value ? '正在检查并导出…' : '导出诊断包…' }}
     </button>
-    <UiToast
-      v-if="toast"
-      :key="toast.id"
-      :message="toast.message"
-      :tone="toast.tone"
-      @dismiss="toast = null"
-    />
   </section>
 </template>

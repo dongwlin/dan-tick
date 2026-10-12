@@ -12,6 +12,7 @@ import {
   PollQRLogin,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice'
 import { createAppQueryClient } from '@/app/queryClient'
+import { mountToastHost } from '@/test/toastHost'
 import AccountPanel from './AccountPanel.vue'
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice', () => ({
@@ -46,6 +47,7 @@ afterEach(() => {
 
 async function renderPanel() {
   const client = createAppQueryClient()
+  mountToastHost()
   const view = render(AccountPanel, {
     global: { plugins: [[VueQueryPlugin, { queryClient: client }]] },
   })

@@ -119,6 +119,13 @@ describe('application navigation', () => {
     expect(appContent?.classList.contains('px-7')).toBe(false)
   })
 
+  it('keeps one toast viewport for the settings panels that can raise feedback', async () => {
+    renderAtHash('/settings')
+
+    expect(await screen.findByRole('heading', { name: '设置' })).toBeTruthy()
+    expect(screen.getAllByRole('region', { name: '通知 (F8)' })).toHaveLength(1)
+  })
+
   it('offers a working return link on an unknown deep link', async () => {
     const user = renderAtHash('/does-not-exist')
 

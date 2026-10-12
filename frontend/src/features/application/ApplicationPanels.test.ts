@@ -5,6 +5,7 @@ import { CancellablePromise } from '@wailsio/runtime'
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { Component } from 'vue'
 import { createAppQueryClient } from '@/app/queryClient'
+import { mountToastHost } from '@/test/toastHost'
 import {
   GetPreferences,
   SetDefaultTimezone,
@@ -32,6 +33,7 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/diagnosticsserv
 }))
 
 function show(component: Component) {
+  mountToastHost()
   return render(component, {
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })

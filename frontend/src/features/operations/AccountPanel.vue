@@ -3,9 +3,9 @@ import { computed, shallowRef } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
 import { ShieldCheck, RefreshCw } from 'lucide-vue-next'
-import UiToast from '@/components/UiToast.vue'
 import { flatPanel } from '@/components/uiStyles'
 import { secondaryButton } from '@/components/buttonStyles'
+import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 import { accountStatusLabels, operationKeys, useAccountStatus, useClearAccount } from './queries'
 import QRLoginCard from './QRLoginCard.vue'
@@ -15,12 +15,7 @@ const status = useAccountStatus()
 const client = useQueryClient()
 const clear = useClearAccount()
 const dialogOpen = shallowRef(false)
-const toast = shallowRef<{ id: number; message: string; tone: 'success' | 'error' } | null>(null)
-let nextToastId = 0
-
-function notify(message: string, tone: 'success' | 'error') {
-  toast.value = { id: ++nextToastId, message, tone }
-}
+const { notify, dismiss } = useToast()
 
 const qr = useQRLogin({
   onConfirmed: async () => {
@@ -41,7 +36,7 @@ const needsReauthentication = computed(
 async function beginLogin() {
   if (clear.isPending.value || qr.busy.value || qr.active.value) return
   dialogOpen.value = true
-  toast.value = null
+  dismiss()
   await qr.begin()
 }
 
@@ -58,7 +53,7 @@ async function setDialogOpen(open: boolean) {
 
 async function clearCredentials() {
   if (!window.confirm('清除已保存的 B 站登录凭证？已创建的任务不会删除。')) return
-  toast.value = null
+  dismiss()
   try {
     await clear.mutateAsync()
     notify('账号凭证已清除。', 'success')
@@ -113,12 +108,5 @@ async function clearCredentials() {
         清除凭证
       </button>
     </div>
-    <UiToast
-      v-if="toast"
-      :key="toast.id"
-      :message="toast.message"
-      :tone="toast.tone"
-      @dismiss="toast = null"
-    />
   </section>
 </template>

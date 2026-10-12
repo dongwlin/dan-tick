@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { shallowRef, watch } from 'vue'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
-import UiToast from '@/components/UiToast.vue'
 import { fieldClass } from '@/components/uiStyles'
 import { secondaryButton } from '@/components/buttonStyles'
+import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 import { usePreferences, useSetDefaultTimezone, useSetSchedulingEnabled } from './queries'
 
@@ -11,12 +11,7 @@ const preferences = usePreferences()
 const setTimezone = useSetDefaultTimezone()
 const setScheduling = useSetSchedulingEnabled()
 const timezone = shallowRef('')
-const toast = shallowRef<{ id: number; message: string; tone: 'success' | 'error' } | null>(null)
-let nextToastId = 0
-
-function notify(message: string, tone: 'success' | 'error') {
-  toast.value = { id: ++nextToastId, message, tone }
-}
+const { notify, dismiss } = useToast()
 
 watch(
   () => preferences.data.value?.defaultTimezone,
@@ -27,7 +22,7 @@ watch(
 )
 
 async function saveTimezone() {
-  toast.value = null
+  dismiss()
   try {
     await setTimezone.mutateAsync(timezone.value.trim())
     notify('默认时区已保存，仅应用于新建任务。', 'success')
@@ -37,7 +32,7 @@ async function saveTimezone() {
 }
 
 async function toggleScheduling(enabled: boolean) {
-  toast.value = null
+  dismiss()
   try {
     await setScheduling.mutateAsync(enabled)
     notify(
@@ -116,12 +111,5 @@ async function toggleScheduling(enabled: boolean) {
         </button>
       </form>
     </div>
-    <UiToast
-      v-if="toast"
-      :key="toast.id"
-      :message="toast.message"
-      :tone="toast.tone"
-      @dismiss="toast = null"
-    />
   </section>
 </template>

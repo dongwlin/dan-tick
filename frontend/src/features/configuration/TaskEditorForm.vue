@@ -14,8 +14,8 @@ import { useRoomOptions, useSaveTask } from './queries'
 import { usePreferences } from '@/features/application/queries'
 import UiButton from '@/components/UiButton.vue'
 import UiField from '@/components/UiField.vue'
-import UiToast from '@/components/UiToast.vue'
 import { fieldClass, flatPanel } from '@/components/uiStyles'
+import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 
 const props = defineProps<{ task?: Task }>()
@@ -24,8 +24,7 @@ const rooms = useRoomOptions()
 const preferences = usePreferences()
 const save = useSaveTask(props.task?.id)
 const saveWarning = shallowRef('')
-const toast = shallowRef<{ id: number; message: string; tone: 'error' } | null>(null)
-let nextToastId = 0
+const { notify, dismiss } = useToast()
 const navigatingAfterSave = shallowRef(false)
 
 const weekdays = [
@@ -170,7 +169,7 @@ onBeforeRouteLeave(() => {
 
 const submit = handleSubmit(
   async (data) => {
-    toast.value = null
+    dismiss()
     saveWarning.value = ''
     const input: TaskInput = {
       name: data.name.trim(),
@@ -211,7 +210,7 @@ const submit = handleSubmit(
         // This result needs to remain visible: the database write may have succeeded.
         saveWarning.value = message
       } else {
-        toast.value = { id: ++nextToastId, message, tone: 'error' }
+        notify(message, 'error')
       }
     }
   },
@@ -219,11 +218,7 @@ const submit = handleSubmit(
     const invalidFields = (Object.keys(fieldNames) as ErrorField[]).filter((field) =>
       Boolean(invalidErrors[field]),
     )
-    toast.value = {
-      id: ++nextToastId,
-      message: '表单校验未通过，请根据字段提示修改后重试。',
-      tone: 'error',
-    }
+    notify('表单校验未通过，请根据字段提示修改后重试。', 'error')
     void nextTick(() => {
       if (invalidFields[0]) focusErrorField(invalidFields[0])
     })
@@ -555,13 +550,6 @@ const submit = handleSubmit(
           {{ saveWarning }}
         </p>
       </aside>
-      <UiToast
-        v-if="toast"
-        :key="toast.id"
-        :message="toast.message"
-        :tone="toast.tone"
-        @dismiss="toast = null"
-      />
     </form>
   </section>
 </template>

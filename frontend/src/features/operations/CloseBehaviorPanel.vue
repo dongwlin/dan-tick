@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
 import { Check } from 'lucide-vue-next'
 import { shallowRef, watch } from 'vue'
-import UiToast from '@/components/UiToast.vue'
+import { useToast } from '@/composables/useToast'
 import {
   GetCloseBehavior,
   SetCloseBehavior,
@@ -21,8 +21,7 @@ const {
   queryFn: GetCloseBehavior,
 })
 const selected = shallowRef<string | undefined>()
-const toast = shallowRef<{ id: number; message: string; tone: 'error' } | null>(null)
-let nextToastId = 0
+const { notify, dismiss } = useToast()
 watch(
   behavior,
   (value) => {
@@ -35,17 +34,13 @@ const update = useMutation({
   onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   onError: () => {
     selected.value = behavior.value
-    toast.value = {
-      id: ++nextToastId,
-      message: '保存窗口偏好失败，设置未更改。',
-      tone: 'error',
-    }
+    notify('保存窗口偏好失败，设置未更改。', 'error')
   },
 })
 
 function onChange(value: unknown) {
   if (value === 'hide' || value === 'quit') {
-    toast.value = null
+    dismiss()
     selected.value = value
     update.mutate(value)
   }
@@ -104,12 +99,5 @@ function onChange(value: unknown) {
     <p class="mt-3 text-sm text-text-tertiary">
       标题栏的「退出应用」始终可以明确结束后台任务；存在已启用或运行中的任务时会询问确认。
     </p>
-    <UiToast
-      v-if="toast"
-      :key="toast.id"
-      :message="toast.message"
-      :tone="toast.tone"
-      @dismiss="toast = null"
-    />
   </section>
 </template>

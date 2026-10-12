@@ -4,9 +4,9 @@ import { Send } from 'lucide-vue-next'
 import { Outcome } from '@bindings/github.com/dongwlin/dan-tick/internal/danmaku/models'
 import UiButton from '@/components/UiButton.vue'
 import UiField from '@/components/UiField.vue'
-import UiToast from '@/components/UiToast.vue'
 import { useRoomOptions } from '@/features/configuration/queries'
 import { fieldClass, flatPanel } from '@/components/uiStyles'
+import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 import { sendFailureText, useTestSend } from './queries'
 
@@ -14,19 +14,10 @@ const rooms = useRoomOptions()
 const send = useTestSend()
 const roomID = shallowRef(0)
 const message = shallowRef('')
-const toast = shallowRef<{
-  id: number
-  message: string
-  tone: 'success' | 'error' | 'warning'
-} | null>(null)
-let nextToastId = 0
-
-function notify(message: string, tone: 'success' | 'error' | 'warning') {
-  toast.value = { id: ++nextToastId, message, tone }
-}
+const { notify, dismiss } = useToast()
 
 async function submit() {
-  toast.value = null
+  dismiss()
   send.reset()
   try {
     const result = await send.mutateAsync({ roomId: roomID.value, message: message.value })
@@ -91,12 +82,5 @@ async function submit() {
     <p v-if="rooms.isError.value" role="alert" class="text-sm text-soft-danger-fg">
       {{ bindingError(rooms.error.value) }}
     </p>
-    <UiToast
-      v-if="toast"
-      :key="toast.id"
-      :message="toast.message"
-      :tone="toast.tone"
-      @dismiss="toast = null"
-    />
   </section>
 </template>

@@ -7,6 +7,7 @@ import {
   SetCloseBehavior,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice'
 import { createAppQueryClient } from '@/app/queryClient'
+import { mountToastHost } from '@/test/toastHost'
 import CloseBehaviorPanel from './CloseBehaviorPanel.vue'
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice', () => ({
@@ -20,6 +21,7 @@ it('reads native close behavior, updates it and reports persistence failures', a
   vi.mocked(SetCloseBehavior)
     .mockRejectedValueOnce(new Error('private failure'))
     .mockResolvedValue(undefined)
+  mountToastHost()
   render(CloseBehaviorPanel, {
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
