@@ -41,19 +41,13 @@ const shortCommit = computed(() => props.commit?.trim().slice(0, 8) || '未提�
         class="h-auto w-60 max-w-full object-contain"
         draggable="false"
       />
-      <dl class="mt-5 space-y-2 text-sm">
-        <div class="flex flex-wrap items-baseline justify-center gap-x-2">
-          <dt class="text-text-secondary">版本号</dt>
-          <dd class="font-medium break-all text-text-primary tabular-nums">{{ version }}</dd>
-        </div>
-        <div class="flex flex-wrap items-baseline justify-center gap-x-2">
-          <dt class="text-text-secondary">构建时间</dt>
-          <dd class="text-text-primary tabular-nums">{{ buildTimeLabel }}</dd>
-        </div>
-        <div class="flex flex-wrap items-baseline justify-center gap-x-2">
-          <dt class="text-text-secondary">Git Commit</dt>
-          <dd class="font-mono text-text-primary tabular-nums">{{ shortCommit }}</dd>
-        </div>
+      <dl class="mt-5 grid w-fit max-w-full grid-cols-2 items-baseline gap-2 text-left text-sm">
+        <dt class="text-right text-text-secondary">版本号</dt>
+        <dd class="font-medium break-all text-text-primary tabular-nums">{{ version }}</dd>
+        <dt class="text-right text-text-secondary">构建时间</dt>
+        <dd class="text-text-primary tabular-nums">{{ buildTimeLabel }}</dd>
+        <dt class="text-right text-text-secondary">Git Commit</dt>
+        <dd class="font-mono text-text-primary tabular-nums">{{ shortCommit }}</dd>
       </dl>
     </div>
   </section>
