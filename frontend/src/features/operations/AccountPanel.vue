@@ -6,6 +6,7 @@ import { ShieldCheck, RefreshCw } from 'lucide-vue-next'
 
 import { secondaryButton } from '@/components/ui/buttonStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
+import UiAlert from '@/components/ui/UiAlert.vue'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
@@ -79,9 +80,9 @@ async function clearCredentials() {
         {{ statusLabel }}
       </span>
     </div>
-    <p v-if="needsReauthentication" class="text-sm text-soft-warning-fg">
+    <UiAlert v-if="needsReauthentication" tone="warning" role="note">
       现有凭证需要重新扫码绑定。原凭证和任务会保留，扫码成功后更新账号。
-    </p>
+    </UiAlert>
     <div class="flex flex-wrap gap-2">
       <QRLoginCard
         :open="dialogOpen"

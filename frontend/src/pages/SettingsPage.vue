@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { AlertTriangle, Check } from 'lucide-vue-next'
+import { Check } from 'lucide-vue-next'
 import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
+import UiAlert from '@/components/ui/UiAlert.vue'
 import { useTheme, type ThemePreference } from '@/app/theme'
 import AccountPanel from '@/features/operations/AccountPanel.vue'
 import UiPanel from '@/components/ui/UiPanel.vue'
@@ -63,14 +64,9 @@ function updateTheme(value: unknown): void {
               <span>{{ choice.label }}</span>
             </RadioGroupItem>
           </RadioGroupRoot>
-          <p
-            v-if="!storageAvailable"
-            class="mt-3 flex items-center gap-2 rounded-[10px] border border-soft-warning-border bg-soft-warning-bg px-3 py-2 text-sm text-soft-warning-fg"
-            role="alert"
-          >
-            <AlertTriangle class="size-4 shrink-0" aria-hidden="true" />
+          <UiAlert v-if="!storageAvailable" tone="warning" class="mt-3">
             当前环境无法保存主题偏好，本次打开期间仍可切换。
-          </p>
+          </UiAlert>
         </UiPanel>
         <DiagnosticsPanel />
         <AboutPanel />

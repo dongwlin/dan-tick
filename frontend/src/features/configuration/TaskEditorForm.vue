@@ -17,6 +17,7 @@ import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import UiField from '@/components/ui/UiField.vue'
 import { fieldClass } from '@/components/ui/uiStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
+import UiAlert from '@/components/ui/UiAlert.vue'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 
@@ -563,13 +564,9 @@ const submit = handleSubmit(
           <Check class="size-4" aria-hidden="true" />{{ task ? '保存修改' : '创建任务' }}
         </UiButton>
         <UiButton to="/tasks">取消</UiButton>
-        <p
-          v-if="saveWarning"
-          role="alert"
-          class="rounded-lg border border-soft-warning-border bg-soft-warning-bg p-3 text-sm text-soft-warning-fg"
-        >
+        <UiAlert v-if="saveWarning" role="alert">
           {{ saveWarning }}
-        </p>
+        </UiAlert>
       </aside>
     </form>
     <UiConfirmDialog

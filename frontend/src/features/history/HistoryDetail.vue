@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-vue-next'
 
 import { secondaryButton } from '@/components/ui/buttonStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
+import UiAlert from '@/components/ui/UiAlert.vue'
 import { bindingError } from '@/lib/bindingError'
 import { attemptResult, displayTime, errorText, statusClass, statusText } from './presentation'
 import { useExecutionHistoryDetail } from './queries'
@@ -29,7 +30,7 @@ const attempts = computed(() => detail.data.value?.attempts ?? [])
         <ArrowLeft class="size-4" aria-hidden="true" />返回执行记录
       </RouterLink>
     </header>
-    <UiPanel v-if="!valid" :padded="false" role="alert" class="p-6">无效的执行记录编号。</UiPanel>
+    <UiAlert v-if="!valid" tone="danger">无效的执行记录编号。</UiAlert>
     <UiPanel v-else-if="detail.isPending.value" :padded="false" role="status" class="p-6">
       正在加载执行详情…
     </UiPanel>

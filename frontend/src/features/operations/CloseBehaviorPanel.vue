@@ -5,6 +5,7 @@ import { Check } from 'lucide-vue-next'
 import { shallowRef, watch } from 'vue'
 import { useToast } from '@/composables/useToast'
 import UiPanel from '@/components/ui/UiPanel.vue'
+import UiAlert from '@/components/ui/UiAlert.vue'
 import {
   GetCloseBehavior,
   SetCloseBehavior,
@@ -93,10 +94,10 @@ function onChange(value: unknown) {
         <span>关闭时退出应用，停止后台调度</span>
       </RadioGroupItem>
     </RadioGroupRoot>
-    <p v-if="isError" role="alert" class="mt-3 text-sm text-soft-warning-fg">
+    <UiAlert v-if="isError" tone="warning" class="mt-3">
       读取窗口偏好失败。
       <button type="button" class="underline" @click="refetch()">重试</button>
-    </p>
+    </UiAlert>
     <p class="mt-3 text-sm text-text-tertiary">
       标题栏的「退出应用」始终可以明确结束后台任务；存在已启用或运行中的任务时会询问确认。
     </p>

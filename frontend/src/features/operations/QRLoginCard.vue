@@ -12,6 +12,7 @@ import {
 } from 'reka-ui'
 import { QrCode, Smartphone, X } from 'lucide-vue-next'
 import { primaryButton } from '@/components/ui/buttonStyles'
+import UiAlert from '@/components/ui/UiAlert.vue'
 import type { QRLoginState } from './useQRLogin'
 
 const props = defineProps<{
@@ -115,9 +116,15 @@ function preventClosingWhenLocked(event: Event) {
           <p v-if="state === 'account_mismatch'" class="text-sm text-text-secondary wrap-anywhere">
             本次扫码账号 UID：{{ candidateUID }}。确认切换后，现有任务将使用此账号发送弹幕。
           </p>
-          <p v-if="errorMessage" role="alert" class="text-sm text-soft-danger-fg">
+          <UiAlert
+            v-if="errorMessage"
+            tone="danger"
+            variant="plain"
+            role="alert"
+            :show-icon="false"
+          >
             {{ errorMessage }}
-          </p>
+          </UiAlert>
           <div
             v-if="state === 'account_mismatch' || retryable"
             class="flex flex-wrap justify-end gap-2"

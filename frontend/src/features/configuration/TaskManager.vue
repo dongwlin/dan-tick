@@ -5,6 +5,7 @@ import { Clock3, ListTodo, Plus, Search, Trash2 } from 'lucide-vue-next'
 import { useDeleteTask, useSetTaskEnabled, useTaskPages } from './queries'
 import { fieldClass } from '@/components/ui/uiStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
+import UiAlert from '@/components/ui/UiAlert.vue'
 import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import { bindingError } from '@/lib/bindingError'
@@ -233,9 +234,9 @@ async function deleteTask() {
         </template>
       </div>
     </UiPanel>
-    <p v-if="message" role="alert" class="rounded-lg bg-soft-danger-bg p-3 text-soft-danger-fg">
+    <UiAlert v-if="message" role="alert">
       {{ message }}
-    </p>
+    </UiAlert>
     <UiConfirmDialog
       :open="pendingDelete !== null"
       title="删除任务"

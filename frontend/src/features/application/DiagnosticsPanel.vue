@@ -2,6 +2,7 @@
 import { FolderOpen, FileArchive } from 'lucide-vue-next'
 import { secondaryButton } from '@/components/ui/buttonStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
+import UiAlert from '@/components/ui/UiAlert.vue'
 import { useToast } from '@/composables/useToast'
 import {
   useDiagnosticsStatus,
@@ -81,12 +82,10 @@ async function run(action: 'logs' | 'data' | 'export') {
         <FolderOpen class="size-4" aria-hidden="true" />打开日志目录
       </button>
     </div>
-    <p v-if="status.data.value?.degraded" role="alert" class="mb-3 text-sm text-soft-warning-fg">
+    <UiAlert v-if="status.data.value?.degraded" tone="warning" class="mb-3">
       日志写入已降级，请检查日志目录权限或剩余空间；后台任务仍可运行。
-    </p>
-    <p v-if="status.isError.value" role="alert" class="mb-3 text-sm text-soft-warning-fg">
-      无法读取日志状态。
-    </p>
+    </UiAlert>
+    <UiAlert v-if="status.isError.value" tone="warning" class="mb-3"> 无法读取日志状态。 </UiAlert>
     <button
       type="button"
       :class="secondaryButton"
