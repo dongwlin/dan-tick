@@ -35,6 +35,23 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/diagnosticsserv
   ExportDiagnostics: vi.fn(),
 }))
 
+it('renders settings cards without shadows', () => {
+  render(SettingsPage, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+
+  for (const name of [
+    'B 站账号',
+    '测试发送',
+    '窗口与后台运行',
+    '调度设置',
+    '界面主题',
+    '数据与日志',
+  ]) {
+    expect(screen.getByRole('region', { name }).classList.contains('shadow-sm')).toBe(false)
+  }
+})
+
 it('switches the theme with persistent preferences and warns when storage fails', async () => {
   const listeners: ((event: MediaQueryListEvent) => void)[] = []
   vi.stubGlobal('matchMedia', () => ({

@@ -3,7 +3,7 @@ import { computed, shallowRef } from 'vue'
 import { Send } from 'lucide-vue-next'
 import { Outcome } from '@bindings/github.com/dongwlin/dan-tick/internal/danmaku/models'
 import { bindingError, useRoomOptions } from '@/features/configuration/queries'
-import { fieldClass, labelClass, panel, primaryButton } from '@/features/configuration/style'
+import { fieldClass, flatPanel, labelClass, primaryButton } from '@/features/configuration/style'
 import { sendFailureText, useTestSend } from './queries'
 
 const rooms = useRoomOptions()
@@ -31,7 +31,7 @@ async function submit() {
 </script>
 
 <template>
-  <section :class="[panel, 'space-y-4 p-5']" aria-labelledby="send-heading">
+  <section :class="[flatPanel, 'space-y-4 p-5']" aria-labelledby="send-heading">
     <div>
       <h2 id="send-heading" class="text-base font-semibold">测试发送</h2>
       <p class="mt-1 text-sm text-text-tertiary">

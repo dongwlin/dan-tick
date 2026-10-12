@@ -7,7 +7,7 @@ import { bindingError } from '@/features/configuration/queries'
 import {
   fieldClass,
   labelClass,
-  panel,
+  flatPanel,
   primaryButton,
   secondaryButton,
 } from '@/features/configuration/style'
@@ -67,7 +67,7 @@ async function clearCredentials() {
 </script>
 
 <template>
-  <section :class="[panel, 'space-y-4 p-5']" aria-labelledby="account-heading">
+  <section :class="[flatPanel, 'space-y-4 p-5']" aria-labelledby="account-heading">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 id="account-heading" class="text-base font-semibold">B 站账号</h2>
