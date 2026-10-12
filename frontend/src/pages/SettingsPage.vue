@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { AlertTriangle, Check, RotateCcw } from 'lucide-vue-next'
+import { AlertTriangle, Check } from 'lucide-vue-next'
 import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
 import { useTheme, type ThemePreference } from '@/app/theme'
-import UiButton from '@/components/UiButton.vue'
 import AccountPanel from '@/features/operations/AccountPanel.vue'
 import TestSendPanel from '@/features/operations/TestSendPanel.vue'
 import CloseBehaviorPanel from '@/features/operations/CloseBehaviorPanel.vue'
 import SchedulingPanel from '@/features/application/SchedulingPanel.vue'
 import DiagnosticsPanel from '@/features/application/DiagnosticsPanel.vue'
 
-const { preference, activeTheme, storageAvailable, setPreference } = useTheme()
+const { preference, storageAvailable, setPreference } = useTheme()
 const choices: { value: ThemePreference; label: string }[] = [
   { value: 'dark', label: '深色' },
   { value: 'light', label: '浅色' },
@@ -65,9 +64,6 @@ function updateTheme(value: unknown): void {
             <span>{{ choice.label }}</span>
           </RadioGroupItem>
         </RadioGroupRoot>
-        <p class="mt-3 text-sm text-text-secondary" role="status">
-          当前显示：{{ activeTheme === 'dark' ? '深色' : '浅色' }}
-        </p>
         <p
           v-if="!storageAvailable"
           class="mt-3 flex items-center gap-2 rounded-[10px] border border-soft-warning-border bg-soft-warning-bg px-3 py-2 text-sm text-soft-warning-fg"
@@ -76,10 +72,6 @@ function updateTheme(value: unknown): void {
           <AlertTriangle class="size-4 shrink-0" aria-hidden="true" />
           当前环境无法保存主题偏好，本次打开期间仍可切换。
         </p>
-        <UiButton class="mt-4" :disabled="preference === 'dark'" @click="setPreference('dark')">
-          <RotateCcw class="size-4" aria-hidden="true" />
-          恢复默认主题
-        </UiButton>
       </section>
       <DiagnosticsPanel />
     </div>

@@ -35,7 +35,7 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/diagnosticsserv
   ExportDiagnostics: vi.fn(),
 }))
 
-it('switches and restores the theme with visible feedback and safe storage failure', async () => {
+it('switches the theme with persistent preferences and warns when storage fails', async () => {
   const listeners: ((event: MediaQueryListEvent) => void)[] = []
   vi.stubGlobal('matchMedia', () => ({
     matches: false,
@@ -54,25 +54,21 @@ it('switches and restores the theme with visible feedback and safe storage failu
   expect(section.tagName).toBe('SECTION')
   expect(section.querySelector('h2')?.textContent).toBe('界面主题')
   expect(section.querySelector('legend')).toBeNull()
-  const restore = screen.getByRole<HTMLButtonElement>('button', { name: '恢复默认主题' })
-
-  expect(restore.disabled).toBe(true)
+  expect(screen.queryByText(/^当前显示：/)).toBeNull()
+  expect(screen.queryByRole('button', { name: '恢复默认主题' })).toBeNull()
   await user.click(screen.getByRole('radio', { name: '浅色' }))
   expect(screen.getByRole('radio', { name: '浅色' }).getAttribute('aria-checked')).toBe('true')
-  expect(screen.getByText('当前显示：浅色')).toBeTruthy()
   expect(document.documentElement.dataset.theme).toBe('light')
   expect(localStorage.getItem('dan-tick-theme')).toBe('light')
-  expect(restore.disabled).toBe(false)
 
   await user.click(screen.getByRole('radio', { name: '跟随系统' }))
   for (const listener of listeners) listener({ matches: true } as MediaQueryListEvent)
   await waitFor(() => {
-    expect(screen.getByText('当前显示：深色')).toBeTruthy()
+    expect(document.documentElement.dataset.theme).toBe('dark')
   })
-  expect(document.documentElement.dataset.theme).toBe('dark')
+  expect(localStorage.getItem('dan-tick-theme')).toBe('system')
 
-  await user.click(restore)
-  expect(restore.disabled).toBe(true)
+  await user.click(screen.getByRole('radio', { name: '深色' }))
   expect(localStorage.getItem('dan-tick-theme')).toBe('dark')
 
   const write = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
@@ -80,8 +76,8 @@ it('switches and restores the theme with visible feedback and safe storage failu
   })
   await user.click(screen.getByRole('radio', { name: '浅色' }))
   expect(screen.getByRole('alert').textContent).toContain('无法保存主题偏好')
-  expect(screen.getByText('当前显示：浅色')).toBeTruthy()
+  expect(document.documentElement.dataset.theme).toBe('light')
   write.mockRestore()
-  await user.click(restore)
-  expect(restore.disabled).toBe(true)
+  await user.click(screen.getByRole('radio', { name: '深色' }))
+  expect(localStorage.getItem('dan-tick-theme')).toBe('dark')
 })
