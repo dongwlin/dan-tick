@@ -9,5 +9,7 @@ export default defineConfig({
     environment: 'happy-dom',
     include: ['src/**/*.test.ts'],
     setupFiles: ['./src/test/setup.ts'],
+    // Keep the test timeout above the Testing Library async wait window.
+    testTimeout: 15000,
   },
 })
