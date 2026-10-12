@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { Clock3, ListTodo, Plus, Search, Trash2 } from 'lucide-vue-next'
-import { useDeleteTask, useSetTaskEnabled, useTaskPages } from './queries'
+import { Clock3, ListTodo, Pencil, Plus, Search, Trash2 } from 'lucide-vue-next'
+import { SwitchRoot, SwitchThumb } from 'reka-ui'
+import { useDeleteTask, useRoomOptions, useSetTaskEnabled, useTaskPages } from './queries'
 import { fieldClass } from '@/components/ui/uiStyles'
 import { bindingError } from '@/lib/bindingError'
 import UiPanel from '@/components/ui/UiPanel.vue'
@@ -10,11 +11,12 @@ import UiAlert from '@/components/ui/UiAlert.vue'
 import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
 import UiEmptyState from '@/components/ui/UiEmptyState.vue'
 import UiPageHeader from '@/components/ui/UiPageHeader.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import { useLatestExecutions } from '@/features/operations/queries'
 import TaskRunActions from '@/features/operations/TaskRunActions.vue'
-import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
+import { kindText, nextRunText, roomText, scheduleText } from './presentation'
 import type { Task } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 
 const route = useRoute()
@@ -24,11 +26,13 @@ const roomID = computed(() => {
 })
 const search = shallowRef('')
 const tasks = useTaskPages(search, roomID)
+const rooms = useRoomOptions()
 const enabledMutation = useSetTaskEnabled()
 const deleteMutation = useDeleteTask()
 const items = computed(() => tasks.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
 const message = shallowRef('')
 const pendingDelete = shallowRef<Task | null>(null)
+const enabledOverrides = shallowRef(new Map<number, boolean>())
 const deleteDescription = computed(() => {
   const task = pendingDelete.value
   if (!task) return ''
@@ -39,22 +43,41 @@ const runsByTask = computed(
   () => new Map((latestRuns.data.value ?? []).map((execution) => [execution.taskId, execution])),
 )
 
-function scheduleText(task: Task) {
-  const plan = task.schedule
-  if (plan.kind === ScheduleKind.Once) return `${plan.localDate} ${plan.localTime}`
-  if (plan.kind === ScheduleKind.Daily) return `每天 ${plan.localTime}`
-  return `每周 · ${plan.localTime}`
+function taskEnabled(task: Task) {
+  return enabledOverrides.value.get(task.id) ?? task.enabled
 }
-async function setEnabled(task: Task, event: Event) {
-  const checked = (event.target as HTMLInputElement).checked
+
+async function setEnabled(task: Task, enabled: boolean) {
+  enabledOverrides.value = new Map(enabledOverrides.value).set(task.id, enabled)
   try {
     message.value = ''
-    await enabledMutation.mutateAsync({ id: task.id, enabled: checked })
+    await enabledMutation.mutateAsync({ id: task.id, enabled })
   } catch (error) {
+    removeEnabledOverride(task.id)
     message.value = bindingError(error)
-    ;(event.target as HTMLInputElement).checked = task.enabled
   }
 }
+
+function removeEnabledOverride(id: number) {
+  if (!enabledOverrides.value.has(id)) return
+  const next = new Map(enabledOverrides.value)
+  next.delete(id)
+  enabledOverrides.value = next
+}
+
+// Drop an optimistic value as soon as the refetched authoritative state agrees.
+watch(items, (list) => {
+  const overrides = enabledOverrides.value
+  if (!overrides.size) return
+  let next: Map<number, boolean> | null = null
+  for (const task of list) {
+    if (overrides.get(task.id) !== task.enabled) continue
+    next ??= new Map(overrides)
+    next.delete(task.id)
+  }
+  if (next) enabledOverrides.value = next
+})
+
 function requestDelete(task: Task) {
   pendingDelete.value = task
 }
@@ -131,70 +154,77 @@ async function deleteTask() {
             <article
               v-for="task in items"
               :key="task.id"
-              class="border-b border-border-hairline p-5"
+              class="border-b border-border-hairline px-5 pt-4 pb-3"
             >
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <h3 class="truncate text-base font-semibold">{{ task.name }}</h3>
-                  <p class="mt-1 text-xs text-text-tertiary">
-                    直播间 #{{ task.roomId }} · {{ scheduleText(task) }} ·
-                    {{ task.schedule.timezone }}
+              <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+                <div class="min-w-0 flex-1">
+                  <h3 class="truncate text-sm font-semibold">{{ task.name }}</h3>
+                  <p class="mt-0.5 truncate text-xs text-text-tertiary">
+                    {{ roomText(task.roomId, rooms.data.value) }}
+                    <span class="mx-1 text-text-disabled" aria-hidden="true">·</span>
+                    {{ scheduleText(task) }}
                   </p>
                 </div>
-                <RouterLink
-                  :to="{ name: 'task-edit', params: { id: task.id } }"
-                  :class="secondaryButton"
-                  >编辑任务</RouterLink
-                >
-              </div>
-              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <span class="flex items-center gap-2 text-xs text-text-secondary">
-                  <Clock3 class="size-4" aria-hidden="true" />
-                  {{
-                    task.kind === 'loop'
-                      ? `循环 · 每隔 ${task.intervalSeconds} 秒 · 最多 ${task.maxCount ?? '不限'} 次`
-                      : '单次发送 · 1 条消息'
-                  }}
-                </span>
-                <div class="flex items-center gap-4">
-                  <div class="flex items-center gap-2 text-xs text-text-secondary">
-                    <input
-                      type="checkbox"
-                      :checked="task.enabled"
-                      :disabled="enabledMutation.isPending.value"
-                      :aria-label="`${task.name} 自动执行`"
-                      @change="setEnabled(task, $event)"
-                    />
-                    {{ task.enabled ? '自动执行开启' : '自动执行关闭' }}
-                  </div>
-                  <button
-                    type="button"
+                <div class="w-27 shrink-0 text-right tabular-nums">
+                  <span class="block text-xs text-text-tertiary">下次执行</span>
+                  <strong class="text-xs font-semibold">{{ nextRunText(task) }}</strong>
+                </div>
+                <div class="flex min-w-0 flex-wrap items-center justify-end gap-1">
+                  <TaskRunActions
+                    :task-id="task.id"
+                    :task-name="task.name"
+                    :execution="runsByTask.get(task.id)"
+                  />
+                  <UiIconButton
+                    :to="{ name: 'task-edit', params: { id: task.id } }"
+                    :label="`编辑任务 ${task.name}`"
+                    title="编辑任务"
+                  >
+                    <Pencil class="size-4" aria-hidden="true" />
+                  </UiIconButton>
+                  <UiIconButton
+                    variant="danger"
+                    :label="`删除任务 ${task.name}`"
+                    title="删除任务"
                     :disabled="deleteMutation.isPending.value"
-                    class="flex items-center gap-1 text-xs text-soft-danger-fg"
-                    :aria-label="`删除任务 ${task.name}`"
                     @click="requestDelete(task)"
                   >
-                    <Trash2 class="size-4" aria-hidden="true" />删除
-                  </button>
+                    <Trash2 class="size-4" aria-hidden="true" />
+                  </UiIconButton>
                 </div>
               </div>
               <div
-                class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border-hairline pt-3"
+                class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text-tertiary"
               >
-                <TaskRunActions :task-id="task.id" :execution="runsByTask.get(task.id)" />
-                <span
-                  v-if="latestRuns.isError.value"
-                  class="text-xs text-soft-danger-fg"
-                  role="alert"
+                <SwitchRoot
+                  class="group inline-flex shrink-0 cursor-pointer items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+                  :model-value="taskEnabled(task)"
+                  :disabled="enabledMutation.isPending.value"
+                  :aria-label="`${task.name} 自动执行`"
+                  :title="taskEnabled(task) ? '关闭自动执行' : '开启自动执行'"
+                  @update:model-value="(enabled) => setEnabled(task, enabled === true)"
                 >
-                  执行状态读取失败。<button
-                    type="button"
-                    class="underline"
-                    @click="latestRuns.refetch()"
+                  <span
+                    aria-hidden="true"
+                    class="flex h-[19px] w-[31px] shrink-0 items-center rounded-full border border-border-strong bg-surface-muted px-[2px] group-hover:bg-surface-solid-hover group-data-[state=checked]:border-accent-solid group-data-[state=checked]:bg-accent-solid group-data-[state=checked]:group-hover:bg-accent-solid group-data-[state=checked]:group-hover:brightness-95 group-active:brightness-90 motion-safe:transition-colors motion-safe:duration-200"
                   >
-                    重试
-                  </button>
-                </span>
+                    <SwitchThumb
+                      class="pointer-events-none block size-[13px] rounded-full border border-border-hairline bg-text-tertiary data-[state=checked]:translate-x-3 data-[state=checked]:bg-on-accent motion-safe:transition-[translate,background-color] motion-safe:duration-200"
+                    />
+                  </span>
+                </SwitchRoot>
+                <div class="flex min-w-0 items-center gap-3">
+                  <span v-if="latestRuns.isError.value" class="text-soft-danger-fg" role="alert">
+                    执行状态读取失败。
+                    <button type="button" class="underline" @click="latestRuns.refetch()">
+                      重试
+                    </button>
+                  </span>
+                  <span class="flex items-center gap-1.5">
+                    <Clock3 class="size-3.5" aria-hidden="true" />
+                    {{ kindText(task) }}
+                  </span>
+                </div>
               </div>
             </article>
             <div class="p-5 text-center">
@@ -208,7 +238,9 @@ async function deleteTask() {
               >
                 {{ tasks.isFetchingNextPage.value ? '加载中…' : '加载更多' }}
               </button>
-              <p v-else class="text-xs text-text-tertiary">已显示全部任务</p>
+              <p v-else class="text-xs text-text-tertiary">
+                共 {{ items.length }} 个任务，已全部显示
+              </p>
               <p
                 v-if="tasks.isFetchNextPageError.value"
                 role="alert"

@@ -1,9 +1,10 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
-import { expect, it, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vitest'
 import {
   DeleteTask,
+  ListRooms,
   ListTaskPage,
   SetTaskEnabled,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice'
@@ -11,11 +12,12 @@ import { Kind as TaskKind } from '@bindings/github.com/dongwlin/dan-tick/interna
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
 import { createAppRouter } from '@/app/router'
 import { createAppQueryClient } from '@/app/queryClient'
-import type { Task } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
+import type { Room, Task } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import TaskManager from './TaskManager.vue'
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice', () => ({
   ListTaskPage: vi.fn(),
+  ListRooms: vi.fn(),
   SetTaskEnabled: vi.fn(),
   DeleteTask: vi.fn(),
 }))
@@ -25,6 +27,31 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservi
   StartManual: vi.fn(),
   StopExecution: vi.fn(),
 }))
+
+const rooms: Room[] = [
+  {
+    id: 1,
+    platformRoomId: '1001',
+    title: '星河放映室',
+    anchorName: '星河',
+    coverUrl: '',
+    remark: '',
+    taskCount: 1,
+  },
+  {
+    id: 2,
+    platformRoomId: '1002',
+    title: '小岛的直播间',
+    anchorName: '小岛',
+    coverUrl: '',
+    remark: '',
+    taskCount: 1,
+  },
+]
+
+beforeEach(() => {
+  vi.mocked(ListRooms).mockResolvedValue(rooms)
+})
 
 it('loads task pages, resets cursor on search and room changes, and applies enable changes', async () => {
   const items: Task[] = [
@@ -129,8 +156,17 @@ it('loads task pages, resets cursor on search and room changes, and applies enab
       search: '第三',
     }),
   )
-  expect(screen.queryByRole('heading', { name: '初始任务' })).toBeNull()
-  await user.click(screen.getByRole('checkbox', { name: '第三个任务 自动执行' }))
+  await waitFor(() => expect(screen.queryByRole('heading', { name: '初始任务' })).toBeNull())
+  expect(screen.queryByText('自动执行开启')).toBeNull()
+  expect(screen.queryByText('已启用')).toBeNull()
+  expect(screen.getAllByText('下次执行')).toHaveLength(1)
+  expect(screen.getAllByText('单次发送 · 1 条消息')).toHaveLength(1)
+  expect(screen.getByText(/星河放映室/)).toBeTruthy()
+  expect(screen.getByText(/每天 09:00/)).toBeTruthy()
+  expect(screen.getByRole('button', { name: '立即执行 第三个任务' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: '编辑任务 第三个任务' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: '删除任务 第三个任务' })).toBeTruthy()
+  await user.click(screen.getByRole('switch', { name: '第三个任务 自动执行' }))
   await waitFor(() => expect(vi.mocked(SetTaskEnabled)).toHaveBeenCalledWith(3, false))
 
   await router.push('/tasks?room=2')
