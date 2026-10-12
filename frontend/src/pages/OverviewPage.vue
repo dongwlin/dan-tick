@@ -161,7 +161,7 @@ const statusLabels: Record<string, string> = {
           >
             <CalendarClock class="size-7 text-text-tertiary" aria-hidden="true" />
             暂无即将执行的任务
-            <RouterLink to="/tasks/new" class="text-xs text-accent-text underline"
+            <RouterLink to="/tasks/new" class="text-xs text-accent-text hover:text-text-primary"
               >创建任务</RouterLink
             >
           </div>

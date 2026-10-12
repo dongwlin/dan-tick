@@ -97,5 +97,8 @@ it('renders empty state and retries failed overview reads', async () => {
   expect(document.body.textContent).not.toContain('private SQL text')
   screen.getByRole('button', { name: '重试读取' }).click()
   expect(await screen.findByText('暂无即将执行的任务')).toBeTruthy()
+  const createTask = screen.getByRole('link', { name: '创建任务' })
+  expect(createTask.getAttribute('href')).toBe('/tasks/new')
+  expect(createTask.className).not.toContain('underline')
   expect(screen.getByText('还没有执行记录。运行任务后可在此查看结果。')).toBeTruthy()
 })
