@@ -154,76 +154,80 @@ async function deleteTask() {
             <article
               v-for="task in items"
               :key="task.id"
-              class="border-b border-border-hairline px-5 pt-4 pb-3"
+              class="border-b border-border-hairline px-5 py-4"
             >
-              <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
-                <div class="min-w-0 flex-1">
-                  <h3 class="truncate text-sm font-semibold">{{ task.name }}</h3>
-                  <p class="mt-0.5 truncate text-xs text-text-tertiary">
-                    {{ roomText(task.roomId, rooms.data.value) }}
-                    <span class="mx-1 text-text-disabled" aria-hidden="true">·</span>
-                    {{ scheduleText(task) }}
-                  </p>
-                </div>
-                <div class="w-27 shrink-0 text-right tabular-nums">
-                  <span class="block text-xs text-text-tertiary">下次执行</span>
-                  <strong class="text-xs font-semibold">{{ nextRunText(task) }}</strong>
-                </div>
-                <div class="flex min-w-0 flex-wrap items-center justify-end gap-1">
-                  <TaskRunActions
-                    :task-id="task.id"
-                    :task-name="task.name"
-                    :execution="runsByTask.get(task.id)"
-                  />
-                  <UiIconButton
-                    :to="{ name: 'task-edit', params: { id: task.id } }"
-                    :label="`编辑任务 ${task.name}`"
-                    title="编辑任务"
-                  >
-                    <Pencil class="size-4" aria-hidden="true" />
-                  </UiIconButton>
-                  <UiIconButton
-                    variant="danger"
-                    :label="`删除任务 ${task.name}`"
-                    title="删除任务"
-                    :disabled="deleteMutation.isPending.value"
-                    @click="requestDelete(task)"
-                  >
-                    <Trash2 class="size-4" aria-hidden="true" />
-                  </UiIconButton>
-                </div>
-              </div>
               <div
-                class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text-tertiary"
+                class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-5 gap-y-3 max-[850px]:grid-cols-1"
               >
-                <SwitchRoot
-                  class="group inline-flex shrink-0 cursor-pointer items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-60"
-                  :model-value="taskEnabled(task)"
-                  :disabled="enabledMutation.isPending.value"
-                  :aria-label="`${task.name} 自动执行`"
-                  :title="taskEnabled(task) ? '关闭自动执行' : '开启自动执行'"
-                  @update:model-value="(enabled) => setEnabled(task, enabled === true)"
-                >
-                  <span
-                    aria-hidden="true"
-                    class="flex h-[19px] w-[31px] shrink-0 items-center rounded-full border border-border-strong bg-surface-muted px-[2px] group-hover:bg-surface-solid-hover group-data-[state=checked]:border-accent-solid group-data-[state=checked]:bg-accent-solid group-data-[state=checked]:group-hover:bg-accent-solid group-data-[state=checked]:group-hover:brightness-95 group-active:brightness-90 motion-safe:transition-colors motion-safe:duration-200"
+                <div class="flex min-w-0 items-center gap-4">
+                  <SwitchRoot
+                    class="group inline-flex shrink-0 cursor-pointer items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+                    :model-value="taskEnabled(task)"
+                    :disabled="enabledMutation.isPending.value"
+                    :aria-label="`${task.name} 自动执行`"
+                    :title="taskEnabled(task) ? '关闭自动执行' : '开启自动执行'"
+                    @update:model-value="(enabled) => setEnabled(task, enabled === true)"
                   >
-                    <SwitchThumb
-                      class="pointer-events-none block size-[13px] rounded-full border border-border-hairline bg-text-tertiary data-[state=checked]:translate-x-3 data-[state=checked]:bg-on-accent motion-safe:transition-[translate,background-color] motion-safe:duration-200"
-                    />
-                  </span>
-                </SwitchRoot>
-                <div class="flex min-w-0 items-center gap-3">
+                    <span
+                      aria-hidden="true"
+                      class="flex h-[19px] w-[31px] shrink-0 items-center rounded-full border border-border-strong bg-surface-muted px-[2px] group-hover:bg-surface-solid-hover group-data-[state=checked]:border-accent-solid group-data-[state=checked]:bg-accent-solid group-data-[state=checked]:group-hover:bg-accent-solid group-data-[state=checked]:group-hover:brightness-95 group-active:brightness-90 motion-safe:transition-colors motion-safe:duration-200"
+                    >
+                      <SwitchThumb
+                        class="pointer-events-none block size-[13px] rounded-full border border-border-hairline bg-text-tertiary data-[state=checked]:translate-x-3 data-[state=checked]:bg-on-accent motion-safe:transition-[translate,background-color] motion-safe:duration-200"
+                      />
+                    </span>
+                  </SwitchRoot>
+                  <div class="min-w-0 flex-1">
+                    <h3 class="truncate text-sm font-semibold">{{ task.name }}</h3>
+                    <p class="mt-0.5 truncate text-xs text-text-tertiary">
+                      {{ roomText(task.roomId, rooms.data.value) }}
+                      <span class="mx-1 text-text-disabled" aria-hidden="true">·</span>
+                      {{ scheduleText(task) }}
+                    </p>
+                  </div>
+                </div>
+                <div
+                  class="flex min-w-0 items-center justify-center gap-1.5 text-xs text-text-tertiary max-[850px]:justify-start"
+                >
+                  <Clock3 class="size-3.5 shrink-0" aria-hidden="true" />
+                  <span>{{ kindText(task) }}</span>
+                </div>
+                <div
+                  class="flex min-w-0 flex-wrap items-center justify-end gap-x-5 gap-y-2 max-[850px]:justify-start"
+                >
                   <span v-if="latestRuns.isError.value" class="text-soft-danger-fg" role="alert">
                     执行状态读取失败。
                     <button type="button" class="underline" @click="latestRuns.refetch()">
                       重试
                     </button>
                   </span>
-                  <span class="flex items-center gap-1.5">
-                    <Clock3 class="size-3.5" aria-hidden="true" />
-                    {{ kindText(task) }}
-                  </span>
+                  <div class="w-27 shrink-0 text-right tabular-nums">
+                    <span class="block text-xs text-text-tertiary">下次执行</span>
+                    <strong class="text-xs font-semibold">{{ nextRunText(task) }}</strong>
+                  </div>
+                  <div class="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                    <TaskRunActions
+                      :task-id="task.id"
+                      :task-name="task.name"
+                      :execution="runsByTask.get(task.id)"
+                    />
+                    <UiIconButton
+                      :to="{ name: 'task-edit', params: { id: task.id } }"
+                      :label="`编辑任务 ${task.name}`"
+                      title="编辑任务"
+                    >
+                      <Pencil class="size-4" aria-hidden="true" />
+                    </UiIconButton>
+                    <UiIconButton
+                      variant="danger"
+                      :label="`删除任务 ${task.name}`"
+                      title="删除任务"
+                      :disabled="deleteMutation.isPending.value"
+                      @click="requestDelete(task)"
+                    >
+                      <Trash2 class="size-4" aria-hidden="true" />
+                    </UiIconButton>
+                  </div>
                 </div>
               </div>
             </article>
