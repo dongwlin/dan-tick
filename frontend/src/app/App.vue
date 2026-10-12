@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterView, useRoute } from 'vue-router'
-import UiToastHost from '@/components/UiToastHost.vue'
+import UiToastHost from '@/components/ui/UiToastHost.vue'
 import AppSidebar from './AppSidebar.vue'
 import AppTitlebar from './AppTitlebar.vue'
 import { useBackendEvents } from './useBackendEvents'

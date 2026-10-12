@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { shallowRef, watch } from 'vue'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
-import { fieldClass } from '@/components/uiStyles'
-import { secondaryButton } from '@/components/buttonStyles'
+import { fieldClass } from '@/components/ui/uiStyles'
+import { secondaryButton } from '@/components/ui/buttonStyles'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 import { usePreferences, useSetDefaultTimezone, useSetSchedulingEnabled } from './queries'

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { FolderOpen, FileArchive } from 'lucide-vue-next'
-import { secondaryButton } from '@/components/buttonStyles'
+import { secondaryButton } from '@/components/ui/buttonStyles'
 import { useToast } from '@/composables/useToast'
 import {
   useDiagnosticsStatus,

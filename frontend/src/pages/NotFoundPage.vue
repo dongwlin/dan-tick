@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
-import UiButton from '@/components/UiButton.vue'
+import UiButton from '@/components/ui/UiButton.vue'
 </script>
 
 <template>

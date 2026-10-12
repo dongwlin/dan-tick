@@ -5,8 +5,8 @@ import { CalendarClock, ChevronRight, CircleAlert, CircleCheck, Plus } from 'luc
 import { useAccountStatus } from '@/features/operations/queries'
 import { useOverview, usePreferences } from '@/features/application/queries'
 import { bindingError } from '@/lib/bindingError'
-import { flatPanel } from '@/components/uiStyles'
-import { primaryButton } from '@/components/buttonStyles'
+import { flatPanel } from '@/components/ui/uiStyles'
+import { primaryButton } from '@/components/ui/buttonStyles'
 import { displayTime, statusText } from '@/features/history/presentation'
 import HistoryTable from '@/features/history/HistoryTable.vue'
 

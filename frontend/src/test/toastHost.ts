@@ -1,5 +1,5 @@
 import { render } from '@testing-library/vue'
-import UiToastHost from '@/components/UiToastHost.vue'
+import UiToastHost from '@/components/ui/UiToastHost.vue'
 
 /**
  * Mounts the app-level toast host next to the component under test. `App.vue`

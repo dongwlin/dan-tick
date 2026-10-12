@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
-import AccountAvatar from '@/components/AccountAvatar.vue'
-import { flatPanel } from '@/components/uiStyles'
+import AccountAvatar from '@/components/ui/AccountAvatar.vue'
+import { flatPanel } from '@/components/ui/uiStyles'
 import { useAccountStatus } from './queries'
 
 const account = useAccountStatus()

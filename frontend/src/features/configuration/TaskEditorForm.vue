@@ -12,9 +12,9 @@ import { Kind as TaskKind } from '@bindings/github.com/dongwlin/dan-tick/interna
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
 import { useRoomOptions, useSaveTask } from './queries'
 import { usePreferences } from '@/features/application/queries'
-import UiButton from '@/components/UiButton.vue'
-import UiField from '@/components/UiField.vue'
-import { fieldClass, flatPanel } from '@/components/uiStyles'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiField from '@/components/ui/UiField.vue'
+import { fieldClass, flatPanel } from '@/components/ui/uiStyles'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 

@@ -3,7 +3,7 @@ import { History, LayoutDashboard, ListTodo, Radio, Settings2 } from 'lucide-vue
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
-import AccountAvatar from '@/components/AccountAvatar.vue'
+import AccountAvatar from '@/components/ui/AccountAvatar.vue'
 import { useAccountStatus } from '@/features/operations/queries'
 
 const route = useRoute()
