@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight, History } from 'lucide-vue-next'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
 import UiEmptyState from '@/components/ui/UiEmptyState.vue'
+import UiPageHeader from '@/components/ui/UiPageHeader.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { historyPageSize } from './pagination'
 import { useExecutionHistoryPages } from './queries'
 import HistoryTable from './HistoryTable.vue'
@@ -72,9 +74,7 @@ onUnmounted(() => {
 
 <template>
   <section class="flex min-h-0 flex-1 flex-col gap-4">
-    <header>
-      <h1>执行记录</h1>
-    </header>
+    <UiPageHeader title="执行记录" />
     <div ref="panelElement" class="flex min-h-0 flex-1 flex-col">
       <UiPanel :padded="false" class="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
@@ -134,15 +134,9 @@ onUnmounted(() => {
             {{ knownTotal }} 条
           </span>
           <div class="flex items-center gap-1">
-            <button
-              type="button"
-              class="inline-flex size-11 items-center justify-center rounded-lg hover:bg-surface-muted active:bg-surface-solid-hover disabled:opacity-40"
-              :disabled="page === 1"
-              aria-label="上一页"
-              @click="changePage(page - 1)"
-            >
+            <UiIconButton label="上一页" :disabled="page === 1" @click="changePage(page - 1)">
               <ChevronLeft class="size-4" aria-hidden="true" />
-            </button>
+            </UiIconButton>
             <button
               v-for="number in pageNumbers"
               :key="number"
@@ -159,15 +153,13 @@ onUnmounted(() => {
             >
               {{ number }}
             </button>
-            <button
-              type="button"
-              class="inline-flex size-11 items-center justify-center rounded-lg hover:bg-surface-muted active:bg-surface-solid-hover disabled:opacity-40"
+            <UiIconButton
+              label="下一页"
               :disabled="page === totalPages"
-              aria-label="下一页"
               @click="changePage(page + 1)"
             >
               <ChevronRight class="size-4" aria-hidden="true" />
-            </button>
+            </UiIconButton>
           </div>
         </nav>
       </UiPanel>

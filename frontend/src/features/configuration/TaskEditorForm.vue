@@ -18,6 +18,7 @@ import UiField from '@/components/ui/UiField.vue'
 import { fieldClass } from '@/components/ui/uiStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
+import UiPageHeader from '@/components/ui/UiPageHeader.vue'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
 
@@ -255,9 +256,7 @@ const submit = handleSubmit(
       class="inline-flex w-fit items-center gap-2 text-sm text-text-secondary hover:text-text-primary"
       ><ArrowLeft class="size-4" aria-hidden="true" />返回任务列表</RouterLink
     >
-    <header>
-      <h1>{{ task ? '编辑任务' : '新建任务' }}</h1>
-    </header>
+    <UiPageHeader :title="task ? '编辑任务' : '新建任务'" />
     <form
       class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]"
       novalidate

@@ -5,6 +5,7 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiField from '@/components/ui/UiField.vue'
 import { fieldClass } from '@/components/ui/uiStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 
 defineProps<{ pending: boolean }>()
 const emit = defineEmits<{ submit: [value: string]; cancel: [] }>()
@@ -18,14 +19,9 @@ function submit() {
   <UiPanel as="form" @submit.prevent="submit">
     <div class="mb-4 flex items-center justify-between">
       <h2 class="text-base font-semibold">添加直播间</h2>
-      <button
-        type="button"
-        class="flex size-11 items-center justify-center rounded-[10px] text-text-secondary hover:bg-surface-muted active:bg-surface-solid-hover"
-        aria-label="关闭添加表单"
-        @click="emit('cancel')"
-      >
+      <UiIconButton label="关闭添加表单" @click="emit('cancel')">
         <X class="size-5" aria-hidden="true" />
-      </button>
+      </UiIconButton>
     </div>
     <UiField
       id="room-input"

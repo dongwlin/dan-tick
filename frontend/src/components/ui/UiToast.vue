@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from 'lucide-vue-next'
 import { ToastClose, ToastDescription, ToastRoot } from 'reka-ui'
 import type { ToastTone } from '@/composables/useToast'
+import UiIconButton from './UiIconButton.vue'
 
 // One toast item. The provider, viewport and portal live in `UiToastHost`,
 // which App.vue mounts once for the whole application.
@@ -61,13 +62,9 @@ function updateOpen(open: boolean) {
       {{ message }}
     </ToastDescription>
     <ToastClose as-child>
-      <button
-        type="button"
-        aria-label="关闭通知"
-        class="-m-2 flex size-11 shrink-0 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-solid-hover active:bg-surface-muted"
-      >
+      <UiIconButton label="关闭通知" class="-m-2">
         <X class="size-4" aria-hidden="true" />
-      </button>
+      </UiIconButton>
     </ToastClose>
   </ToastRoot>
 </template>

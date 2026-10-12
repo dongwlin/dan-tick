@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
 import { ChevronRight, History } from 'lucide-vue-next'
 import type { Execution } from '@bindings/github.com/dongwlin/dan-tick/internal/history/models'
 import { displayTime, statusClass, statusText } from './presentation'
 import UiEmptyState from '@/components/ui/UiEmptyState.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 
 withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact: false })
 </script>
@@ -94,13 +94,12 @@ withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact
           </span>
         </td>
         <td class="px-2 text-center">
-          <RouterLink
+          <UiIconButton
             :to="{ name: 'history-detail', params: { id: item.id } }"
-            :aria-label="`查看 ${item.task_name_snapshot} 的执行详情`"
-            class="inline-flex size-11 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-solid-hover hover:text-text-primary active:bg-surface-muted"
+            :label="`查看 ${item.task_name_snapshot} 的执行详情`"
           >
             <ChevronRight class="size-4" aria-hidden="true" />
-          </RouterLink>
+          </UiIconButton>
         </td>
       </tr>
       <tr

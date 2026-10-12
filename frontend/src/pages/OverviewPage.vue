@@ -7,6 +7,7 @@ import { useOverview, usePreferences } from '@/features/application/queries'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
 import UiEmptyState from '@/components/ui/UiEmptyState.vue'
+import UiPageHeader from '@/components/ui/UiPageHeader.vue'
 import { primaryButton } from '@/components/ui/buttonStyles'
 import { displayTime, statusText } from '@/features/history/presentation'
 import HistoryTable from '@/features/history/HistoryTable.vue'
@@ -30,14 +31,13 @@ const statusLabels: Record<string, string> = {
 
 <template>
   <section class="flex min-h-0 flex-1 flex-col gap-4">
-    <header class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1>总览</h1>
-      </div>
-      <RouterLink to="/tasks/new" :class="primaryButton">
-        <Plus class="size-4" aria-hidden="true" />新建任务
-      </RouterLink>
-    </header>
+    <UiPageHeader title="总览">
+      <template #actions>
+        <RouterLink to="/tasks/new" :class="primaryButton">
+          <Plus class="size-4" aria-hidden="true" />新建任务
+        </RouterLink>
+      </template>
+    </UiPageHeader>
     <UiAsyncSection
       :pending="overview.isPending.value"
       :error="overview.error.value"

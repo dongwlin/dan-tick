@@ -13,6 +13,7 @@ import {
 import { QrCode, Smartphone, X } from 'lucide-vue-next'
 import { primaryButton } from '@/components/ui/buttonStyles'
 import UiAlert from '@/components/ui/UiAlert.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import type { QRLoginState } from './useQRLogin'
 
 const props = defineProps<{
@@ -85,14 +86,9 @@ function preventClosingWhenLocked(event: Event) {
         <div class="mb-5 flex items-center justify-between gap-4">
           <DialogTitle class="text-lg font-semibold">扫码登录</DialogTitle>
           <DialogClose as-child>
-            <button
-              type="button"
-              aria-label="关闭扫码登录"
-              class="flex size-11 shrink-0 items-center justify-center rounded-[10px] text-text-secondary hover:bg-surface-solid-hover active:bg-surface-muted disabled:opacity-50"
-              :disabled="closingLocked"
-            >
+            <UiIconButton label="关闭扫码登录" :disabled="closingLocked">
               <X class="size-5" aria-hidden="true" />
-            </button>
+            </UiIconButton>
           </DialogClose>
         </div>
         <div class="space-y-5">

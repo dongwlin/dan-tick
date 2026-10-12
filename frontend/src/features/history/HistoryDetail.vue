@@ -7,6 +7,7 @@ import { secondaryButton } from '@/components/ui/buttonStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
 import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
+import UiPageHeader from '@/components/ui/UiPageHeader.vue'
 import { attemptResult, displayTime, errorText, statusClass, statusText } from './presentation'
 import { useExecutionHistoryDetail } from './queries'
 
@@ -19,17 +20,16 @@ const attempts = computed(() => detail.data.value?.attempts ?? [])
 
 <template>
   <section class="flex min-h-0 flex-1 flex-col gap-4">
-    <header class="flex items-center justify-between gap-3">
-      <div>
-        <h1>执行详情</h1>
-        <p class="text-sm text-text-secondary">
-          执行 #{{ valid ? executionId : '无效编号' }} · 历史快照
-        </p>
-      </div>
-      <RouterLink to="/history" :class="secondaryButton">
-        <ArrowLeft class="size-4" aria-hidden="true" />返回执行记录
-      </RouterLink>
-    </header>
+    <UiPageHeader
+      title="执行详情"
+      :description="`执行 #${valid ? executionId : '无效编号'} · 历史快照`"
+    >
+      <template #actions>
+        <RouterLink to="/history" :class="secondaryButton">
+          <ArrowLeft class="size-4" aria-hidden="true" />返回执行记录
+        </RouterLink>
+      </template>
+    </UiPageHeader>
     <UiAlert v-if="!valid" tone="danger">无效的执行记录编号。</UiAlert>
     <UiAsyncSection
       v-else

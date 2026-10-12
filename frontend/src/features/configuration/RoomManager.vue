@@ -10,6 +10,8 @@ import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
 import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
 import UiEmptyState from '@/components/ui/UiEmptyState.vue'
+import UiPageHeader from '@/components/ui/UiPageHeader.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import RoomCover from './RoomCover.vue'
@@ -45,9 +47,6 @@ const deleteDescription = computed(() => {
   return `删除直播间“${room.remark || room.title || room.platformRoomId}”后，关联任务会同时删除且无法恢复。`
 })
 useRoomMetadataRefresh(rooms)
-const roomActionClass =
-  'inline-flex size-11 items-center justify-center rounded-[10px] hover:bg-surface-muted active:bg-surface-solid-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:opacity-50'
-
 function setRoomView(next: RoomView) {
   view.value = next
   try {
@@ -121,11 +120,8 @@ async function deleteRoom() {
 
 <template>
   <section class="flex min-h-0 flex-1 flex-col gap-4">
-    <header class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1>直播间</h1>
-      </div>
-      <div class="flex items-center gap-2">
+    <UiPageHeader title="直播间">
+      <template #actions>
         <div
           class="flex rounded-[10px] border border-border-hairline bg-surface-muted p-1"
           role="group"
@@ -157,8 +153,8 @@ async function deleteRoom() {
         <button type="button" :class="primaryButton" @click="showForm = !showForm">
           <Plus class="size-4" aria-hidden="true" />添加直播间
         </button>
-      </div>
-    </header>
+      </template>
+    </UiPageHeader>
     <RoomForm
       v-if="showForm"
       :pending="add.isPending.value"
@@ -278,36 +274,32 @@ async function deleteRoom() {
                   >关联 <strong class="text-text-primary">{{ room.taskCount }}</strong> 个任务</span
                 >
                 <div class="flex items-center gap-2">
-                  <a
-                    :class="roomActionClass"
+                  <UiIconButton
                     :href="roomURL(room)"
                     target="_blank"
                     rel="noopener noreferrer"
-                    :aria-label="`打开直播间 ${room.platformRoomId}`"
+                    :label="`打开直播间 ${room.platformRoomId}`"
                     title="打开直播间"
                     @click.prevent="openRoom(room)"
-                    ><ExternalLink class="size-4" aria-hidden="true"
-                  /></a>
-                  <button
-                    type="button"
-                    :class="roomActionClass"
-                    :aria-label="`修改 ${room.platformRoomId} 的备注`"
+                  >
+                    <ExternalLink class="size-4" aria-hidden="true" />
+                  </UiIconButton>
+                  <UiIconButton
+                    :label="`修改 ${room.platformRoomId} 的备注`"
                     title="修改备注"
                     @click="beginEdit(room)"
                   >
                     <Pencil class="size-4" aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    class="text-soft-danger-fg"
-                    :class="roomActionClass"
-                    :aria-label="`删除直播间 ${room.platformRoomId}`"
+                  </UiIconButton>
+                  <UiIconButton
+                    variant="danger"
+                    :label="`删除直播间 ${room.platformRoomId}`"
                     title="删除直播间"
                     :disabled="remove.isPending.value"
                     @click="requestDelete(room)"
                   >
                     <Trash2 class="size-4" aria-hidden="true" />
-                  </button>
+                  </UiIconButton>
                 </div>
               </div>
             </div>

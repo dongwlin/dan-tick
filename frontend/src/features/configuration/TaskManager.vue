@@ -9,6 +9,7 @@ import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
 import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
 import UiEmptyState from '@/components/ui/UiEmptyState.vue'
+import UiPageHeader from '@/components/ui/UiPageHeader.vue'
 import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import { useLatestExecutions } from '@/features/operations/queries'
@@ -77,14 +78,13 @@ async function deleteTask() {
 
 <template>
   <section class="flex min-h-0 flex-1 flex-col gap-4">
-    <header class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1>弹幕任务</h1>
-      </div>
-      <RouterLink :to="{ name: 'task-create' }" :class="primaryButton">
-        <Plus class="size-4" aria-hidden="true" />新建任务
-      </RouterLink>
-    </header>
+    <UiPageHeader title="弹幕任务">
+      <template #actions>
+        <RouterLink :to="{ name: 'task-create' }" :class="primaryButton">
+          <Plus class="size-4" aria-hidden="true" />新建任务
+        </RouterLink>
+      </template>
+    </UiPageHeader>
     <UiPanel as="div" :padded="false" class="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
         class="flex flex-wrap items-center justify-between gap-3 border-b border-border-hairline px-5 py-4"
