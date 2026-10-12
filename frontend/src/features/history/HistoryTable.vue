@@ -23,10 +23,20 @@ withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact
         <th scope="col" class="px-4 font-semibold" :class="compact ? 'w-[30%]' : 'w-[27%]'">
           任务 / 直播间
         </th>
-        <th v-if="compact" scope="col" class="w-1/4 px-3 font-semibold">执行时间</th>
-        <th v-else scope="col" class="w-[19%] px-3 font-semibold">计划执行</th>
-        <th v-if="!compact" scope="col" class="w-[19%] px-3 font-semibold">实际开始</th>
-        <th scope="col" class="px-3 font-semibold" :class="compact ? 'w-1/5' : 'w-[16%]'">
+        <th v-if="compact" scope="col" class="w-1/4 px-3 text-right font-semibold tabular-nums">
+          执行时间
+        </th>
+        <th v-else scope="col" class="w-[19%] px-3 text-right font-semibold tabular-nums">
+          计划执行
+        </th>
+        <th v-if="!compact" scope="col" class="w-[19%] px-3 text-right font-semibold tabular-nums">
+          实际开始
+        </th>
+        <th
+          scope="col"
+          class="px-3 text-right font-semibold tabular-nums"
+          :class="compact ? 'w-1/5' : 'w-[16%]'"
+        >
           发送结果
         </th>
         <th scope="col" class="px-3 font-semibold" :class="compact ? 'w-[18%]' : 'w-[12%]'">
@@ -61,19 +71,19 @@ withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact
             直播间 {{ item.platform_room_id_snapshot }}
           </div>
         </td>
-        <td v-if="compact" class="px-3 text-xs text-text-secondary tabular-nums">
+        <td v-if="compact" class="px-3 text-right text-xs text-text-secondary tabular-nums">
           {{ displayTime(item.started_at ?? item.scheduled_at ?? item.created_at) }}
         </td>
-        <td v-else class="px-3 text-xs text-text-secondary tabular-nums">
+        <td v-else class="px-3 text-right text-xs text-text-secondary tabular-nums">
           {{ displayTime(item.scheduled_at) }}
           <span v-if="item.trigger_kind === 'manual'" class="block text-text-tertiary"
             >手动触发</span
           >
         </td>
-        <td v-if="!compact" class="px-3 text-xs text-text-secondary tabular-nums">
+        <td v-if="!compact" class="px-3 text-right text-xs text-text-secondary tabular-nums">
           {{ displayTime(item.started_at) }}
         </td>
-        <td class="px-3 text-xs tabular-nums">
+        <td class="px-3 text-right text-xs tabular-nums">
           <span class="text-soft-success-fg">{{ item.sent_count }} 成功</span>
           <span class="text-text-tertiary"> / {{ item.failed_count }} 失败</span>
         </td>
@@ -86,7 +96,7 @@ withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact
           <RouterLink
             :to="{ name: 'history-detail', params: { id: item.id } }"
             :aria-label="`查看 ${item.task_name_snapshot} 的执行详情`"
-            class="inline-flex size-10 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-solid-hover hover:text-text-primary"
+            class="inline-flex size-11 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-solid-hover hover:text-text-primary active:bg-surface-muted"
           >
             <ChevronRight class="size-4" aria-hidden="true" />
           </RouterLink>

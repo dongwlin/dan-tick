@@ -58,10 +58,23 @@ it('uses window height for stable numbered pages and an end marker on the short 
   expect(historyPanel?.classList.contains('shadow-sm')).toBe(false)
   expect(screen.getByRole('columnheader', { name: '计划执行' })).toBeTruthy()
   expect(screen.getByRole('columnheader', { name: '实际开始' })).toBeTruthy()
+  expect(
+    screen.getByRole('columnheader', { name: '发送结果' }).classList.contains('text-right'),
+  ).toBe(true)
+  expect(
+    screen
+      .getAllByRole('cell')
+      .find((cell) => cell.textContent?.includes('成功'))
+      ?.classList.contains('text-right'),
+  ).toBe(true)
   expect(screen.queryByText('历史任务 5')).toBeNull()
   expect(screen.getByRole('navigation', { name: '执行记录分页' })).toBeTruthy()
   await user.click(screen.getByRole('button', { name: '第 3 页' }))
   await waitFor(() => expect(vi.mocked(ListExecutionHistory)).toHaveBeenCalledWith(3, 4))
+  const currentPage = screen.getByRole('button', { name: '第 3 页' })
+  expect(currentPage.classList.contains('size-11')).toBe(true)
+  expect(currentPage.classList.contains('bg-accent-solid')).toBe(true)
+  expect(currentPage.getAttribute('aria-current')).toBe('page')
   expect(await screen.findByText('历史任务 1')).toBeTruthy()
   expect(screen.getByText('已到最后一页，共 9 条记录')).toBeTruthy()
   expect(screen.getByRole('button', { name: '下一页' }).hasAttribute('disabled')).toBe(true)

@@ -33,7 +33,7 @@ const message = shallowRef('')
 const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
 useRoomMetadataRefresh(rooms)
 const roomActionClass =
-  'inline-flex size-8 items-center justify-center rounded-md hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring'
+  'inline-flex size-11 items-center justify-center rounded-[10px] hover:bg-surface-muted active:bg-surface-solid-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:opacity-50'
 
 function setRoomView(next: RoomView) {
   view.value = next

@@ -137,7 +137,7 @@ onUnmounted(() => {
         <div class="flex items-center gap-1">
           <button
             type="button"
-            class="inline-flex size-9 items-center justify-center rounded-lg hover:bg-surface-muted disabled:opacity-40"
+            class="inline-flex size-11 items-center justify-center rounded-lg hover:bg-surface-muted active:bg-surface-solid-hover disabled:opacity-40"
             :disabled="page === 1"
             aria-label="上一页"
             @click="changePage(page - 1)"
@@ -148,11 +148,11 @@ onUnmounted(() => {
             v-for="number in pageNumbers"
             :key="number"
             type="button"
-            class="inline-flex size-9 items-center justify-center rounded-lg border text-xs tabular-nums hover:bg-surface-muted"
+            class="inline-flex size-11 items-center justify-center rounded-lg border text-xs tabular-nums"
             :class="
               number === page
-                ? 'border-soft-accent-border bg-soft-accent-bg text-accent-text'
-                : 'border-transparent text-text-secondary'
+                ? 'border-accent-solid bg-accent-solid text-on-accent hover:brightness-110'
+                : 'border-transparent text-text-secondary hover:bg-surface-muted active:bg-surface-solid-hover'
             "
             :aria-current="number === page ? 'page' : undefined"
             :aria-label="`第 ${number} 页`"
@@ -162,7 +162,7 @@ onUnmounted(() => {
           </button>
           <button
             type="button"
-            class="inline-flex size-9 items-center justify-center rounded-lg hover:bg-surface-muted disabled:opacity-40"
+            class="inline-flex size-11 items-center justify-center rounded-lg hover:bg-surface-muted active:bg-surface-solid-hover disabled:opacity-40"
             :disabled="page === totalPages"
             aria-label="下一页"
             @click="changePage(page + 1)"

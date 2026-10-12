@@ -15,7 +15,12 @@ function submit() {
   <form class="acrylic rounded-[14px] p-5" @submit.prevent="submit">
     <div class="mb-4 flex items-center justify-between">
       <h2 class="text-base font-semibold">添加直播间</h2>
-      <button type="button" aria-label="关闭添加表单" @click="emit('cancel')">
+      <button
+        type="button"
+        class="flex size-11 items-center justify-center rounded-[10px] text-text-secondary hover:bg-surface-muted active:bg-surface-solid-hover"
+        aria-label="关闭添加表单"
+        @click="emit('cancel')"
+      >
         <X class="size-5" aria-hidden="true" />
       </button>
     </div>

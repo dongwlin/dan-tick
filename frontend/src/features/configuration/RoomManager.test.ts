@@ -152,7 +152,7 @@ it('loads real binding pages, switches views, adds rooms and retains input on fa
   const actionControls = listActions?.querySelectorAll('a, button')
   expect(actionControls).toHaveLength(3)
   actionControls?.forEach((control) => {
-    expect(control.classList.contains('size-8')).toBe(true)
+    expect(control.classList.contains('size-11')).toBe(true)
     expect(control.classList.contains('justify-center')).toBe(true)
   })
 

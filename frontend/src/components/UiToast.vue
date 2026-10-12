@@ -49,7 +49,7 @@ function updateOpen(open: boolean) {
           <button
             type="button"
             aria-label="关闭通知"
-            class="-m-2 flex size-10 shrink-0 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-solid-hover"
+            class="-m-2 flex size-11 shrink-0 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-solid-hover active:bg-surface-muted"
           >
             <X class="size-4" aria-hidden="true" />
           </button>
