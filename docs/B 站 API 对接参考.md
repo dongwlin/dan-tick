@@ -1,10 +1,10 @@
 # B 站 API 对接参考
 
-本文记录 dan-tick MVP 需要的 B 站 Web 接口及对接注意事项，供后续 Go 后端实现时查阅。业务范围与发送规则以 [PRD](PRD.md) 为准，后端职责以 [技术栈选型](技术栈选型.md) 为准；本文不重复定义调度、存储或界面方案。
+本文记录 dan-tick 已对接的 B 站 Web 接口及首个正式版本拟增加的扫码认证与续期研究，供 Go 后端实现时查阅。业务范围与发送规则以 [PRD](PRD.md) 为准，后端职责以 [技术栈选型](技术栈选型.md) 为准；本文不重复定义调度、存储或界面方案。
 
 接口依据 [bilibili-API-collect-next](https://github.com/renmu123/bilibili-API-collect-next) 的社区整理资料（查阅于 2026-10-10）。**这些不是 B 站承诺稳定的官方接口，以下为待实现的对接方案，并非已用真实账号验证的结果。** 上游文档可能过时；接入前应重新核对参数与返回值。
 
-## 1. MVP 接口清单
+## 1. 当前已对接的 MVP 接口清单
 
 | 用途 | 方法与接口 | 项目需要的数据 | 对应需求 |
 | --- | --- | --- | --- |
@@ -59,10 +59,34 @@
 - 确认发送接口是否继续接受上述最小参数，以及 Cookie / CSRF 是否存在新增要求。若接口变更，只调整 Go 端 B 站客户端及本参考文档，不让前端或调度器直接依赖第三方 JSON 结构。
 - 自动化测试使用 `httptest` 模拟成功、业务拒绝、鉴权失败、限流、超时与不确定结果，不触发真实弹幕。必要的真人账号验收应单独、手动进行，且不得保存真实凭证或原始敏感响应。
 
-## 5. 上游出处
+## 5. 首版扫码登录与续期研究（未实现）
+
+本节记录**首版发布前必须完成的扫码登录及独立 Cookie 续期验证**，与第 1 节已对接接口分开管理，尚**未通过 2026-10-12 的真实账号端到端验证**。浏览器插件同步在首版发布后实施。两种目标认证模式见 [PRD FR-003](PRD.md#fr-003凭证安全)：
+
+| 模式 | 登录凭证 | 是否由 dan-tick 续期 |
+| --- | --- | --- |
+| 应用内扫码（首版必做） | 应用独立登录获得 `SESSDATA`、`bili_jct` 和该会话的 `refresh_token` | 是，需先核实扫码流程和续期接口 |
+| 浏览器插件同步（首版后，首期 Chrome） | 只同步浏览器会话最新的 `SESSDATA`、`bili_jct` | 否，`refresh_token`（网页端常见持久化键为 `ac_time_value`）由浏览器自行管理；扩展不读取或传给应用 |
+
+现有手动填写两个 Cookie 只是当前开发基线的过渡入口，**首次正式发布前就需通过扫码替换并移除**，不等待浏览器插件实现，也不作为第三种正式认证模式。迁移时须安全识别现有 Keyring 凭证，保留任务并提示用户重新扫码绑定。
+
+社区整理的 [Web 端 Cookie 刷新资料](https://github.com/alittlehuaji/bilibili-api-collect-mirror/blob/master/docs/login/cookie_refresh.md) 描述了以下流程：
+
+1. `GET https://passport.bilibili.com/x/passport-login/web/cookie/info` 检查是否需要刷新；不能把普通 `nav` 登录检查当作续期。
+2. 获取临时 `refresh_csrf`，再用当前 Cookie、当前 RT 等数据调用 `POST https://passport.bilibili.com/x/passport-login/web/cookie/refresh`，取得新 Cookie 和新 RT。
+3. 以**新 Cookie 和旧 RT**调用 `POST https://passport.bilibili.com/x/passport-login/web/confirm/refresh` 确认轮换。社区文档明确提示：确认刷新可能令旧 RT 对应的 Cookie 失效；RT 与 Cookie 不匹配也可能被拒绝。
+
+因此直接复制浏览器 RT 供 dan-tick 独立续期，可能使浏览器仍使用的旧会话失效；**复制本身不等于触发失效，续期及确认才是关键风险**。反之，浏览器后续自行续期也可能让应用中先前同步的旧 Cookie 过期。未来只能由扫码独立会话管理本机 RT，且刷新后需整体保存新 Cookie / RT，处理刷新已成功但本地写入或确认失败等不确定状态；不保证永久免登录。
+
+Chrome 扩展研究参考 Chrome 官方 [Cookies API](https://developer.chrome.com/docs/extensions/reference/api/cookies) 和 [Native Messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging)：只在用户授权的 B 站站点与选定 Cookie Store 中读取两个 Cookie，用户授权并配对后通过本地原生消息连接交给 Go；Cookie 更新事件可能先报告移除再报告写入，不能把单个删除事件当作完整退出登录或直接覆盖 Keyring，需要重新读取整组并验证 UID。Chrome 未运行或通信失败时不保证持续同步。
+
+**后续实施前必须重新核对**：扫码成功响应是否仍能获得独立会话及 RT、Cookie 是否经跳转 / 跨域票据设置、刷新与确认流程实际有效、旧会话失效范围、平台是否允许此用途、Windows / Linux 的扩展安装与 Keyring 接入。仅用假凭证与 `httptest` 自动测试；真实账号需用户明确授权的隔离人工验证，不保存或输出真实 Cookie / RT。
+
+## 6. 上游出处
 
 - [登录基本信息：导航栏用户信息](https://github.com/renmu123/bilibili-API-collect-next/blob/master/docs/login/login_info.md)
 - [直播间基本信息：获取直播间信息、获取主播信息](https://github.com/renmu123/bilibili-API-collect-next/blob/master/docs/live/info.md)
 - [直播间弹幕：发送直播弹幕](https://github.com/renmu123/bilibili-API-collect-next/blob/master/docs/live/danmaku.md)
+- [Web 端 Cookie 刷新（社区镜像，仅作后续研究）](https://github.com/alittlehuaji/bilibili-api-collect-mirror/blob/master/docs/login/cookie_refresh.md)
 
 上游仓库说明其资料由社区收集，可能随时变化，并以 CC BY-NC 4.0 许可发布。本文件只概括本项目要用的接口与设计判断，不复制上游完整参数表、响应样例或其他业务接口；需要详细字段时直接查看原文。
