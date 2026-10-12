@@ -4,7 +4,7 @@ import { Browser } from '@wailsio/runtime'
 import { ExternalLink, LayoutGrid, List, Pencil, Plus, Radio, Trash2 } from 'lucide-vue-next'
 import type { Room } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import { bindingError, useAddRoom, useDeleteRoom, useRoomPages, useUpdateRoom } from './queries'
-import { fieldClass, panel, primaryButton, secondaryButton } from './style'
+import { fieldClass, flatPanel, primaryButton, secondaryButton } from './style'
 import RoomCover from './RoomCover.vue'
 import RoomForm from './RoomForm.vue'
 import { useRoomMetadataRefresh } from './useRoomMetadataRefresh'
@@ -153,13 +153,13 @@ async function deleteRoom(room: Room) {
     <div v-if="pages.isPending.value" role="status" class="p-6 text-text-secondary">
       正在加载直播间…
     </div>
-    <div v-else-if="pages.isError.value" role="alert" :class="[panel, 'p-6']">
+    <div v-else-if="pages.isError.value" role="alert" :class="[flatPanel, 'p-6']">
       <p class="text-soft-danger-fg">{{ bindingError(pages.error.value) }}</p>
       <button type="button" :class="secondaryButton" class="mt-3" @click="pages.refetch()">
         重试读取
       </button>
     </div>
-    <div v-else-if="!rooms.length" :class="[panel, 'p-8 text-center']">
+    <div v-else-if="!rooms.length" :class="[flatPanel, 'p-8 text-center']">
       <Radio class="mx-auto mb-3 size-9 text-text-tertiary" aria-hidden="true" />
       <h2 class="mb-1 text-base font-medium">还没有添加直播间</h2>
       <p class="mb-4 text-sm text-text-secondary">添加一个直播间即可创建弹幕任务。</p>
@@ -176,7 +176,7 @@ async function deleteRoom(room: Room) {
         <article
           v-for="(room, index) in rooms"
           :key="room.id"
-          :class="[panel, 'min-w-0 overflow-hidden']"
+          :class="[flatPanel, 'min-w-0 overflow-hidden']"
         >
           <RoomCover v-if="view === 'cards'" :cover-url="room.coverUrl" :index="index" />
           <div

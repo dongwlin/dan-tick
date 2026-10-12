@@ -51,10 +51,13 @@ it('opens rooms in the system browser in both views and reports failures safely'
   })
   const link = await screen.findByRole<HTMLAnchorElement>('link', { name: '打开直播间 300' })
   expect(link.href).toBe('https://live.bilibili.com/300')
+  const roomCard = screen.getByRole('heading', { name: '直播三' }).closest('article')
+  expect(roomCard?.classList.contains('shadow-sm')).toBe(false)
   await user.click(link)
   await waitFor(() => expect(Browser.OpenURL).toHaveBeenCalledWith('https://live.bilibili.com/300'))
 
   await user.click(screen.getByRole('button', { name: '列表' }))
+  expect(roomCard?.classList.contains('shadow-sm')).toBe(false)
   await user.click(screen.getByRole('link', { name: '打开直播间 300' }))
   expect(await screen.findByRole('alert')).toHaveProperty(
     'textContent',

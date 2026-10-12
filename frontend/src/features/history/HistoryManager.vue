@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { ChevronLeft, ChevronRight, History } from 'lucide-vue-next'
 import { bindingError } from '@/features/configuration/queries'
-import { panel, secondaryButton } from '@/features/configuration/style'
+import { flatPanel, secondaryButton } from '@/features/configuration/style'
 import { historyPageSize } from './pagination'
 import { useExecutionHistoryPages } from './queries'
 import HistoryTable from './HistoryTable.vue'
@@ -73,7 +73,7 @@ onUnmounted(() => {
     <header>
       <h1>执行记录</h1>
     </header>
-    <div ref="panelElement" :class="[panel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
+    <div ref="panelElement" :class="[flatPanel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
       <div
         ref="toolbarElement"
         class="flex shrink-0 items-center justify-between gap-3 border-b border-border-hairline px-5 py-4"

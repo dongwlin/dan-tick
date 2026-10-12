@@ -63,6 +63,11 @@ it('shows persisted task snapshots, lifecycle times, ordered attempts and safe e
   })
   mount(12)
   expect(await screen.findByRole('heading', { name: '已删除任务的快照' })).toBeTruthy()
+  const summary = screen.getByRole('heading', { name: '已删除任务的快照' }).closest('.rounded-2xl')
+  expect(summary?.classList.contains('shadow-sm')).toBe(false)
+  expect(screen.getByLabelText('发送尝试详情').parentElement?.classList.contains('shadow-sm')).toBe(
+    false,
+  )
   expect(screen.getByText('直播间 9988 · 计划执行')).toBeTruthy()
   expect(screen.getByText('登录已失效')).toBeTruthy()
   expect(screen.getByText('消息快照甲')).toBeTruthy()
@@ -75,6 +80,7 @@ it('shows persisted task snapshots, lifecycle times, ordered attempts and safe e
 it('rejects invalid route ids without issuing a binding call', () => {
   mount(0)
   expect(screen.getByRole('alert').textContent).toContain('无效的执行记录编号')
+  expect(screen.getByRole('alert').classList.contains('shadow-sm')).toBe(false)
   expect(vi.mocked(GetExecutionHistory)).not.toHaveBeenCalled()
 })
 

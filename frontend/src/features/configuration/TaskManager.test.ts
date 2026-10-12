@@ -111,6 +111,8 @@ it('loads task pages, resets cursor on search and room changes, and applies enab
     global: { plugins: [router, [VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
   expect(await screen.findByRole('heading', { name: '第三个任务' })).toBeTruthy()
+  const listPanel = screen.getByRole('heading', { name: '我的任务' }).parentElement?.parentElement
+  expect(listPanel?.classList.contains('shadow-sm')).toBe(false)
   expect(screen.queryByRole('heading', { name: '初始任务' })).toBeNull()
   await user.click(screen.getByRole('button', { name: '加载更多' }))
   expect(await screen.findByRole('heading', { name: '初始任务' })).toBeTruthy()

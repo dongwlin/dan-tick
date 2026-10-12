@@ -53,6 +53,9 @@ it('uses window height for stable numbered pages and an end marker on the short 
 
   await waitFor(() => expect(vi.mocked(ListExecutionHistory)).toHaveBeenCalledWith(1, 4))
   expect(await screen.findByText('历史任务 9')).toBeTruthy()
+  const historyPanel = screen.getByRole('heading', { name: /执行历史/ }).parentElement
+    ?.parentElement
+  expect(historyPanel?.classList.contains('shadow-sm')).toBe(false)
   expect(screen.getByRole('columnheader', { name: '计划执行' })).toBeTruthy()
   expect(screen.getByRole('columnheader', { name: '实际开始' })).toBeTruthy()
   expect(screen.queryByText('历史任务 5')).toBeNull()

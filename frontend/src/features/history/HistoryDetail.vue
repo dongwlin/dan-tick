@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowLeft } from 'lucide-vue-next'
 import { bindingError } from '@/features/configuration/queries'
-import { panel, secondaryButton } from '@/features/configuration/style'
+import { flatPanel, secondaryButton } from '@/features/configuration/style'
 import { attemptResult, displayTime, errorText, statusClass, statusText } from './presentation'
 import { useExecutionHistoryDetail } from './queries'
 
@@ -27,18 +27,18 @@ const attempts = computed(() => detail.data.value?.attempts ?? [])
         <ArrowLeft class="size-4" aria-hidden="true" />返回执行记录
       </RouterLink>
     </header>
-    <div v-if="!valid" :class="[panel, 'p-6']" role="alert">无效的执行记录编号。</div>
-    <div v-else-if="detail.isPending.value" role="status" :class="[panel, 'p-6']">
+    <div v-if="!valid" :class="[flatPanel, 'p-6']" role="alert">无效的执行记录编号。</div>
+    <div v-else-if="detail.isPending.value" role="status" :class="[flatPanel, 'p-6']">
       正在加载执行详情…
     </div>
-    <div v-else-if="detail.isError.value" :class="[panel, 'p-6']" role="alert">
+    <div v-else-if="detail.isError.value" :class="[flatPanel, 'p-6']" role="alert">
       <p class="text-soft-danger-fg">{{ bindingError(detail.error.value) }}</p>
       <button type="button" :class="secondaryButton" class="mt-3" @click="detail.refetch()">
         重试读取
       </button>
     </div>
     <template v-else-if="execution">
-      <div :class="[panel, 'shrink-0 p-5']">
+      <div :class="[flatPanel, 'shrink-0 p-5']">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="min-w-0">
             <h2 class="wrap-anywhere text-lg font-semibold">{{ execution.task_name_snapshot }}</h2>
@@ -86,7 +86,7 @@ const attempts = computed(() => detail.data.value?.attempts ?? [])
           </div>
         </dl>
       </div>
-      <div :class="[panel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
+      <div :class="[flatPanel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
         <div class="shrink-0 border-b border-border-hairline px-5 py-4">
           <h2 class="font-semibold">
             发送尝试 <span class="text-sm text-text-tertiary">{{ attempts.length }}</span>

@@ -1,5 +1,4 @@
 export const flatPanel = 'rounded-2xl border border-border-hairline bg-surface-solid'
-export const panel = `${flatPanel} shadow-sm`
 export const primaryButton =
   'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-accent-solid px-4 py-2 font-medium text-on-accent hover:brightness-110 disabled:opacity-50'
 export const secondaryButton =
