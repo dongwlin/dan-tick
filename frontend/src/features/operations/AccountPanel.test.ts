@@ -136,6 +136,37 @@ it('shows a dismissible toast for clearing credentials and hides it automaticall
   expect(screen.queryByRole('status', { name: '操作成功通知' })).toBeNull()
 })
 
+it('keeps toast accessibility markup outside the account card layout', async () => {
+  vi.stubGlobal(
+    'confirm',
+    vi.fn(() => true),
+  )
+  await renderPanel()
+  const card = screen.getByRole('region', { name: 'B站账号凭证' })
+  const originalChildCount = card.children.length
+  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await vi.advanceTimersByTimeAsync(1500)
+  expect(screen.getByRole('status', { name: '操作成功通知' })).toBeTruthy()
+  expect(card.children).toHaveLength(originalChildCount)
+})
+
+it('pauses a toast timeout while its viewport has focus', async () => {
+  vi.stubGlobal(
+    'confirm',
+    vi.fn(() => true),
+  )
+  await renderPanel()
+  await fireEvent.click(screen.getByRole('button', { name: '清除凭证' }))
+  await vi.advanceTimersByTimeAsync(0)
+  const viewport = within(screen.getByRole('region', { name: '通知 (F8)' })).getByRole('list')
+  await fireEvent.focusIn(viewport)
+  await vi.advanceTimersByTimeAsync(5000)
+  expect(screen.getByRole('status', { name: '操作成功通知' })).toBeTruthy()
+  await fireEvent.focusOut(viewport, { relatedTarget: document.body })
+  await vi.advanceTimersByTimeAsync(5000)
+  expect(screen.queryByRole('status', { name: '操作成功通知' })).toBeNull()
+})
+
 it('shows clearing errors in an alert toast instead of inside the account card', async () => {
   vi.stubGlobal(
     'confirm',
