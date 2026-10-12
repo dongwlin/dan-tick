@@ -69,10 +69,7 @@ async function clearCredentials() {
 <template>
   <section :class="[flatPanel, 'space-y-4 p-5']" aria-labelledby="account-heading">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 id="account-heading" class="text-base font-semibold">B 站账号</h2>
-        <p class="mt-1 text-sm text-text-tertiary">仅支持一个账号，凭证保存到系统安全存储</p>
-      </div>
+      <h2 id="account-heading" class="text-base font-semibold">B站账号凭证</h2>
       <span class="flex items-center gap-2 text-sm text-text-secondary" aria-live="polite">
         <ShieldCheck class="size-4" aria-hidden="true" />
         {{

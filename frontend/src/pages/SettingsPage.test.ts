@@ -45,7 +45,7 @@ it('renders settings cards without shadows', () => {
 
   for (const name of [
     '账号资料',
-    'B 站账号',
+    'B站账号凭证',
     '测试发送',
     '窗口与后台运行',
     '调度设置',
@@ -67,7 +67,7 @@ it('shows the verified nickname, avatar and UID above credentials, then clears t
   render(SettingsPage, { global: { plugins: [[VueQueryPlugin, { queryClient: client }]] } })
 
   const profile = screen.getByRole('region', { name: '账号资料' })
-  expect(profile.nextElementSibling).toBe(screen.getByRole('region', { name: 'B 站账号' }))
+  expect(profile.nextElementSibling).toBe(screen.getByRole('region', { name: 'B站账号凭证' }))
   expect(await screen.findByText('测试用户')).toBeTruthy()
   expect(screen.getByText('UID：123456789')).toBeTruthy()
   const avatar = profile.querySelector('img')
