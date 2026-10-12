@@ -52,6 +52,19 @@ it('renders settings cards without shadows', () => {
   }
 })
 
+it('keeps settings cards inset within a full-width scroll area', () => {
+  render(SettingsPage, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+
+  const scrollArea = screen.getByLabelText('设置内容')
+  expect(scrollArea.classList.contains('overflow-y-auto')).toBe(true)
+  expect(scrollArea.tabIndex).toBe(0)
+  expect(scrollArea.firstElementChild?.classList.contains('px-7')).toBe(true)
+  expect(scrollArea.firstElementChild?.classList.contains('max-w-[1520px]')).toBe(true)
+  expect(screen.getByRole('heading', { name: '设置' }).parentElement).not.toBe(scrollArea)
+})
+
 it('switches the theme with persistent preferences and warns when storage fails', async () => {
   const listeners: ((event: MediaQueryListEvent) => void)[] = []
   vi.stubGlobal('matchMedia', () => ({

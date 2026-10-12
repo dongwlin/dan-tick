@@ -74,11 +74,15 @@ describe('application navigation', () => {
     const user = renderAtHash('/rooms')
 
     expect(await screen.findByRole('heading', { name: '直播间' })).toBeTruthy()
+    expect(document.querySelector('.app-content')?.classList.contains('overflow-y-auto')).toBe(true)
     expect(screen.queryByText('dan-tick · 本地安全调度与执行')).toBeNull()
     await user.click(screen.getByRole('link', { name: '设置' }))
 
     expect(await screen.findByRole('heading', { name: '设置' })).toBeTruthy()
     expect(window.location.hash).toBe('#/settings')
+    const appContent = document.querySelector('.app-content')
+    expect(appContent?.classList.contains('overflow-hidden')).toBe(true)
+    expect(appContent?.classList.contains('px-7')).toBe(false)
   })
 
   it('offers a working return link on an unknown deep link', async () => {
