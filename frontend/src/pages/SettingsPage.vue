@@ -5,6 +5,7 @@ import UiAlert from '@/components/ui/UiAlert.vue'
 import { useTheme, type ThemePreference } from '@/app/theme'
 import AccountPanel from '@/features/operations/AccountPanel.vue'
 import UiPanel from '@/components/ui/UiPanel.vue'
+import UiPageHeader from '@/components/ui/UiPageHeader.vue'
 import AccountProfileCard from '@/features/operations/AccountProfileCard.vue'
 import TestSendPanel from '@/features/operations/TestSendPanel.vue'
 import CloseBehaviorPanel from '@/features/operations/CloseBehaviorPanel.vue'
@@ -28,7 +29,7 @@ function updateTheme(value: unknown): void {
 
 <template>
   <section class="flex min-h-0 flex-1 flex-col gap-4">
-    <h1 class="mx-auto w-full max-w-[1520px] px-7 max-[1100px]:px-5">设置</h1>
+    <UiPageHeader title="设置" class="mx-auto w-full max-w-[1520px] px-7 max-[1100px]:px-5" />
     <div class="min-h-0 flex-1 overflow-y-auto" tabindex="0" aria-label="设置内容">
       <div class="mx-auto w-full max-w-[1520px] space-y-5 px-7 pb-4 max-[1100px]:px-5">
         <AccountProfileCard />

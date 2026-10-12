@@ -113,6 +113,7 @@ describe('application navigation', () => {
     await user.click(screen.getByRole('link', { name: '设置' }))
 
     expect(await screen.findByRole('heading', { name: '设置' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '设置' }).closest('header')).not.toBeNull()
     expect(window.location.hash).toBe('#/settings')
     const appContent = document.querySelector('.app-content')
     expect(appContent?.classList.contains('overflow-hidden')).toBe(true)
@@ -139,6 +140,7 @@ describe('application navigation', () => {
   it('highlights parent navigation for editing and detail routes', async () => {
     const user = renderAtHash('/tasks/123/edit')
     expect(await screen.findByRole('heading', { name: '编辑任务' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '编辑任务' }).closest('header')).not.toBeNull()
     expect(screen.getByRole('link', { name: '弹幕任务' }).getAttribute('aria-current')).toBe('page')
 
     await user.click(screen.getByRole('link', { name: '执行记录' }))

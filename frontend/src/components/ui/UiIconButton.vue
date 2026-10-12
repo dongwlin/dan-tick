@@ -14,7 +14,6 @@ const props = withDefaults(
     title?: string
     disabled?: boolean
     variant?: 'ghost' | 'danger'
-    size?: 'default' | 'small'
   }>(),
   {
     to: undefined,
@@ -25,11 +24,9 @@ const props = withDefaults(
     title: undefined,
     disabled: false,
     variant: 'ghost',
-    size: 'default',
   },
 )
 
-const sizeClass = computed(() => (props.size === 'small' ? 'size-9' : 'size-11'))
 const variantClass = computed(() =>
   props.variant === 'danger'
     ? 'text-soft-danger-fg hover:bg-soft-danger-bg active:brightness-95'
@@ -37,8 +34,7 @@ const variantClass = computed(() =>
 )
 
 const classes = computed(() => [
-  'inline-flex shrink-0 items-center justify-center rounded-[10px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-50',
-  sizeClass.value,
+  'inline-flex size-11 shrink-0 items-center justify-center rounded-[10px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-50',
   variantClass.value,
 ])
 

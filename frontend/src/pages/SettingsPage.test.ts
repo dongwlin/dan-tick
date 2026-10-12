@@ -61,6 +61,7 @@ it('renders settings cards without shadows', () => {
   ]) {
     expect(screen.getByRole('region', { name }).classList.contains('shadow-sm')).toBe(false)
   }
+  expect(screen.getByRole('heading', { name: '设置' }).closest('header')).not.toBeNull()
 })
 
 it('places the about section after diagnostics with the existing brand mark', () => {
