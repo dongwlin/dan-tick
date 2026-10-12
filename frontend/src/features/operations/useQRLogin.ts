@@ -54,6 +54,7 @@ export function useQRLogin(options: { onConfirmed: () => Promise<void> }) {
   async function confirmed() {
     state.value = 'confirmed'
     sessionActive = false
+    actionPending.value = false
     clearSessionView()
     await options.onConfirmed()
   }

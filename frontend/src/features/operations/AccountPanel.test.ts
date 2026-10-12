@@ -1,5 +1,5 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import { fireEvent, render, screen } from '@testing-library/vue'
+import { fireEvent, render, screen, within } from '@testing-library/vue'
 import { nextTick } from 'vue'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
@@ -64,7 +64,7 @@ async function poll() {
   await nextTick()
 }
 
-it('replaces manual credentials with an in-app QR and refreshes the verified account after confirmation', async () => {
+it('opens the QR in a modal and closes it after refreshing the confirmed account', async () => {
   vi.mocked(PollQRLogin)
     .mockResolvedValueOnce({ state: 'scanned' })
     .mockResolvedValueOnce({ state: 'confirmed' })
@@ -73,9 +73,15 @@ it('replaces manual credentials with an in-app QR and refreshes the verified acc
   expect(screen.queryByLabelText('bili_jct')).toBeNull()
   expect(screen.queryByRole('button', { name: '保存凭证' })).toBeNull()
   expect(document.querySelector('input[type="password"]')).toBeNull()
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(
+    screen.queryByText('在手机上确认登录。二维码仅用于本次登录，离开设置页会取消。'),
+  ).toBeNull()
 
   await beginLogin()
-  expect(screen.getByRole('img').getAttribute('src')).toBe(qrImage)
+  const dialog = screen.getByRole('dialog', { name: '扫码登录' })
+  expect(dialog.getAttribute('aria-modal')).toBe('true')
+  expect(within(dialog).getByRole('img').getAttribute('src')).toBe(qrImage)
   expect(screen.getByText('等待扫码')).toBeTruthy()
   expect(vi.mocked(PollQRLogin)).not.toHaveBeenCalled()
   await poll()
@@ -84,6 +90,8 @@ it('replaces manual credentials with an in-app QR and refreshes the verified acc
   vi.mocked(CheckAccount).mockResolvedValue({ state: State.LoggedIn, uid: '123456' })
   await poll()
   expect(screen.getByText('扫码登录成功')).toBeTruthy()
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(vi.mocked(CancelQRLogin)).not.toHaveBeenCalled()
   expect(screen.getByText('已登录')).toBeTruthy()
   expect(vi.mocked(CheckAccount)).toHaveBeenCalledTimes(2)
   expect(vi.mocked(ConfirmQRAccount)).not.toHaveBeenCalled()
@@ -103,13 +111,35 @@ it('cancels the login and stops polling while preserving the existing account', 
   await renderPanel()
   await beginLogin()
   await fireEvent.click(screen.getByRole('button', { name: '取消扫码' }))
+  await vi.advanceTimersByTimeAsync(0)
   expect(screen.getByText('已取消扫码登录')).toBeTruthy()
+  expect(screen.queryByRole('dialog')).toBeNull()
   expect(screen.queryByRole('img')).toBeNull()
   expect(vi.mocked(CancelQRLogin)).toHaveBeenCalledTimes(1)
   await vi.advanceTimersByTimeAsync(6000)
   expect(vi.mocked(PollQRLogin)).not.toHaveBeenCalled()
   expect(vi.mocked(ClearAccount)).not.toHaveBeenCalled()
 })
+
+it.each(['close button', 'Escape'])(
+  'cancels the modal with %s and stops polling',
+  async (dismissal) => {
+    await renderPanel()
+    await beginLogin()
+    if (dismissal === 'close button') {
+      await fireEvent.click(screen.getByRole('button', { name: '关闭扫码登录' }))
+    } else {
+      await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    }
+    await vi.advanceTimersByTimeAsync(0)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('img')).toBeNull()
+    expect(vi.mocked(CancelQRLogin)).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(6000)
+    expect(vi.mocked(PollQRLogin)).not.toHaveBeenCalled()
+    expect(vi.mocked(ClearAccount)).not.toHaveBeenCalled()
+  },
+)
 
 it('offers a new QR after expiry without automatically restarting login', async () => {
   vi.mocked(PollQRLogin).mockResolvedValueOnce({ state: 'expired' })
@@ -230,6 +260,53 @@ it('cancels an active login when leaving the page and ignores a late poll result
   expect(vi.mocked(PollQRLogin)).toHaveBeenCalledTimes(1)
 })
 
+it('ignores a late confirmation result after closing the modal', async () => {
+  let resolvePoll: ((result: { state: 'confirmed' }) => void) | undefined
+  vi.mocked(PollQRLogin).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolvePoll = resolve
+      }) as ReturnType<typeof PollQRLogin>,
+  )
+  await renderPanel()
+  await beginLogin()
+  await poll()
+  await fireEvent.click(screen.getByRole('button', { name: '关闭扫码登录' }))
+  resolvePoll?.({ state: 'confirmed' })
+  await vi.advanceTimersByTimeAsync(6000)
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.queryByText('扫码登录成功')).toBeNull()
+  expect(vi.mocked(CheckAccount)).toHaveBeenCalledTimes(1)
+  expect(vi.mocked(CancelQRLogin)).toHaveBeenCalledTimes(1)
+})
+
+it('keeps the modal open while saving an explicitly confirmed account switch', async () => {
+  let resolveConfirm: (() => void) | undefined
+  vi.mocked(PollQRLogin).mockResolvedValueOnce({
+    state: 'account_mismatch',
+    candidateUID: '987654321',
+  })
+  vi.mocked(ConfirmQRAccount).mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        resolveConfirm = resolve
+      }) as ReturnType<typeof ConfirmQRAccount>,
+  )
+  await renderPanel()
+  await beginLogin()
+  await poll()
+  await fireEvent.click(screen.getByRole('button', { name: '确认切换账号' }))
+  expect(screen.getByRole('button', { name: '关闭扫码登录' }).hasAttribute('disabled')).toBe(true)
+  await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(screen.getByRole('dialog')).toBeTruthy()
+  expect(vi.mocked(CancelQRLogin)).not.toHaveBeenCalled()
+  resolveConfirm?.()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.getByText('扫码登录成功')).toBeTruthy()
+})
+
 it('does not revive a QR request that completes after cancellation', async () => {
   let resolveBegin:
     ((result: { state: 'waiting'; qrImage: string; expiresAt: number }) => void) | undefined
@@ -243,6 +320,12 @@ it('does not revive a QR request that completes after cancellation', async () =>
   await beginLogin()
   expect(screen.getByText('正在准备二维码…')).toBeTruthy()
   await fireEvent.click(screen.getByRole('button', { name: '取消扫码' }))
+  await vi.advanceTimersByTimeAsync(0)
+  const trigger = screen.getByRole('button', { name: '扫码登录' })
+  expect(document.activeElement).toBe(trigger)
+  await fireEvent.click(trigger)
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(vi.mocked(BeginQRLogin)).toHaveBeenCalledTimes(1)
   resolveBegin?.({ state: 'waiting', qrImage, expiresAt: Date.now() + 180000 })
   await vi.advanceTimersByTimeAsync(6000)
   expect(screen.getByText('已取消扫码登录')).toBeTruthy()

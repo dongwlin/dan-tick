@@ -12,10 +12,15 @@ import { useQRLogin } from './useQRLogin'
 const status = useAccountStatus()
 const client = useQueryClient()
 const clear = useClearAccount()
+const dialogOpen = shallowRef(false)
 const feedback = shallowRef('')
 const errorMessage = shallowRef('')
 const qr = useQRLogin({
-  onConfirmed: () => client.invalidateQueries({ queryKey: operationKeys.account }),
+  onConfirmed: async () => {
+    dialogOpen.value = false
+    feedback.value = '扫码登录成功'
+    await client.invalidateQueries({ queryKey: operationKeys.account })
+  },
 })
 const statusLabel = computed(() => {
   if (status.isFetching.value) return '验证中…'
@@ -27,9 +32,23 @@ const needsReauthentication = computed(
 )
 
 async function beginLogin() {
+  if (clear.isPending.value || qr.busy.value || qr.active.value) return
+  dialogOpen.value = true
   errorMessage.value = ''
   feedback.value = ''
   await qr.begin()
+}
+
+async function setDialogOpen(open: boolean) {
+  if (open) {
+    await beginLogin()
+    return
+  }
+  if (qr.cancelPending.value || (qr.state.value === 'account_mismatch' && qr.busy.value)) return
+  await qr.cancel()
+  dialogOpen.value = false
+  if (qr.errorMessage.value) errorMessage.value = qr.errorMessage.value
+  else feedback.value = '已取消扫码登录'
 }
 
 async function clearCredentials() {
@@ -57,19 +76,20 @@ async function clearCredentials() {
     <p v-if="needsReauthentication" class="text-sm text-soft-warning-fg">
       现有凭证需要重新扫码绑定。原凭证和任务会保留，扫码成功后更新账号。
     </p>
-    <QRLoginCard
-      :state="qr.state.value"
-      :qr-image="qr.qrImage.value"
-      :candidate-u-i-d="qr.candidateUID.value"
-      :busy="qr.busy.value"
-      :cancel-pending="qr.cancelPending.value"
-      :disabled="clear.isPending.value"
-      :error-message="qr.errorMessage.value"
-      @begin="beginLogin"
-      @cancel="qr.cancel"
-      @confirm="qr.confirmAccount"
-    />
-    <div class="flex flex-wrap gap-2 border-t border-border-hairline pt-4">
+    <div class="flex flex-wrap gap-2">
+      <QRLoginCard
+        :open="dialogOpen"
+        :state="qr.state.value"
+        :qr-image="qr.qrImage.value"
+        :candidate-u-i-d="qr.candidateUID.value"
+        :busy="qr.busy.value"
+        :cancel-pending="qr.cancelPending.value"
+        :disabled="clear.isPending.value"
+        :error-message="qr.errorMessage.value"
+        @begin="beginLogin"
+        @update:open="setDialogOpen"
+        @confirm="qr.confirmAccount"
+      />
       <button
         type="button"
         :class="[secondaryButton, 'min-h-11']"
