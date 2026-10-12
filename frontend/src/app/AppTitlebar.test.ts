@@ -28,6 +28,7 @@ beforeEach(() => {
 it('routes titlebar controls to the desktop window', async () => {
   const user = userEvent.setup()
   render(AppTitlebar)
+  expect(screen.getByRole('img', { name: 'dan-tick' }).getAttribute('src')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: '最小化窗口' }))
   await user.click(screen.getByRole('button', { name: '最大化或还原窗口' }))
   await user.click(screen.getByRole('button', { name: '关闭窗口' }))

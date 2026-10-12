@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Minus, Power, Square, X } from 'lucide-vue-next'
 import { shallowRef } from 'vue'
+import titlebarWordmark from '@/assets/branding/titlebar-wordmark.png'
 
 const error = shallowRef('')
 
@@ -38,11 +39,14 @@ async function controlWindow(action: 'minimise' | 'maximise' | 'close' | 'quit')
     class="window-titlebar relative z-20 flex h-[42px] shrink-0 items-stretch justify-between border-b border-border-hairline bg-bg-titlebar select-none"
     aria-label="窗口标题栏"
   >
-    <span
-      class="pointer-events-none ml-5 self-center text-lg font-extrabold tracking-[-0.04em] whitespace-nowrap"
-    >
-      dan<span class="text-accent-text">tick</span>
-    </span>
+    <img
+      :src="titlebarWordmark"
+      alt="dan-tick"
+      width="105"
+      height="35"
+      class="pointer-events-none ml-5 h-[35px] w-auto self-center object-contain opacity-75"
+      draggable="false"
+    />
     <div class="window-controls flex items-stretch" role="group" aria-label="窗口操作">
       <button
         type="button"
