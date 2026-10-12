@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -54,6 +55,14 @@ func start() (code int) {
 }
 
 func run(logger *diagnostic.Logger) error {
+	// Detect an unusable database directory before Wails initialization can
+	// fail for unrelated desktop-session reasons. This does not open SQLite;
+	// single-instance ownership is still acquired before database access.
+	if err := os.MkdirAll(filepath.Dir(storage.DefaultPath()), 0700); err != nil {
+		logger.Record(diagnostic.DatabaseOpenFailed)
+		return fmt.Errorf("prepare application database directory: %w", err)
+	}
+
 	// Acquire Wails' OS-session single-instance ownership BEFORE opening SQLite
 	// or recovering Cron. A second launch signals the existing window and exits.
 	var windowMu sync.RWMutex

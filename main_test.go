@@ -8,6 +8,7 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/stretchr/testify/require"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func TestDatabaseStartupFailureIsPersisted(t *testing.T) {
@@ -21,11 +22,13 @@ func TestDatabaseStartupFailureIsPersisted(t *testing.T) {
 	xdg.StateHome = filepath.Join(root, "state")
 
 	require.Equal(t, 1, start())
+	require.Nil(t, application.Get(), "database directory failure must not initialize Wails")
 	log, err := os.ReadFile(filepath.Join(xdg.StateHome, "dan-tick", "logs", "dan-tick.jsonl"))
 	require.NoError(t, err)
 	require.Contains(t, string(log), `"event":"app.starting"`)
 	require.Contains(t, string(log), `"event":"database.open_failed"`)
 	require.Contains(t, string(log), `"event":"app.failed"`)
+	require.NotContains(t, string(log), `"event":"app.panicked"`)
 	require.NotContains(t, string(log), badDataDir)
 	require.NotContains(t, strings.ToLower(string(log)), "not a directory")
 }
