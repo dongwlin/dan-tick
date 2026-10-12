@@ -72,7 +72,7 @@ function renderAtHash(path: string) {
 }
 
 describe('application navigation', () => {
-  it('displays only the account avatar in the sidebar and opens the profile in settings', async () => {
+  it('displays a static account avatar without hover effects or navigation', async () => {
     vi.mocked(CheckAccount).mockResolvedValueOnce({
       state: State.LoggedIn,
       uid: '123456789',
@@ -80,14 +80,20 @@ describe('application navigation', () => {
       avatarUrl: 'https://i0.hdslb.com/bfs/face/avatar.jpg',
     })
     const user = renderAtHash('/')
-    const link = screen.getByRole('link', { name: '打开 B 站账号设置' })
+    const avatar = screen.getByRole('img', { name: 'B 站账号头像' })
     await waitFor(() =>
-      expect(link.querySelector('img')?.getAttribute('src')).toBe(
+      expect(avatar.querySelector('img')?.getAttribute('src')).toBe(
         'https://i0.hdslb.com/bfs/face/avatar.jpg',
       ),
     )
-    expect(link.textContent?.trim()).toBe('')
-    await user.click(link)
+    expect(avatar.textContent?.trim()).toBe('')
+    expect(avatar.getAttribute('title')).toBeNull()
+    expect(avatar.className).not.toContain('hover:')
+    expect(screen.queryByRole('link', { name: '打开 B 站账号设置' })).toBeNull()
+    await user.hover(avatar)
+    await user.click(avatar)
+    expect(window.location.hash).toBe('#/')
+    await user.click(screen.getByRole('link', { name: '设置' }))
     expect(await screen.findByText('测试用户')).toBeTruthy()
     expect(screen.getByText('UID：123456789')).toBeTruthy()
   })
@@ -125,7 +131,7 @@ describe('application navigation', () => {
     await user.click(screen.getByRole('link', { name: '执行记录' }))
     expect(await screen.findByRole('heading', { name: '执行记录' })).toBeTruthy()
     expect(screen.getByRole('link', { name: '执行记录' }).getAttribute('aria-current')).toBe('page')
-    await user.click(screen.getByRole('link', { name: '打开 B 站账号设置' }))
+    await user.click(screen.getByRole('link', { name: '设置' }))
     expect(await screen.findByRole('heading', { name: '设置' })).toBeTruthy()
   })
 })

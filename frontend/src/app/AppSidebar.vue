@@ -52,11 +52,10 @@ const navigation = [
       </RouterLink>
     </nav>
     <div class="mt-auto px-[11px] pt-3 pb-[22px] max-[600px]:px-[5px]">
-      <RouterLink
-        to="/settings"
-        class="flex min-h-[47px] items-center justify-center rounded-[10px] p-0.5 hover:bg-surface-muted"
-        aria-label="打开 B 站账号设置"
-        title="账号设置"
+      <div
+        class="flex min-h-[47px] items-center justify-center p-0.5"
+        role="img"
+        aria-label="B 站账号头像"
       >
         <AccountAvatar
           :url="
@@ -64,7 +63,7 @@ const navigation = [
           "
           class="size-[39px] border-2 border-soft-accent-border"
         />
-      </RouterLink>
+      </div>
     </div>
   </aside>
 </template>
