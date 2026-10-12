@@ -18,11 +18,6 @@ useBackendEvents()
         >
           <RouterView />
         </div>
-        <footer
-          class="mx-auto w-full max-w-[1520px] shrink-0 px-7 pb-2 text-[11px] text-text-tertiary max-[1100px]:px-5"
-        >
-          dan-tick · 本地安全调度与执行
-        </footer>
       </main>
     </div>
   </div>

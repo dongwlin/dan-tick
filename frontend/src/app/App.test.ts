@@ -74,6 +74,7 @@ describe('application navigation', () => {
     const user = renderAtHash('/rooms')
 
     expect(await screen.findByRole('heading', { name: '直播间' })).toBeTruthy()
+    expect(screen.queryByText('dan-tick · 本地安全调度与执行')).toBeNull()
     await user.click(screen.getByRole('link', { name: '设置' }))
 
     expect(await screen.findByRole('heading', { name: '设置' })).toBeTruthy()
