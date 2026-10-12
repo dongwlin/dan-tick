@@ -13,8 +13,8 @@ withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact
     :class="compact ? 'flex h-full min-h-0 min-w-[720px] flex-col' : 'min-w-[820px]'"
   >
     <thead
-      class="bg-surface-solid text-xs text-text-secondary"
-      :class="compact ? 'block shrink-0 pr-[9px]' : 'sticky top-0 z-10'"
+      class="text-xs text-text-secondary"
+      :class="compact ? 'block shrink-0 pr-[9px]' : 'sticky top-0 z-10 bg-surface-solid'"
     >
       <tr
         class="h-11 border-b border-border-hairline"

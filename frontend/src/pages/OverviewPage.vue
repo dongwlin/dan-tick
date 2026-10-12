@@ -5,7 +5,7 @@ import { CalendarClock, ChevronRight, CircleAlert, CircleCheck, Plus } from 'luc
 import { useAccountStatus } from '@/features/operations/queries'
 import { useOverview, usePreferences } from '@/features/application/queries'
 import { bindingError } from '@/features/configuration/queries'
-import { flatPanel, primaryButton, solidPanel } from '@/features/configuration/style'
+import { flatPanel, primaryButton } from '@/features/configuration/style'
 import { displayTime, statusText } from '@/features/history/presentation'
 import HistoryTable from '@/features/history/HistoryTable.vue'
 
@@ -49,7 +49,7 @@ const statusLabels: Record<string, string> = {
     </div>
     <template v-else-if="overview.data.value">
       <div
-        class="grid shrink-0 grid-cols-2 overflow-hidden rounded-[13px] border border-border-hairline bg-surface-solid min-[851px]:grid-cols-4"
+        :class="[flatPanel, 'grid shrink-0 grid-cols-2 overflow-hidden min-[851px]:grid-cols-4']"
         aria-label="系统状态"
       >
         <div
@@ -213,7 +213,7 @@ const statusLabels: Record<string, string> = {
         </section>
       </div>
       <section
-        :class="[solidPanel, 'flex min-h-35 flex-1 flex-col overflow-hidden']"
+        :class="[flatPanel, 'flex min-h-35 flex-1 flex-col overflow-hidden']"
         aria-labelledby="recent-heading"
       >
         <div class="flex shrink-0 items-center justify-between gap-3 px-5 pt-4 pb-2">
