@@ -3,7 +3,7 @@ import { History, LayoutDashboard, ListTodo, Radio, Settings2 } from 'lucide-vue
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
-import AccountAvatar from '@/components/ui/AccountAvatar.vue'
+import UiAvatar from '@/components/ui/UiAvatar.vue'
 import { useAccountStatus } from '@/features/operations/queries'
 
 const route = useRoute()
@@ -57,7 +57,7 @@ const navigation = [
         role="img"
         aria-label="B 站账号头像"
       >
-        <AccountAvatar
+        <UiAvatar
           :url="
             account.data.value?.state === State.LoggedIn ? account.data.value.avatarUrl : undefined
           "

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
-import AccountAvatar from '@/components/ui/AccountAvatar.vue'
+import UiAvatar from '@/components/ui/UiAvatar.vue'
 import { flatPanel } from '@/components/ui/uiStyles'
 import { useAccountStatus } from './queries'
 
@@ -21,7 +21,7 @@ const uid = computed(() => (loggedIn.value ? account.data.value?.uid || '暂不�
 
 <template>
   <section :class="[flatPanel, 'flex min-w-0 items-center gap-4 px-5 py-5']" aria-label="账号资料">
-    <AccountAvatar
+    <UiAvatar
       :url="loggedIn ? account.data.value?.avatarUrl : undefined"
       class="size-15 border border-border-hairline"
     />
