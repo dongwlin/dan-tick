@@ -25,20 +25,21 @@ it('renders links with their navigation semantics and blocks disabled navigation
   })
   await router.push('/')
   await router.isReady()
-  render(UiIconButton, {
+  const linkView = render(UiIconButton, {
     props: { label: '查看执行记录', to: '/history' },
     global: { plugins: [router] },
   })
 
   const link = screen.getByRole('link', { name: '查看执行记录' })
   expect(link.getAttribute('href')).toBe('/history')
+  linkView.unmount()
 
   await router.push('/')
   render(UiIconButton, {
     props: { label: '查看执行记录', to: '/history', disabled: true },
     global: { plugins: [router] },
   })
-  const disabled = screen.getAllByRole('link', { name: '查看执行记录' })[1]
+  const disabled = screen.getByRole('link', { name: '查看执行记录' })
   disabled.click()
   await router.isReady()
   expect(router.currentRoute.value.path).toBe('/')

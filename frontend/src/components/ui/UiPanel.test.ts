@@ -4,7 +4,7 @@ import UiPanel from './UiPanel.vue'
 
 it('renders an acrylic panel surface by default', () => {
   render(UiPanel, {
-    props: { 'aria-label': '概览' },
+    attrs: { 'aria-label': '概览' },
     slots: { default: '面板内容' },
   })
 
