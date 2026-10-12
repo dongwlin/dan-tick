@@ -4,11 +4,13 @@ import { RouterLink, useRoute } from 'vue-router'
 import { Clock3, ListTodo, Plus, Search, Trash2 } from 'lucide-vue-next'
 import { useDeleteTask, useSetTaskEnabled, useTaskPages } from './queries'
 import { fieldClass } from '@/components/ui/uiStyles'
+import { bindingError } from '@/lib/bindingError'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
+import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
+import UiEmptyState from '@/components/ui/UiEmptyState.vue'
 import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
-import { bindingError } from '@/lib/bindingError'
 import { useLatestExecutions } from '@/features/operations/queries'
 import TaskRunActions from '@/features/operations/TaskRunActions.vue'
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
@@ -112,126 +114,117 @@ async function deleteTask() {
         tabindex="0"
         aria-label="弹幕任务列表"
       >
-        <div v-if="tasks.isPending.value" role="status" class="p-6 text-text-secondary">
-          正在加载任务…
-        </div>
-        <div v-else-if="tasks.isError.value" class="p-6" role="alert">
-          <p class="text-soft-danger-fg">{{ bindingError(tasks.error.value) }}</p>
-          <button type="button" :class="secondaryButton" class="mt-3" @click="tasks.refetch()">
-            重试读取
-          </button>
-        </div>
-        <div
-          v-else-if="!items.length"
-          class="flex min-h-40 flex-1 flex-col items-center justify-center gap-2 p-8 text-center"
+        <UiAsyncSection
+          :pending="tasks.isPending.value"
+          :error="tasks.error.value"
+          loading-text="正在加载任务…"
+          @retry="tasks.refetch()"
         >
-          <ListTodo class="size-7 text-text-tertiary" aria-hidden="true" />
-          <p class="text-text-secondary">
-            {{ search ? '没有找到匹配的任务' : '还没有创建弹幕任务' }}
-          </p>
-          <button
-            v-if="search"
-            type="button"
-            :class="secondaryButton"
-            class="mt-3"
-            @click="search = ''"
-          >
-            清除搜索
-          </button>
-        </div>
-        <template v-else>
-          <article v-for="task in items" :key="task.id" class="border-b border-border-hairline p-5">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div class="min-w-0">
-                <h3 class="truncate text-base font-semibold">{{ task.name }}</h3>
-                <p class="mt-1 text-xs text-text-tertiary">
-                  直播间 #{{ task.roomId }} · {{ scheduleText(task) }} ·
-                  {{ task.schedule.timezone }}
-                </p>
-              </div>
-              <RouterLink
-                :to="{ name: 'task-edit', params: { id: task.id } }"
-                :class="secondaryButton"
-                >编辑任务</RouterLink
-              >
-            </div>
-            <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <span class="flex items-center gap-2 text-xs text-text-secondary">
-                <Clock3 class="size-4" aria-hidden="true" />
-                {{
-                  task.kind === 'loop'
-                    ? `循环 · 每隔 ${task.intervalSeconds} 秒 · 最多 ${task.maxCount ?? '不限'} 次`
-                    : '单次发送 · 1 条消息'
-                }}
-              </span>
-              <div class="flex items-center gap-4">
-                <div class="flex items-center gap-2 text-xs text-text-secondary">
-                  <input
-                    type="checkbox"
-                    :checked="task.enabled"
-                    :disabled="enabledMutation.isPending.value"
-                    :aria-label="`${task.name} 自动执行`"
-                    @change="setEnabled(task, $event)"
-                  />
-                  {{ task.enabled ? '自动执行开启' : '自动执行关闭' }}
-                </div>
-                <button
-                  type="button"
-                  :disabled="deleteMutation.isPending.value"
-                  class="flex items-center gap-1 text-xs text-soft-danger-fg"
-                  :aria-label="`删除任务 ${task.name}`"
-                  @click="requestDelete(task)"
-                >
-                  <Trash2 class="size-4" aria-hidden="true" />删除
-                </button>
-              </div>
-            </div>
-            <div
-              class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border-hairline pt-3"
+          <UiEmptyState
+            v-if="!items.length"
+            :icon="ListTodo"
+            :title="search ? '没有找到匹配的任务' : '还没有创建弹幕任务'"
+            :action-label="search ? '清除搜索' : undefined"
+            @action="search = ''"
+          />
+          <template v-else>
+            <article
+              v-for="task in items"
+              :key="task.id"
+              class="border-b border-border-hairline p-5"
             >
-              <TaskRunActions :task-id="task.id" :execution="runsByTask.get(task.id)" />
-              <span
-                v-if="latestRuns.isError.value"
-                class="text-xs text-soft-danger-fg"
-                role="alert"
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <h3 class="truncate text-base font-semibold">{{ task.name }}</h3>
+                  <p class="mt-1 text-xs text-text-tertiary">
+                    直播间 #{{ task.roomId }} · {{ scheduleText(task) }} ·
+                    {{ task.schedule.timezone }}
+                  </p>
+                </div>
+                <RouterLink
+                  :to="{ name: 'task-edit', params: { id: task.id } }"
+                  :class="secondaryButton"
+                  >编辑任务</RouterLink
+                >
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <span class="flex items-center gap-2 text-xs text-text-secondary">
+                  <Clock3 class="size-4" aria-hidden="true" />
+                  {{
+                    task.kind === 'loop'
+                      ? `循环 · 每隔 ${task.intervalSeconds} 秒 · 最多 ${task.maxCount ?? '不限'} 次`
+                      : '单次发送 · 1 条消息'
+                  }}
+                </span>
+                <div class="flex items-center gap-4">
+                  <div class="flex items-center gap-2 text-xs text-text-secondary">
+                    <input
+                      type="checkbox"
+                      :checked="task.enabled"
+                      :disabled="enabledMutation.isPending.value"
+                      :aria-label="`${task.name} 自动执行`"
+                      @change="setEnabled(task, $event)"
+                    />
+                    {{ task.enabled ? '自动执行开启' : '自动执行关闭' }}
+                  </div>
+                  <button
+                    type="button"
+                    :disabled="deleteMutation.isPending.value"
+                    class="flex items-center gap-1 text-xs text-soft-danger-fg"
+                    :aria-label="`删除任务 ${task.name}`"
+                    @click="requestDelete(task)"
+                  >
+                    <Trash2 class="size-4" aria-hidden="true" />删除
+                  </button>
+                </div>
+              </div>
+              <div
+                class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border-hairline pt-3"
               >
-                执行状态读取失败。<button
+                <TaskRunActions :task-id="task.id" :execution="runsByTask.get(task.id)" />
+                <span
+                  v-if="latestRuns.isError.value"
+                  class="text-xs text-soft-danger-fg"
+                  role="alert"
+                >
+                  执行状态读取失败。<button
+                    type="button"
+                    class="underline"
+                    @click="latestRuns.refetch()"
+                  >
+                    重试
+                  </button>
+                </span>
+              </div>
+            </article>
+            <div class="p-5 text-center">
+              <button
+                v-if="tasks.hasNextPage.value"
+                type="button"
+                :class="secondaryButton"
+                :disabled="tasks.isFetchingNextPage.value"
+                :aria-busy="tasks.isFetchingNextPage.value"
+                @click="tasks.fetchNextPage()"
+              >
+                {{ tasks.isFetchingNextPage.value ? '加载中…' : '加载更多' }}
+              </button>
+              <p v-else class="text-xs text-text-tertiary">已显示全部任务</p>
+              <p
+                v-if="tasks.isFetchNextPageError.value"
+                role="alert"
+                class="mt-2 text-soft-danger-fg"
+              >
+                加载下一页失败。<button
                   type="button"
                   class="underline"
-                  @click="latestRuns.refetch()"
+                  @click="tasks.fetchNextPage()"
                 >
                   重试
                 </button>
-              </span>
+              </p>
             </div>
-          </article>
-          <div class="p-5 text-center">
-            <button
-              v-if="tasks.hasNextPage.value"
-              type="button"
-              :class="secondaryButton"
-              :disabled="tasks.isFetchingNextPage.value"
-              :aria-busy="tasks.isFetchingNextPage.value"
-              @click="tasks.fetchNextPage()"
-            >
-              {{ tasks.isFetchingNextPage.value ? '加载中…' : '加载更多' }}
-            </button>
-            <p v-else class="text-xs text-text-tertiary">已显示全部任务</p>
-            <p
-              v-if="tasks.isFetchNextPageError.value"
-              role="alert"
-              class="mt-2 text-soft-danger-fg"
-            >
-              加载下一页失败。<button
-                type="button"
-                class="underline"
-                @click="tasks.fetchNextPage()"
-              >
-                重试
-              </button>
-            </p>
-          </div>
-        </template>
+          </template>
+        </UiAsyncSection>
       </div>
     </UiPanel>
     <UiAlert v-if="message" role="alert">

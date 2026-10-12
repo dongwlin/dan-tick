@@ -3,6 +3,7 @@ import { RouterLink } from 'vue-router'
 import { ChevronRight, History } from 'lucide-vue-next'
 import type { Execution } from '@bindings/github.com/dongwlin/dan-tick/internal/history/models'
 import { displayTime, statusClass, statusText } from './presentation'
+import UiEmptyState from '@/components/ui/UiEmptyState.vue'
 
 withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact: false })
 </script>
@@ -106,12 +107,8 @@ withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact
         v-if="compact && !items.length"
         class="flex min-h-0 w-full flex-1 items-center justify-center"
       >
-        <td
-          colspan="5"
-          class="flex flex-col items-center gap-2 p-5 text-center text-sm text-text-secondary"
-        >
-          <History class="size-7 text-text-tertiary" aria-hidden="true" />
-          还没有执行记录
+        <td colspan="5" class="flex flex-col items-center justify-center p-0 text-center">
+          <UiEmptyState compact :icon="History" title="还没有执行记录" />
         </td>
       </tr>
     </tbody>

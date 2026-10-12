@@ -5,11 +5,13 @@ import { ExternalLink, LayoutGrid, List, Pencil, Plus, Radio, Trash2 } from 'luc
 import type { Room } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import { useAddRoom, useDeleteRoom, useRoomPages, useUpdateRoom } from './queries'
 import { fieldClass } from '@/components/ui/uiStyles'
+import { bindingError } from '@/lib/bindingError'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
+import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
+import UiEmptyState from '@/components/ui/UiEmptyState.vue'
 import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
-import { bindingError } from '@/lib/bindingError'
 import RoomCover from './RoomCover.vue'
 import RoomForm from './RoomForm.vue'
 import { useRoomMetadataRefresh } from './useRoomMetadataRefresh'
@@ -175,165 +177,165 @@ async function deleteRoom() {
       @update:open="closeDeleteDialog"
       @confirm="deleteRoom"
     />
-    <div v-if="pages.isPending.value" role="status" class="p-6 text-text-secondary">
-      正在加载直播间…
-    </div>
-    <UiPanel v-else-if="pages.isError.value" :padded="false" role="alert" class="p-6">
-      <p class="text-soft-danger-fg">{{ bindingError(pages.error.value) }}</p>
-      <button type="button" :class="secondaryButton" class="mt-3" @click="pages.refetch()">
-        重试读取
-      </button>
-    </UiPanel>
-    <UiPanel v-else-if="!rooms.length" :padded="false" class="p-8 text-center">
-      <Radio class="mx-auto mb-3 size-9 text-text-tertiary" aria-hidden="true" />
-      <h2 class="mb-1 text-base font-medium">还没有添加直播间</h2>
-      <p class="mb-4 text-sm text-text-secondary">添加一个直播间即可创建弹幕任务。</p>
-      <button type="button" :class="secondaryButton" @click="showForm = true">添加直播间</button>
-    </UiPanel>
-    <div v-else class="min-h-0 flex-1 overflow-y-auto pb-3" aria-label="直播间内容" tabindex="0">
-      <div
-        :class="
-          view === 'cards'
-            ? 'grid grid-cols-1 gap-4 min-[601px]:grid-cols-2 min-[1101px]:grid-cols-3'
-            : 'flex flex-col gap-3'
-        "
-      >
-        <UiPanel
-          v-for="(room, index) in rooms"
-          :key="room.id"
-          as="article"
-          :padded="false"
-          class="min-w-0 overflow-hidden"
+    <UiAsyncSection
+      :pending="pages.isPending.value"
+      :error="pages.error.value"
+      loading-text="正在加载直播间…"
+      @retry="pages.refetch()"
+    >
+      <UiEmptyState
+        v-if="!rooms.length"
+        :icon="Radio"
+        title="还没有添加直播间"
+        description="添加一个直播间即可创建弹幕任务。"
+        action-label="添加直播间"
+        @action="showForm = true"
+      />
+      <div v-else class="min-h-0 flex-1 overflow-y-auto pb-3" aria-label="直播间内容" tabindex="0">
+        <div
+          :class="
+            view === 'cards'
+              ? 'grid grid-cols-1 gap-4 min-[601px]:grid-cols-2 min-[1101px]:grid-cols-3'
+              : 'flex flex-col gap-3'
+          "
         >
-          <RoomCover v-if="view === 'cards'" :cover-url="room.coverUrl" :index="index" />
-          <div
-            class="p-5"
-            :class="view === 'list' ? 'flex flex-col gap-4 pr-7 md:flex-row md:items-center' : ''"
+          <UiPanel
+            v-for="(room, index) in rooms"
+            :key="room.id"
+            as="article"
+            :padded="false"
+            class="min-w-0 overflow-hidden"
           >
-            <div :class="view === 'list' ? 'min-w-0 flex-1' : ''">
-              <div :class="view === 'list' ? 'flex flex-wrap items-center gap-x-7 gap-y-2' : ''">
-                <div class="flex min-w-0 flex-wrap items-center gap-2">
-                  <h2 class="min-w-0 truncate text-base font-semibold">
-                    {{ room.remark || room.title || `房间 ${room.platformRoomId}` }}
-                  </h2>
-                  <span
-                    v-if="room.remark"
-                    class="rounded-md bg-soft-accent-bg px-2 py-0.5 text-xs text-soft-accent-fg"
-                    >备注</span
-                  >
-                </div>
-                <p
-                  v-if="secondaryTitle(room)"
-                  class="truncate text-sm text-text-secondary"
-                  :class="view === 'list' ? 'min-w-0 max-w-full' : 'mt-1'"
-                >
-                  {{ secondaryTitle(room) }}
-                </p>
-                <p
-                  class="text-xs text-text-tertiary"
-                  :class="view === 'list' ? 'min-w-0 max-w-full' : 'mt-2'"
-                >
-                  {{ view === 'list' ? '主播：' : '' }}{{ room.anchorName || '未知' }} ·
-                  {{ room.platformRoomId }}
-                </p>
-              </div>
-              <form
-                v-if="editingID === room.id"
-                class="mt-3 flex flex-wrap gap-2"
-                @submit.prevent="saveRemark(room.id)"
-              >
-                <span class="sr-only">备注名称</span>
-                <input
-                  :id="`remark-${room.id}`"
-                  v-model="remark"
-                  aria-label="备注名称"
-                  :class="fieldClass"
-                  class="min-w-30 flex-1"
-                  maxlength="100"
-                  placeholder="备注名称"
-                />
-                <button
-                  type="submit"
-                  :disabled="update.isPending.value"
-                  :aria-busy="update.isPending.value"
-                  :class="primaryButton"
-                >
-                  保存备注
-                </button>
-                <button type="button" :class="secondaryButton" @click="editingID = null">
-                  取消
-                </button>
-              </form>
-            </div>
+            <RoomCover v-if="view === 'cards'" :cover-url="room.coverUrl" :index="index" />
             <div
-              class="flex items-center justify-between"
-              :class="
-                view === 'list'
-                  ? 'shrink-0 gap-5 md:ml-auto'
-                  : 'mt-4 border-t border-border-hairline pt-3'
-              "
+              class="p-5"
+              :class="view === 'list' ? 'flex flex-col gap-4 pr-7 md:flex-row md:items-center' : ''"
             >
-              <span class="text-xs text-text-secondary"
-                >关联 <strong class="text-text-primary">{{ room.taskCount }}</strong> 个任务</span
+              <div :class="view === 'list' ? 'min-w-0 flex-1' : ''">
+                <div :class="view === 'list' ? 'flex flex-wrap items-center gap-x-7 gap-y-2' : ''">
+                  <div class="flex min-w-0 flex-wrap items-center gap-2">
+                    <h2 class="min-w-0 truncate text-base font-semibold">
+                      {{ room.remark || room.title || `房间 ${room.platformRoomId}` }}
+                    </h2>
+                    <span
+                      v-if="room.remark"
+                      class="rounded-md bg-soft-accent-bg px-2 py-0.5 text-xs text-soft-accent-fg"
+                      >备注</span
+                    >
+                  </div>
+                  <p
+                    v-if="secondaryTitle(room)"
+                    class="truncate text-sm text-text-secondary"
+                    :class="view === 'list' ? 'min-w-0 max-w-full' : 'mt-1'"
+                  >
+                    {{ secondaryTitle(room) }}
+                  </p>
+                  <p
+                    class="text-xs text-text-tertiary"
+                    :class="view === 'list' ? 'min-w-0 max-w-full' : 'mt-2'"
+                  >
+                    {{ view === 'list' ? '主播：' : '' }}{{ room.anchorName || '未知' }} ·
+                    {{ room.platformRoomId }}
+                  </p>
+                </div>
+                <form
+                  v-if="editingID === room.id"
+                  class="mt-3 flex flex-wrap gap-2"
+                  @submit.prevent="saveRemark(room.id)"
+                >
+                  <span class="sr-only">备注名称</span>
+                  <input
+                    :id="`remark-${room.id}`"
+                    v-model="remark"
+                    aria-label="备注名称"
+                    :class="fieldClass"
+                    class="min-w-30 flex-1"
+                    maxlength="100"
+                    placeholder="备注名称"
+                  />
+                  <button
+                    type="submit"
+                    :disabled="update.isPending.value"
+                    :aria-busy="update.isPending.value"
+                    :class="primaryButton"
+                  >
+                    保存备注
+                  </button>
+                  <button type="button" :class="secondaryButton" @click="editingID = null">
+                    取消
+                  </button>
+                </form>
+              </div>
+              <div
+                class="flex items-center justify-between"
+                :class="
+                  view === 'list'
+                    ? 'shrink-0 gap-5 md:ml-auto'
+                    : 'mt-4 border-t border-border-hairline pt-3'
+                "
               >
-              <div class="flex items-center gap-2">
-                <a
-                  :class="roomActionClass"
-                  :href="roomURL(room)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  :aria-label="`打开直播间 ${room.platformRoomId}`"
-                  title="打开直播间"
-                  @click.prevent="openRoom(room)"
-                  ><ExternalLink class="size-4" aria-hidden="true"
-                /></a>
-                <button
-                  type="button"
-                  :class="roomActionClass"
-                  :aria-label="`修改 ${room.platformRoomId} 的备注`"
-                  title="修改备注"
-                  @click="beginEdit(room)"
+                <span class="text-xs text-text-secondary"
+                  >关联 <strong class="text-text-primary">{{ room.taskCount }}</strong> 个任务</span
                 >
-                  <Pencil class="size-4" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  class="text-soft-danger-fg"
-                  :class="roomActionClass"
-                  :aria-label="`删除直播间 ${room.platformRoomId}`"
-                  title="删除直播间"
-                  :disabled="remove.isPending.value"
-                  @click="requestDelete(room)"
-                >
-                  <Trash2 class="size-4" aria-hidden="true" />
-                </button>
+                <div class="flex items-center gap-2">
+                  <a
+                    :class="roomActionClass"
+                    :href="roomURL(room)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    :aria-label="`打开直播间 ${room.platformRoomId}`"
+                    title="打开直播间"
+                    @click.prevent="openRoom(room)"
+                    ><ExternalLink class="size-4" aria-hidden="true"
+                  /></a>
+                  <button
+                    type="button"
+                    :class="roomActionClass"
+                    :aria-label="`修改 ${room.platformRoomId} 的备注`"
+                    title="修改备注"
+                    @click="beginEdit(room)"
+                  >
+                    <Pencil class="size-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    class="text-soft-danger-fg"
+                    :class="roomActionClass"
+                    :aria-label="`删除直播间 ${room.platformRoomId}`"
+                    title="删除直播间"
+                    :disabled="remove.isPending.value"
+                    @click="requestDelete(room)"
+                  >
+                    <Trash2 class="size-4" aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </UiPanel>
-      </div>
-      <div class="mt-5 flex justify-center">
-        <button
-          v-if="pages.hasNextPage.value"
-          type="button"
-          :class="secondaryButton"
-          :disabled="pages.isFetchingNextPage.value"
-          :aria-busy="pages.isFetchingNextPage.value"
-          @click="pages.fetchNextPage()"
+          </UiPanel>
+        </div>
+        <div class="mt-5 flex justify-center">
+          <button
+            v-if="pages.hasNextPage.value"
+            type="button"
+            :class="secondaryButton"
+            :disabled="pages.isFetchingNextPage.value"
+            :aria-busy="pages.isFetchingNextPage.value"
+            @click="pages.fetchNextPage()"
+          >
+            {{ pages.isFetchingNextPage.value ? '加载中…' : '加载更多' }}
+          </button>
+          <p v-else class="text-xs text-text-tertiary">已显示全部直播间</p>
+        </div>
+        <p
+          v-if="pages.isFetchNextPageError.value"
+          role="alert"
+          class="mt-2 text-center text-soft-danger-fg"
         >
-          {{ pages.isFetchingNextPage.value ? '加载中…' : '加载更多' }}
-        </button>
-        <p v-else class="text-xs text-text-tertiary">已显示全部直播间</p>
+          加载下一页失败。<button type="button" class="underline" @click="pages.fetchNextPage()">
+            重试
+          </button>
+        </p>
       </div>
-      <p
-        v-if="pages.isFetchNextPageError.value"
-        role="alert"
-        class="mt-2 text-center text-soft-danger-fg"
-      >
-        加载下一页失败。<button type="button" class="underline" @click="pages.fetchNextPage()">
-          重试
-        </button>
-      </p>
-    </div>
+    </UiAsyncSection>
   </section>
 </template>

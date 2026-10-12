@@ -2,9 +2,9 @@
 import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { ChevronLeft, ChevronRight, History } from 'lucide-vue-next'
 
-import { secondaryButton } from '@/components/ui/buttonStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
-import { bindingError } from '@/lib/bindingError'
+import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
+import UiEmptyState from '@/components/ui/UiEmptyState.vue'
 import { historyPageSize } from './pagination'
 import { useExecutionHistoryPages } from './queries'
 import HistoryTable from './HistoryTable.vue'
@@ -98,37 +98,31 @@ onUnmounted(() => {
           tabindex="0"
           aria-label="执行记录表格"
         >
-          <div v-if="history.isPending.value" class="p-6 text-text-secondary" role="status">
-            正在加载执行记录…
-          </div>
-          <div v-else-if="history.isError.value" class="p-6" role="alert">
-            <p class="text-soft-danger-fg">{{ bindingError(history.error.value) }}</p>
-            <button type="button" :class="secondaryButton" class="mt-3" @click="history.refetch()">
-              重试读取
-            </button>
-          </div>
-          <div
-            v-else-if="!items.length"
-            class="flex min-h-40 flex-1 flex-col items-center justify-center gap-2 p-8 text-center"
+          <UiAsyncSection
+            :pending="history.isPending.value"
+            :error="history.error.value"
+            loading-text="正在加载执行记录…"
+            @retry="history.refetch()"
           >
-            <History class="size-7 text-text-tertiary" aria-hidden="true" />
-            <p class="text-text-secondary">
-              {{ knownTotal ? '当前页没有记录' : '还没有执行记录' }}
-            </p>
-          </div>
-          <template v-else>
-            <HistoryTable :items="items" />
-            <div
-              v-if="isEnd"
-              class="mx-4 border-t border-border-hairline py-4 text-center text-xs text-text-tertiary"
-            >
-              {{
-                showPagination
-                  ? `已到最后一页，共 ${knownTotal} 条记录`
-                  : `共 ${knownTotal} 条记录，已全部显示`
-              }}
-            </div>
-          </template>
+            <UiEmptyState
+              v-if="!items.length"
+              :icon="History"
+              :title="knownTotal ? '当前页没有记录' : '还没有执行记录'"
+            />
+            <template v-else>
+              <HistoryTable :items="items" />
+              <div
+                v-if="isEnd"
+                class="mx-4 border-t border-border-hairline py-4 text-center text-xs text-text-tertiary"
+              >
+                {{
+                  showPagination
+                    ? `已到最后一页，共 ${knownTotal} 条记录`
+                    : `共 ${knownTotal} 条记录，已全部显示`
+                }}
+              </div>
+            </template>
+          </UiAsyncSection>
         </div>
         <nav
           v-if="showPagination"

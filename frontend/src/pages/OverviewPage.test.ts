@@ -136,9 +136,9 @@ it('renders empty state and retries failed overview reads', async () => {
   expect(await screen.findByText('暂无即将执行的任务')).toBeTruthy()
   expect(screen.queryByRole('link', { name: '创建任务' })).toBeNull()
   expect(screen.getByRole('link', { name: '新建任务' }).getAttribute('href')).toBe('/tasks/new')
-  const emptyAlert = screen.getByText('最近没有失败、中断或错过的执行')
-  expect(emptyAlert.classList.contains('items-center')).toBe(true)
-  expect(emptyAlert.querySelector('svg')).not.toBeNull()
+  const emptyAlert = screen.getByText('最近没有失败、中断或错过的执行').parentElement
+  expect(emptyAlert?.classList.contains('items-center')).toBe(true)
+  expect(emptyAlert?.querySelector('svg')).not.toBeNull()
   expect(document.body.textContent).not.toContain('最近没有失败、中断或错过的执行。')
   const emptyRecent = screen.getByText('还没有执行记录')
   expect(emptyRecent.closest('td')?.classList.contains('items-center')).toBe(true)

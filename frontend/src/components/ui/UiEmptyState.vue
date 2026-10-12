@@ -11,6 +11,8 @@ withDefaults(
     actionLabel?: string
     actionTo?: RouteLocationRaw
     compact?: boolean
+    /** Use the available height without imposing a 160px minimum. */
+    fill?: boolean
   }>(),
   {
     icon: undefined,
@@ -30,7 +32,10 @@ const emit = defineEmits<{ action: [] }>()
     :class="
       compact
         ? 'flex flex-col items-center gap-2 p-5 text-center text-sm text-text-secondary'
-        : 'flex min-h-40 flex-1 flex-col items-center justify-center gap-2 p-8 text-center'
+        : [
+            'flex flex-1 flex-col items-center justify-center gap-2 text-center',
+            fill ? 'min-h-40 p-8' : 'min-h-0 p-5',
+          ]
     "
   >
     <slot name="icon">
