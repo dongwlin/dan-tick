@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue'
-import { FolderOpen, FileArchive, Info } from 'lucide-vue-next'
+import { FolderOpen, FileArchive } from 'lucide-vue-next'
 import { secondaryButton } from '@/features/configuration/style'
 import {
   useDiagnosticsStatus,
@@ -84,22 +84,15 @@ async function run(action: 'logs' | 'data' | 'export') {
     <p v-if="status.isError.value" role="alert" class="mb-3 text-sm text-soft-warning-fg">
       无法读取日志状态。
     </p>
-    <div class="rounded-[10px] bg-surface-muted p-4">
-      <p class="flex items-start gap-2 text-sm text-text-secondary">
-        <Info class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        诊断包仅包含版本、平台信息和通过安全检查的限定日志，不包含数据库、账号凭证或弹幕正文。日志可能含运行时间及内部编号，向他人分享前请自行检查。
-      </p>
-      <button
-        type="button"
-        class="mt-3"
-        :class="secondaryButton"
-        :disabled="exportAction.isPending.value"
-        @click="run('export')"
-      >
-        <FileArchive class="size-4" aria-hidden="true" />
-        {{ exportAction.isPending.value ? '正在检查并导出…' : '导出诊断包…' }}
-      </button>
-    </div>
+    <button
+      type="button"
+      :class="secondaryButton"
+      :disabled="exportAction.isPending.value"
+      @click="run('export')"
+    >
+      <FileArchive class="size-4" aria-hidden="true" />
+      {{ exportAction.isPending.value ? '正在检查并导出…' : '导出诊断包…' }}
+    </button>
     <p v-if="feedback" class="mt-3 text-sm text-text-secondary" role="status">{{ feedback }}</p>
   </section>
 </template>

@@ -80,10 +80,10 @@ it('updates scheduling through Go and preserves authoritative state after failur
   expect(await screen.findByText(/默认时区已保存/)).toBeTruthy()
 })
 
-it('opens local directories and exports only with explicit notice and result feedback', async () => {
+it('opens local directories and exports with result feedback without the explanatory notice', async () => {
   const user = userEvent.setup()
   show(DiagnosticsPanel)
-  expect(screen.getByText(/不包含数据库、账号凭证或弹幕正文/)).toBeTruthy()
+  expect(screen.queryByText(/不包含数据库、账号凭证或弹幕正文/)).toBeNull()
   await user.click(screen.getByRole('button', { name: '打开日志目录' }))
   await waitFor(() => expect(OpenLogDirectory).toHaveBeenCalledOnce())
   await user.click(screen.getByRole('button', { name: '打开数据目录' }))
