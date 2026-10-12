@@ -6,6 +6,7 @@ import type { Room } from '@bindings/github.com/dongwlin/dan-tick/internal/deskt
 import { useAddRoom, useDeleteRoom, useRoomPages, useUpdateRoom } from './queries'
 import { fieldClass, flatPanel } from '@/components/ui/uiStyles'
 import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
+import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import { bindingError } from '@/lib/bindingError'
 import RoomCover from './RoomCover.vue'
 import RoomForm from './RoomForm.vue'
@@ -29,10 +30,16 @@ const update = useUpdateRoom()
 const remove = useDeleteRoom()
 const view = shallowRef<RoomView>(readRoomView())
 const showForm = shallowRef(false)
+const pendingDelete = shallowRef<Room | null>(null)
 const editingID = shallowRef<number | null>(null)
 const remark = shallowRef('')
 const message = shallowRef('')
 const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
+const deleteDescription = computed(() => {
+  const room = pendingDelete.value
+  if (!room) return ''
+  return `删除直播间“${room.remark || room.title || room.platformRoomId}”后，关联任务会同时删除且无法恢复。`
+})
 useRoomMetadataRefresh(rooms)
 const roomActionClass =
   'inline-flex size-11 items-center justify-center rounded-[10px] hover:bg-surface-muted active:bg-surface-solid-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:opacity-50'
@@ -87,13 +94,18 @@ async function saveRemark(id: number) {
     message.value = bindingError(error)
   }
 }
-async function deleteRoom(room: Room) {
-  if (
-    !window.confirm(
-      `删除直播间 ${room.remark || room.title || room.platformRoomId}？关联任务将同时删除。`,
-    )
-  )
-    return
+function requestDelete(room: Room) {
+  pendingDelete.value = room
+}
+
+function closeDeleteDialog() {
+  pendingDelete.value = null
+}
+
+async function deleteRoom() {
+  const room = pendingDelete.value
+  if (!room) return
+  pendingDelete.value = null
   try {
     await remove.mutateAsync(room.id)
     message.value = ''
@@ -152,6 +164,15 @@ async function deleteRoom(room: Room) {
     <p v-if="message" role="alert" class="rounded-lg bg-soft-danger-bg p-3 text-soft-danger-fg">
       {{ message }}
     </p>
+    <UiConfirmDialog
+      :open="pendingDelete !== null"
+      title="删除直播间"
+      :description="deleteDescription"
+      confirm-label="删除直播间"
+      variant="danger"
+      @update:open="closeDeleteDialog"
+      @confirm="deleteRoom"
+    />
     <div v-if="pages.isPending.value" role="status" class="p-6 text-text-secondary">
       正在加载直播间…
     </div>
@@ -278,7 +299,7 @@ async function deleteRoom(room: Room) {
                   :aria-label="`删除直播间 ${room.platformRoomId}`"
                   title="删除直播间"
                   :disabled="remove.isPending.value"
-                  @click="deleteRoom(room)"
+                  @click="requestDelete(room)"
                 >
                   <Trash2 class="size-4" aria-hidden="true" />
                 </button>

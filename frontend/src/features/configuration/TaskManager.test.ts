@@ -1,8 +1,9 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import { render, screen, waitFor } from '@testing-library/vue'
+import { render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import {
+  DeleteTask,
   ListTaskPage,
   SetTaskEnabled,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice'
@@ -162,4 +163,51 @@ it('centers the empty task state without a duplicate create button and retains c
   expect(await screen.findByText('没有找到匹配的任务')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: '清除搜索' }))
   expect(await screen.findByText('还没有创建弹幕任务')).toBeTruthy()
+})
+
+it('deletes a task only after the alert dialog confirms the consequence', async () => {
+  const task: Task = {
+    id: 3,
+    roomId: 1,
+    name: '第三个任务',
+    kind: TaskKind.Single,
+    enabled: true,
+    messages: ['你好'],
+    intervalSeconds: null,
+    maxCount: null,
+    maxDurationSeconds: null,
+    schedule: {
+      kind: ScheduleKind.Daily,
+      timezone: 'Asia/Shanghai',
+      localDate: '',
+      localTime: '09:00:00',
+      weekdays: 0,
+    },
+    nextDueAt: 12345,
+    createdAt: 1,
+    updatedAt: 1,
+  }
+  vi.mocked(ListTaskPage).mockResolvedValue({ items: [task], nextCursor: null })
+  vi.mocked(DeleteTask).mockResolvedValue(undefined)
+  window.history.replaceState(null, '', '/#/tasks')
+  const user = userEvent.setup()
+  render(TaskManager, {
+    global: {
+      plugins: [createAppRouter(), [VueQueryPlugin, { queryClient: createAppQueryClient() }]],
+    },
+  })
+
+  const trigger = await screen.findByRole('button', { name: '删除任务 第三个任务' })
+  await user.click(trigger)
+  const dialog = screen.getByRole('alertdialog', { name: '删除任务' })
+  expect(dialog.textContent).toContain('删除任务“第三个任务”后无法恢复')
+  expect(dialog.textContent).toContain('已保存的执行历史不会删除')
+  await user.click(within(dialog).getByRole('button', { name: '取消' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  expect(vi.mocked(DeleteTask)).not.toHaveBeenCalled()
+
+  await user.click(trigger)
+  const confirmDialog = screen.getByRole('alertdialog', { name: '删除任务' })
+  await user.click(within(confirmDialog).getByRole('button', { name: '删除任务' }))
+  await waitFor(() => expect(vi.mocked(DeleteTask)).toHaveBeenCalledWith(3))
 })

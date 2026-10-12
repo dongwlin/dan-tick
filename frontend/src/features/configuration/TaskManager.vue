@@ -5,6 +5,7 @@ import { Clock3, ListTodo, Plus, Search, Trash2 } from 'lucide-vue-next'
 import { useDeleteTask, useSetTaskEnabled, useTaskPages } from './queries'
 import { fieldClass, flatPanel } from '@/components/ui/uiStyles'
 import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
+import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import { bindingError } from '@/lib/bindingError'
 import { useLatestExecutions } from '@/features/operations/queries'
 import TaskRunActions from '@/features/operations/TaskRunActions.vue'
@@ -22,6 +23,12 @@ const enabledMutation = useSetTaskEnabled()
 const deleteMutation = useDeleteTask()
 const items = computed(() => tasks.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
 const message = shallowRef('')
+const pendingDelete = shallowRef<Task | null>(null)
+const deleteDescription = computed(() => {
+  const task = pendingDelete.value
+  if (!task) return ''
+  return `删除任务“${task.name}”后无法恢复，已保存的执行历史不会删除。`
+})
 const latestRuns = useLatestExecutions()
 const runsByTask = computed(
   () => new Map((latestRuns.data.value ?? []).map((execution) => [execution.taskId, execution])),
@@ -43,8 +50,18 @@ async function setEnabled(task: Task, event: Event) {
     ;(event.target as HTMLInputElement).checked = task.enabled
   }
 }
-async function deleteTask(task: Task) {
-  if (!window.confirm(`删除任务“${task.name}”？已保存的执行历史不会删除。`)) return
+function requestDelete(task: Task) {
+  pendingDelete.value = task
+}
+
+function closeDeleteDialog() {
+  pendingDelete.value = null
+}
+
+async function deleteTask() {
+  const task = pendingDelete.value
+  if (!task) return
+  pendingDelete.value = null
   try {
     message.value = ''
     await deleteMutation.mutateAsync(task.id)
@@ -161,7 +178,7 @@ async function deleteTask(task: Task) {
                   :disabled="deleteMutation.isPending.value"
                   class="flex items-center gap-1 text-xs text-soft-danger-fg"
                   :aria-label="`删除任务 ${task.name}`"
-                  @click="deleteTask(task)"
+                  @click="requestDelete(task)"
                 >
                   <Trash2 class="size-4" aria-hidden="true" />删除
                 </button>
@@ -218,5 +235,14 @@ async function deleteTask(task: Task) {
     <p v-if="message" role="alert" class="rounded-lg bg-soft-danger-bg p-3 text-soft-danger-fg">
       {{ message }}
     </p>
+    <UiConfirmDialog
+      :open="pendingDelete !== null"
+      title="删除任务"
+      :description="deleteDescription"
+      confirm-label="删除任务"
+      variant="danger"
+      @update:open="closeDeleteDialog"
+      @confirm="deleteTask"
+    />
   </section>
 </template>

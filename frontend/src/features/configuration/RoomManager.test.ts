@@ -1,10 +1,11 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import { render, screen, waitFor } from '@testing-library/vue'
+import { render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { Browser } from '@wailsio/runtime'
 import { expect, it, vi } from 'vitest'
 import {
   AddRoom,
+  DeleteRoom,
   ListRoomPage,
   UpdateRoom,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice'
@@ -68,6 +69,42 @@ it('opens rooms in the system browser in both views and reports failures safely'
   await user.click(screen.getByRole('link', { name: '打开直播间 300' }))
   await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
   expect(Browser.OpenURL).toHaveBeenCalledTimes(3)
+})
+
+it('deletes a room only after the alert dialog confirms the consequence', async () => {
+  vi.mocked(ListRoomPage).mockResolvedValue({
+    items: [
+      {
+        id: 3,
+        platformRoomId: '300',
+        title: '直播三',
+        anchorName: '',
+        remark: '备注三',
+        coverUrl: '',
+        taskCount: 1,
+      },
+    ],
+    nextCursor: null,
+  })
+  vi.mocked(DeleteRoom).mockResolvedValue(undefined)
+  const user = userEvent.setup()
+  render(RoomManager, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+
+  const trigger = await screen.findByRole('button', { name: '删除直播间 300' })
+  await user.click(trigger)
+  const dialog = screen.getByRole('alertdialog', { name: '删除直播间' })
+  expect(dialog.textContent).toContain('删除直播间“备注三”后')
+  expect(dialog.textContent).toContain('关联任务会同时删除且无法恢复')
+  await user.click(within(dialog).getByRole('button', { name: '取消' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  expect(vi.mocked(DeleteRoom)).not.toHaveBeenCalled()
+
+  await user.click(trigger)
+  const confirmDialog = screen.getByRole('alertdialog', { name: '删除直播间' })
+  await user.click(within(confirmDialog).getByRole('button', { name: '删除直播间' }))
+  await waitFor(() => expect(vi.mocked(DeleteRoom)).toHaveBeenCalledWith(3))
 })
 
 it('loads real binding pages, switches views, adds rooms and retains input on failure', async () => {
