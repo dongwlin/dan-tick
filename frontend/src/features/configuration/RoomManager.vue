@@ -9,11 +9,23 @@ import RoomCover from './RoomCover.vue'
 import RoomForm from './RoomForm.vue'
 import { useRoomMetadataRefresh } from './useRoomMetadataRefresh'
 
+type RoomView = 'cards' | 'list'
+const roomViewStorageKey = 'dan-tick-room-view'
+
+function readRoomView(): RoomView {
+  try {
+    return localStorage.getItem(roomViewStorageKey) === 'list' ? 'list' : 'cards'
+  } catch {
+    // Restricted WebViews may disable storage; keep the default view usable.
+    return 'cards'
+  }
+}
+
 const pages = useRoomPages()
 const add = useAddRoom()
 const update = useUpdateRoom()
 const remove = useDeleteRoom()
-const view = shallowRef<'cards' | 'list'>('cards')
+const view = shallowRef<RoomView>(readRoomView())
 const showForm = shallowRef(false)
 const editingID = shallowRef<number | null>(null)
 const remark = shallowRef('')
@@ -22,6 +34,15 @@ const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? [
 useRoomMetadataRefresh(rooms)
 const roomActionClass =
   'inline-flex size-8 items-center justify-center rounded-md hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring'
+
+function setRoomView(next: RoomView) {
+  view.value = next
+  try {
+    localStorage.setItem(roomViewStorageKey, next)
+  } catch {
+    // Preserve the current selection even when persistence is unavailable.
+  }
+}
 
 function secondaryTitle(room: Room): string {
   if (!room.title) return '未获取到直播标题'
@@ -99,7 +120,7 @@ async function deleteRoom(room: Room) {
               view === 'cards' ? 'bg-surface-solid-hover text-text-primary' : 'text-text-secondary'
             "
             :aria-pressed="view === 'cards'"
-            @click="view = 'cards'"
+            @click="setRoomView('cards')"
           >
             <LayoutGrid class="mr-1 inline size-4" aria-hidden="true" />卡片
           </button>
@@ -110,7 +131,7 @@ async function deleteRoom(room: Room) {
               view === 'list' ? 'bg-surface-solid-hover text-text-primary' : 'text-text-secondary'
             "
             :aria-pressed="view === 'list'"
-            @click="view = 'list'"
+            @click="setRoomView('list')"
           >
             <List class="mr-1 inline size-4" aria-hidden="true" />列表
           </button>

@@ -20,6 +20,10 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationse
 }))
 vi.mock('@wailsio/runtime', () => ({ Browser: { OpenURL: vi.fn() } }))
 
+function roomCover(title: string) {
+  return screen.getByRole('heading', { name: title }).closest('article')?.firstElementChild
+}
+
 it('opens rooms in the system browser in both views and reports failures safely', async () => {
   vi.mocked(ListRoomPage).mockResolvedValue({
     items: [
@@ -219,4 +223,83 @@ it('shows a different room title or its missing-title hint without duplicating t
   await user.click(screen.getByRole('button', { name: '列表' }))
   expect(screen.getByText('原标题')).toBeTruthy()
   expect(screen.getAllByText(/相同标题/)).toHaveLength(1)
+})
+
+it('persists the card/list selection across unmounts and restores it on return', async () => {
+  vi.mocked(ListRoomPage).mockResolvedValue({
+    items: [
+      {
+        id: 3,
+        platformRoomId: '300',
+        title: '直播三',
+        anchorName: '主播',
+        remark: '',
+        coverUrl: '',
+        taskCount: 0,
+      },
+    ],
+    nextCursor: null,
+  })
+  const user = userEvent.setup()
+  const mount = () =>
+    render(RoomManager, {
+      global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+    })
+
+  const first = mount()
+  await screen.findByRole('heading', { name: '直播三' })
+  expect(roomCover('直播三')?.classList.contains('h-[134px]')).toBe(true)
+  await user.click(screen.getByRole('button', { name: '列表' }))
+  expect(localStorage.getItem('dan-tick-room-view')).toBe('list')
+  first.unmount()
+
+  const second = mount()
+  await screen.findByRole('heading', { name: '直播三' })
+  expect(screen.getByRole('button', { name: '列表' }).getAttribute('aria-pressed')).toBe('true')
+  expect(roomCover('直播三')?.classList.contains('h-[134px]')).toBe(false)
+  await user.click(screen.getByRole('button', { name: '卡片' }))
+  expect(localStorage.getItem('dan-tick-room-view')).toBe('cards')
+  second.unmount()
+
+  // Unknown persisted values must never break the default layout.
+  localStorage.setItem('dan-tick-room-view', 'invalid')
+  const third = mount()
+  await screen.findByRole('heading', { name: '直播三' })
+  expect(roomCover('直播三')?.classList.contains('h-[134px]')).toBe(true)
+  expect(screen.getByRole('button', { name: '卡片' }).getAttribute('aria-pressed')).toBe('true')
+  third.unmount()
+})
+
+it('continues switching views if localStorage is blocked', async () => {
+  vi.mocked(ListRoomPage).mockResolvedValue({
+    items: [
+      {
+        id: 3,
+        platformRoomId: '300',
+        title: '直播三',
+        anchorName: '主播',
+        remark: '',
+        coverUrl: '',
+        taskCount: 0,
+      },
+    ],
+    nextCursor: null,
+  })
+  const denied = () => {
+    throw new Error('storage unavailable')
+  }
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(denied)
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(denied)
+
+  const user = userEvent.setup()
+  render(RoomManager, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+  await screen.findByRole('heading', { name: '直播三' })
+  expect(roomCover('直播三')?.classList.contains('h-[134px]')).toBe(true)
+  await user.click(screen.getByRole('button', { name: '列表' }))
+  expect(screen.getByRole('button', { name: '列表' }).getAttribute('aria-pressed')).toBe('true')
+  expect(roomCover('直播三')?.classList.contains('h-[134px]')).toBe(false)
+  await user.click(screen.getByRole('button', { name: '卡片' }))
+  expect(screen.getByRole('button', { name: '卡片' }).getAttribute('aria-pressed')).toBe('true')
 })
