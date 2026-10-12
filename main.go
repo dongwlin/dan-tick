@@ -73,9 +73,7 @@ func run(logger *diagnostic.Logger) error {
 				ready := windowReady
 				windowMu.RUnlock()
 				if ready && window != nil {
-					window.Show()
-					window.UnMinimise()
-					window.Focus()
+					desktop.RestoreWindow(window)
 				}
 			},
 		},
@@ -135,8 +133,9 @@ func run(logger *diagnostic.Logger) error {
 	desktopApp.RegisterService(application.NewServiceWithOptions(runtime.Config, application.ServiceOptions{
 		MarshalError: desktop.MarshalError,
 	}))
+	applicationService := desktop.NewApplicationService(db, runtime.Scheduler, func(event string) { desktopApp.Event.Emit(event) })
 	desktopApp.RegisterService(application.NewServiceWithOptions(
-		desktop.NewApplicationService(db, runtime.Scheduler, func(event string) { desktopApp.Event.Emit(event) }),
+		applicationService,
 		application.ServiceOptions{MarshalError: desktop.MarshalError},
 	))
 	version := "development"
@@ -168,10 +167,6 @@ func run(logger *diagnostic.Logger) error {
 	if err := runtime.Start(context.Background()); err != nil {
 		return fmt.Errorf("start scheduled work: %w", err)
 	}
-	// Wails may terminate without returning from Run on some platforms.
-	// Keep the business shutdown before database close in both exit paths.
-	desktopApp.OnShutdown(runtime.Close)
-
 	// The F3 window remains independent of the long-lived Go scheduler.
 	window := desktopApp.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "dan-tick",
@@ -189,6 +184,12 @@ func run(logger *diagnostic.Logger) error {
 		URL:              "/",
 	})
 	windowLifecycle.Attach(window)
+	tray := desktop.NewTray(desktopApp, window, applicationService, windowLifecycle.RequestQuit)
+	defer tray.Close()
+	// Wails may terminate without returning from Run on some platforms. Stop
+	// tray queries before business shutdown and database close in both paths.
+	desktopApp.OnShutdown(tray.Close)
+	desktopApp.OnShutdown(runtime.Close)
 	windowMu.Lock()
 	mainWindow = window
 	windowMu.Unlock()

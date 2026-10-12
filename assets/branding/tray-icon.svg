@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <title>dan-tick tray icon</title>
+  <desc>A simplified D with clock hands, drawn for small system tray sizes.</desc>
+  <style>
+    .halo { fill: none; stroke: #ffffff; stroke-width: 3; }
+    .outline { fill: none; stroke: #08142f; stroke-width: 1.5; }
+    .body { fill: #087dff; }
+    .face { fill: #ffffff; }
+    .hands { fill: none; stroke: #08142f; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+  <path class="halo" d="M6 4h9c8 0 13 4.5 13 12S23 28 15 28H6Z" />
+  <path class="outline" d="M6 4h9c8 0 13 4.5 13 12S23 28 15 28H6Z" />
+  <path class="body" fill-rule="evenodd" d="M6 4h9c8 0 13 4.5 13 12S23 28 15 28H6ZM12 10v12h3c4.5 0 7-2 7-6s-2.5-6-7-6Z" />
+  <path class="face" d="M12 10v12h3c4.5 0 7-2 7-6s-2.5-6-7-6Z" />
+  <path class="hands" d="M16 12v5h4" />
+</svg>
