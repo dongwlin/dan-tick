@@ -5,7 +5,7 @@
 - dan-tick 是面向 Windows、Linux 的 B 站直播弹幕定时发送桌面应用：本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
 - 开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它用于安排实施步骤，不覆盖 PRD 与技术选型的权威性；UI 原型可以独立继续迭代。
-- **F1～F7 的业务集成已完成。** Go 已负责 SQLite、凭证、共享发送器、Cron、启动恢复、执行记录与窗口后台生命周期；正式 Vue 已接入直播间 / 任务配置、账号与测试发送、手动执行 / 停止、执行记录列表和详情，使用 Vue Query 与 Wails Events 更新权威状态。总览、调度设置与安全诊断导出均已接入；G1 Windows / Linux 人工验收仍待完成。`prototype/` 是独立的 Vanilla TypeScript 模拟 UI。按功能渐进引入，不为未来需求创建空架构。
+- **F1～F7 的业务集成已完成。** Go 已负责 SQLite、凭证、共享发送器、Cron、启动恢复、执行记录与窗口后台生命周期；正式 Vue 已接入直播间 / 任务配置、账号与测试发送、手动执行 / 停止、执行记录列表和详情，使用 Vue Query 与 Wails Events 更新权威状态。总览、调度设置与安全诊断导出均已接入；H1 已接入应用内扫码和独立会话受控续期，并移除手动 Cookie 输入与保存 Binding。H0 已完成授权隔离扫码 / 单次续期协议核验；G1 / G3 Windows / Linux 人工验收、自然到期窗口及平台用途核验仍待完成。`prototype/` 是独立的 Vanilla TypeScript 模拟 UI。按功能渐进引入，不为未来需求创建空架构。
 - `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 说明正式 Vue 前端的工具链与构建流程。
 
 ## 2. 现有结构与调用边界
@@ -15,6 +15,7 @@
 | `main.go` | 启动时打开并迁移数据库、退出时关闭连接；Wails 应用、窗口、生命周期钩子及前端嵌入 |
 | `internal/app/` | Keyring、共享 Sender / Executor / Scheduler 及配置 Binding 的业务组合根与启动 / 退出收尾 |
 | `internal/desktop/` | 直播间 / 任务、账号操作、执行记录、调度 / 总览、诊断及窗口设置 Wails Service；安全 DTO / 错误，任务写入经 Scheduler Manager 同步 Cron |
+| `internal/account/`、`internal/credential/` | Passport 协议、扫码 / UID 绑定、续期 / 发送互斥及单项 Keyring 整组会话；旧双字段数据保留并要求重扫，未完成轮换拒绝发送 |
 | `internal/storage/` | 用户数据目录中的 SQLite 连接、Bun Migration、首版六张表及真实数据库测试 |
 | `internal/history/` | E4 执行历史的分页列表、详情及发送尝试查询；不读取当前任务定义重建历史 |
 | `frontend/src/main.ts`、`src/app/`、`src/pages/` | Vue 入口、应用装配（Hash Router、Events 与 Query）和路由页面；使用 `<script setup lang="ts">` 和 Composition API |

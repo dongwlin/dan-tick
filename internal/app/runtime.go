@@ -25,14 +25,31 @@ type Runtime struct {
 	Scheduler  *scheduler.Manager
 	Config     *desktop.ConfigurationService
 	Operations *desktop.OperationsService
+	Sessions   *account.Session
 	emit       func(string)
 
 	stopOnce sync.Once
 }
 
 func New(db *bun.DB, log *diagnostic.Logger) *Runtime {
-	store := credential.NewStore()
-	return newRuntimeWithStore(db, log, store, danmaku.NewClient(store, &http.Client{}))
+	return newRuntimeWithHTTP(db, log, credential.NewStore(), &http.Client{})
+}
+
+func newRuntimeWithHTTP(db *bun.DB, log *diagnostic.Logger, store *credential.Store, httpClient *http.Client) *Runtime {
+	sessions := account.NewSession(store, account.NewPassportClient(httpClient), account.NewService(store, httpClient), nil)
+	runtime := newRuntimeWithStore(db, log, store, danmaku.NewClient(sessions, httpClient))
+	runtime.Sessions = sessions
+	runtime.Operations = desktop.NewOperationsService(db, sessions, sessions, runtime.Sender, runtime.Executor, func(event string) {
+		if runtime.emit != nil {
+			runtime.emit(event)
+		}
+	})
+	sessions.SetOnChange(func() {
+		if runtime.emit != nil {
+			runtime.emit(desktop.EventAccountChanged)
+		}
+	})
+	return runtime
 }
 
 func newRuntime(db *bun.DB, log *diagnostic.Logger, client *danmaku.Client) *Runtime {
@@ -82,7 +99,13 @@ func (r *Runtime) BindEvents(emit func(string)) {
 // wakeup. Failure leaves the caller responsible for Close, not a half-running
 // scheduler. The scheduler is independent of Wails views and window lifetime.
 func (r *Runtime) Start(ctx context.Context) error {
-	return r.Scheduler.Start(ctx)
+	if err := r.Scheduler.Start(ctx); err != nil {
+		return err
+	}
+	if r.Sessions != nil {
+		r.Sessions.Start()
+	}
+	return nil
 }
 
 // Close is safe after startup failure, normal application shutdown, or both.
@@ -91,6 +114,12 @@ func (r *Runtime) Start(ctx context.Context) error {
 func (r *Runtime) Close() {
 	r.stopOnce.Do(func() {
 		<-r.Scheduler.Stop().Done()
+		if r.Sessions != nil {
+			r.Sessions.Stop()
+		}
 		_ = r.Executor.Shutdown(context.Background())
+		if r.Sessions != nil {
+			r.Sessions.Close()
+		}
 	})
 }

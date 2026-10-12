@@ -78,9 +78,6 @@ func TestOperationsServiceCredentialAndSendBoundary(t *testing.T) {
 	var events []string
 	s := NewOperationsService(db, store, fakeChecker{status: account.Status{State: account.LoggedIn}}, sender, runner, func(event string) { events = append(events, event) })
 	require.Equal(t, account.LoggedIn, s.CheckAccount(ctx).State)
-	require.NoError(t, s.SaveAccount(ctx, SaveAccountInput{SESSDATA: "test_session_secret", BiliJCT: "test_csrf_secret"}))
-	require.Equal(t, "test_session_secret", store.credentials.SESSDATA)
-	require.Equal(t, []string{EventAccountChanged}, events)
 
 	result, err := s.TestSend(ctx, TestSendInput{RoomID: roomID, Message: "private test text"})
 	require.NoError(t, err)
@@ -101,13 +98,57 @@ func TestOperationsServiceCredentialAndSendBoundary(t *testing.T) {
 	require.NotContains(t, string(encoded), "secret")
 
 	store.err = credential.ErrUnavailable
-	err = s.SaveAccount(ctx, SaveAccountInput{SESSDATA: "test_session_secret", BiliJCT: "test_csrf_secret"})
+	err = s.ClearAccount(ctx)
 	assertPublicError(t, err, "keyring_unavailable", "test_session_secret")
-	require.Len(t, events, 1, "failed save must not emit a success event")
+	require.Empty(t, events, "failed clear must not emit a success event")
 	store.err = nil
 	require.NoError(t, s.ClearAccount(ctx))
 	require.True(t, store.cleared)
-	require.Equal(t, []string{EventAccountChanged, EventAccountChanged}, events)
+	require.Equal(t, []string{EventAccountChanged}, events)
+}
+
+type fakeQRChecker struct {
+	fakeChecker
+	err error
+}
+
+func (c fakeQRChecker) BeginQRLogin(context.Context) (account.QRLoginStatus, error) {
+	return account.QRLoginStatus{State: "waiting", QRImage: "data:image/png;base64,fake", ExpiresAt: 123}, c.err
+}
+func (c fakeQRChecker) PollQRLogin(context.Context) (account.QRLoginStatus, error) {
+	return account.QRLoginStatus{State: "account_mismatch", CandidateUID: "42"}, c.err
+}
+func (c fakeQRChecker) ConfirmQRAccount(context.Context) error { return c.err }
+func (c fakeQRChecker) CancelQRLogin(context.Context) error    { return c.err }
+
+func TestQRBindingExposesOnlyWorkflowAndSafeErrors(t *testing.T) {
+	ctx := context.Background()
+	s := NewOperationsService(nil, nil, fakeQRChecker{}, nil, nil, nil)
+	begin, err := s.BeginQRLogin(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "waiting", begin.State)
+	require.Contains(t, begin.QRImage, "data:image/png;base64,")
+	poll, err := s.PollQRLogin(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "42", poll.CandidateUID)
+	require.NoError(t, s.ConfirmQRAccount(ctx))
+	require.NoError(t, s.CancelQRLogin(ctx))
+	for _, failure := range []struct {
+		err  error
+		code string
+	}{
+		{account.ErrPassportUnavailable, "login_unavailable"},
+		{account.ErrPassportExpired, "qr_expired"},
+		{credential.ErrReauthenticationRequired, "reauthentication_required"},
+		{errors.New("SESSDATA=private; refresh_token=private"), "internal"},
+	} {
+		s.account = fakeQRChecker{err: failure.err}
+		_, err := s.BeginQRLogin(ctx)
+		assertPublicError(t, err, failure.code, "private")
+		_, err = s.PollQRLogin(ctx)
+		assertPublicError(t, err, failure.code, "private")
+		assertPublicError(t, s.ConfirmQRAccount(ctx), failure.code, "private")
+	}
 }
 
 func TestOperationsServiceExecutionAndAccountStatus(t *testing.T) {

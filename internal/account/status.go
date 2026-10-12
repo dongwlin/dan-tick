@@ -32,10 +32,11 @@ var (
 type State string
 
 const (
-	Unconfigured       State = "unconfigured"
-	LoggedIn           State = "logged_in"
-	Expired            State = "expired"
-	VerificationFailed State = "verification_failed"
+	Unconfigured             State = "unconfigured"
+	LoggedIn                 State = "logged_in"
+	Expired                  State = "expired"
+	VerificationFailed       State = "verification_failed"
+	ReauthenticationRequired State = "reauthentication_required"
 )
 
 // Status exposes only the login state and safe public profile fields.
@@ -89,6 +90,12 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 		return Status{State: VerificationFailed}, credential.ErrUnavailable
 	}
 
+	return s.CheckCredentials(ctx, credentials)
+}
+
+// CheckCredentials verifies a candidate without first replacing the keyring.
+// It is used by the QR session owner for UID binding and refresh validation.
+func (s *Service) CheckCredentials(ctx context.Context, credentials credential.Credentials) (Status, error) {
 	failed := Status{State: VerificationFailed}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
@@ -145,7 +152,7 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 	}
 	status.Name = strings.TrimSpace(response.Data.Uname)
 	status.AvatarURL = safeAvatarURL(response.Data.Face)
-	for _, secret := range []string{credentials.SESSDATA, credentials.BiliJCT} {
+	for _, secret := range []string{credentials.SESSDATA, credentials.BiliJCT, credentials.RefreshToken} {
 		if secret == "" {
 			continue
 		}

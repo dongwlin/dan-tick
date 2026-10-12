@@ -83,9 +83,13 @@ func (c *PassportClient) Generate(ctx context.Context) (QRChallenge, error) {
 		return QRChallenge{}, err
 	}
 	u, err := url.Parse(data.URL)
-	if err != nil || !passportURL(u, "passport.bilibili.com") ||
-		(u.Path != "/qrcode/h5/login" && u.Path != "/h5-app/passport/login/scan") ||
-		!validPassportValue(data.Key, 512) {
+	if err != nil || !validPassportValue(data.Key, 512) {
+		return QRChallenge{}, ErrPassportInvalidResponse
+	}
+	knownQRURL := (passportURL(u, "passport.bilibili.com") &&
+		(u.Path == "/qrcode/h5/login" || u.Path == "/h5-app/passport/login/scan")) ||
+		(passportURL(u, "account.bilibili.com") && u.Path == "/h5/account-h5/auth/scan-web")
+	if !knownQRURL {
 		return QRChallenge{}, ErrPassportInvalidResponse
 	}
 	query, err := url.ParseQuery(u.RawQuery)

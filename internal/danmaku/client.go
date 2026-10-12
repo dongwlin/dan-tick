@@ -36,6 +36,7 @@ var (
 	ErrTimeout         = errors.New("danmaku request timed out")
 	ErrHTTPStatus      = errors.New("unexpected danmaku HTTP status")
 	ErrInvalidResponse = errors.New("invalid danmaku response")
+	ErrLoginCheck      = errors.New("login verification temporarily unavailable")
 )
 
 // Outcome describes what is actually known about the send side effect.
@@ -59,6 +60,11 @@ type Result struct {
 // credentialLoader allows tests to replace the OS Keyring boundary.
 type credentialLoader interface {
 	Load() (credential.Credentials, error)
+}
+
+// A QR session holds its rotation gate for the complete authenticated request.
+type credentialAcquirer interface {
+	AcquireRequest(context.Context) (context.Context, credential.Credentials, func(), error)
 }
 
 type Client struct {
@@ -92,14 +98,36 @@ func (c *Client) Send(ctx context.Context, roomID, message string) (Result, erro
 	if err := ctx.Err(); err != nil {
 		return notSent, err
 	}
-	credentials, err := c.store.Load()
+	var credentials credential.Credentials
+	var err error
+	owner, managed := c.store.(credentialAcquirer)
+	if managed {
+		var release func()
+		var requestCtx context.Context
+		requestCtx, credentials, release, err = owner.AcquireRequest(ctx)
+		if err == nil {
+			ctx = requestCtx
+			defer release()
+		}
+	} else {
+		credentials, err = c.store.Load()
+	}
 	if err != nil {
 		switch {
+		case errors.Is(err, credential.ErrReauthenticationRequired):
+			return notSent, ErrAuthentication
+		case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+			return notSent, err
 		case errors.Is(err, credential.ErrNotConfigured):
 			return notSent, credential.ErrNotConfigured
 		case errors.Is(err, credential.ErrCorrupt):
 			return notSent, credential.ErrCorrupt
+		case errors.Is(err, credential.ErrUnavailable):
+			return notSent, credential.ErrUnavailable
 		default:
+			if managed {
+				return notSent, ErrLoginCheck
+			}
 			// A platform error may contain sensitive provider diagnostics.
 			return notSent, credential.ErrUnavailable
 		}

@@ -11,6 +11,7 @@ const name = computed(() => {
   if (account.isPending.value) return '正在读取账号…'
   if (loggedIn.value) return account.data.value?.name || 'B 站用户'
   if (account.data.value?.state === State.Expired) return '登录已过期'
+  if (account.data.value?.state === State.ReauthenticationRequired) return '需要重新扫码登录'
   if (account.data.value?.state === State.VerificationFailed || account.isError.value)
     return '账号信息暂不可用'
   return '未登录 B 站'

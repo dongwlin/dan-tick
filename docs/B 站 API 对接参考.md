@@ -61,11 +61,11 @@
 
 ## 5. 首版扫码登录与续期研究与实现
 
-2026-10-12 已核查社区资料和第三方作者实现，`internal/account/passport.go` 据此接入协议，并通过 `httptest` 使用假 Cookie / RT 验证异常分支。**尚未通过真实账号端到端验证，不能据此宣称 H0 的实机门槛或 G3 已完成。** 浏览器插件同步在首版发布后实施。两种目标认证模式见 [PRD FR-003](PRD.md#fr-003凭证安全)：
+2026-10-12 已核查社区资料和第三方作者实现，`internal/account/passport.go` 据此接入协议，并通过 `httptest` 使用假 Cookie / RT 验证异常分支。同日经用户明确授权，已用隔离、仅内存保存凭证的人工工具完成真实扫码、UID 核对、单次轮换及确认；未访问既有 Keyring / SQLite，也未发送弹幕。**这不替代 Windows / Linux 的 Keyring 和桌面 G3 验收；平台用途许可仍待核验。** 浏览器插件同步在首版发布后实施。两种目标认证模式见 [PRD FR-003](PRD.md#fr-003凭证安全)：
 
 | 模式 | 登录凭证 | 是否由 dan-tick 续期 |
 | --- | --- | --- |
-| 应用内扫码（首版必做） | 应用独立登录获得 `SESSDATA`、`bili_jct`、账号 UID 和该会话的 `refresh_token` | 是，受控检查和轮换；真实会话独立性待验收 |
+| 应用内扫码（首版必做） | 应用独立登录获得 `SESSDATA`、`bili_jct`、账号 UID 和该会话的 `refresh_token` | 是，受控检查和轮换；已核验应用自行取得并轮换会话；其它会话影响仍待验收 |
 | 浏览器插件同步（首版后，首期 Chrome） | 只同步浏览器会话最新的 `SESSDATA`、`bili_jct` | 否，`refresh_token`（网页端常见持久化键为 `ac_time_value`）由浏览器自行管理；扩展不读取或传给应用 |
 
 旧版手动填写两个 Cookie 是过渡入口，H1 同步移除设置页和公开 Binding 的手动保存入口。迁移识别既存 Keyring 双字段数据，保留凭证和任务，要求用户明确扫码重新绑定。
@@ -83,6 +83,8 @@ Passport 路径以下均位于 `https://passport.bilibili.com/x/passport-login/w
 | 轮换 | `POST /cookie/refresh` | 表单含旧 `csrf`、`refresh_csrf`、`source=main_web`、旧 `refresh_token`；需要新整组 Cookie、新 RT 及成功状态 |
 | 确认 | `POST /confirm/refresh` | **新 Cookie / CSRF 与旧 RT**；只认业务 `code = 0`，禁止盲目重放 |
 
+**2026-10-12 无账号生成接口实测差异：** 经用户授权，仅调用未登录的二维码生成接口，得到 HTTP `200`、JSON `code = 0`，`data` 字段仍为 `url` / `qrcode_key`。二维码 URL 已变为 `https://account.bilibili.com/h5/account-h5/auth/scan-web`，参数名为 `callback`、`from`、`navhide`、`qrcode_key`；不记录参数值、完整 URL、密钥或原始响应。客户端据此加入该精确域名 / 路径组合；此前仅允许 Passport 域名的路径会错误拒绝当前响应。此实测只证明生成接口的新合同，尚不证明后续扫码票据、Cookie、RT 及续期有效。
+
 旧扫码资料描述 poll 响应直接设置 Cookie，或在 `passport.biligame.com/crossDomain` 的 URL 参数中返回 Cookie。第三方 [bilibili-cli PR #27](https://github.com/public-clis/bilibili-cli/pull/27) 的作者在 2026-08 报告新格式：成功 URL 为 `passport.biligame.com/x/passport-login/web/crossDomain?ticket=...`，需单独获取其 `Set-Cookie`；[作者提交的实现](https://github.com/ZeroMarker/bilibili-cli/blob/6962d5b/bili_cli/auth.py) 禁止自动重定向。该 PR 在本次查阅时仍未合并，这是**第三方实现及作者亲测的证据，尚非本项目实测，更非官方保证**。
 
 客户端优先解析 poll 的完整 Cookie；缺失时兼容旧 URL 参数，或对新票据执行一次严格域名 / 路径校验的 HTTPS 请求。票据请求仅允许单个有限长度 `ticket`，拒绝 userinfo、端口、fragment 和任意额外参数，不携带原账号 Cookie、不访问 `Location`；只从直接 `200` / `302` 响应提取整组 Cookie。任何格式缺失或新的跨域需求均失败并提示重扫，不添加通用 SSO 或绕过验证的路径。二维码 URL 同样限制为已知的 Passport 登录路径。
@@ -93,12 +95,14 @@ Passport 路径以下均位于 `https://passport.bilibili.com/x/passport-login/w
 
 `-101`、`-111` 和 `86095` 归为需要重新登录；未知非零业务码为拒绝，不回显上游消息。网络请求均有取消 / 超时和响应大小限制，忽略调用方 Cookie Jar、禁止自动重定向。刷新 POST 发出后的超时、HTTP 错误、JSON 损坏或新凭证缺失归为不确定结果，禁止自动重放；确认失败或本地写入失败也要求重新扫码。轮换前持久化 `pending` 标记，启动发现未完成轮换时拒绝使用旧会话，避免服务端已经成功但本地仍保存旧 Cookie 的静默回退。
 
-社区资料指出确认更新会让旧 RT 对应的 Cookie 失效，但**失效范围、账号其它独立会话是否受影响，以及新票据流程的实际响应状态均尚待人工核验**。应用不复制浏览器 RT，不保证会话永久有效。
+社区资料指出确认更新会让旧 RT 对应的 Cookie 失效。本次隔离实测中，生成接口返回新登录页，扫码、刷新与确认成功；Cookie、CSRF 和 RT 均实际变化，刷新前后 `nav` 的 UID 一致。新、旧会话在确认后立即和 30 秒两次检查都仍为 `logged_in`，因此**不能假定确认立即使旧 Cookie 失效**，也不能由此证明旧 RT 仍可刷新。本次没有再次使用旧 RT 或检查其他浏览器凭证；失效延迟、其它独立会话影响和票据下发形式仍不作保证。应用不复制浏览器 RT，不保证会话永久有效。
 
-### 5.3 仍待首版人工验证
+### 5.3 隔离实测及仍待首版人工验证
+
+2026-10-12 的授权人工核验共完成两次临时扫码登录；仅内存持有 Cookie / RT，二维码确认或退出后移除，工具退出释放凭证，输出只含固定阶段、状态和是否变化的布尔值。服务端 `cookie/info` 返回 `refresh=false`，人工工具为核验轮换进行了单次明确授权的刷新，并完成新会话 UID 校验和旧 RT 确认；正式应用仍只在 `refresh=true` 时自动轮换。两次流程成功，补充核验记录了上述凭证变化及 30 秒状态。本次尚未证明实际过期 / `refresh=true` 时的生产窗口、浏览器会话影响或双平台安全存储行为。
 
 - 在 Windows / Linux 隔离账号上验证扫码确认、取消、180 秒到期、票据与 Cookie 下发、UID 校验及 Keyring 锁定 / 不可用反馈；真实操作必须另外获得用户明确授权，不保留原始 Cookie、RT 或敏感响应。
-- 对照服务端实际结果验证检查续期、完整轮换、旧 RT 确认、其它会话失效范围、退出 / 重启后的 `pending` 恢复；同时核对新格式与上述社区资料是否仍一致。
+- 对照服务端实际结果验证检查续期、完整轮换、旧 RT 确认、其它会话失效范围、退出 / 重启后的 `pending` 恢复；本次已核验主动轮换和新旧会话即时 / 30 秒状态；实际到期窗口、跨浏览器会话影响及双平台恢复仍须补验。
 - 核验平台允许的用途及授权。官方 [用户使用协议](https://www.bilibili.com/blackboard/protocal/licence.html) 第 5.6(3) 项对未经事先明确书面许可使用自动程序获取平台服务、内容、数据作出限制；本次未取得本项目用途许可。用户同意扫码与开源实现存在，均不能替代平台许可核验。
 
 这些未完成项仍属于首版发布门槛；失败时不得恢复公开手动 Cookie 输入作为替代。

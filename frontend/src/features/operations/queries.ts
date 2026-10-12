@@ -14,6 +14,14 @@ export const operationKeys = {
   executions: ['executions', 'latest'] as const,
 }
 
+export const accountStatusLabels: Record<string, string> = {
+  unconfigured: '未配置',
+  logged_in: '已登录',
+  expired: '已过期',
+  reauthentication_required: '需要重新扫码',
+  verification_failed: '验证失败',
+}
+
 export function useAccountStatus() {
   return useQuery({ queryKey: operationKeys.account, queryFn: CheckAccount })
 }
@@ -64,7 +72,8 @@ export const executionStatus: Record<string, string> = {
 export const sendFailureText: Record<string, string> = {
   credential_missing: '尚未配置账号凭证',
   credential_unavailable: '系统安全凭证存储不可用，请检查系统密钥环',
-  authentication: '登录已失效，请更新账号凭证',
+  authentication: '登录已失效，请重新扫码登录',
+  reauthentication_required: '登录需要重新扫码绑定，请在设置中扫码登录',
   rate_limited: '触发 B 站发送频率限制，请稍后再试',
   too_long: '弹幕内容超出平台长度限制',
   invalid_input: '发送内容无效，请检查输入',

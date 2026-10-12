@@ -21,6 +21,7 @@ const statusLabels: Record<string, string> = {
   logged_in: '已登录',
   unconfigured: '未配置',
   expired: '凭证已过期',
+  reauthentication_required: '需要重新扫码',
   verification_failed: '验证失败',
 }
 </script>

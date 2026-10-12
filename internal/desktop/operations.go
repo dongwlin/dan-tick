@@ -20,8 +20,13 @@ const (
 )
 
 type credentialsStore interface {
-	Save(credential.Credentials) error
 	Clear() error
+}
+type qrLoginService interface {
+	BeginQRLogin(context.Context) (account.QRLoginStatus, error)
+	PollQRLogin(context.Context) (account.QRLoginStatus, error)
+	ConfirmQRAccount(context.Context) error
+	CancelQRLogin(context.Context) error
 }
 type loginChecker interface {
 	Check(context.Context) (account.Status, error)
@@ -57,23 +62,47 @@ func (s *OperationsService) changed(event string) {
 
 func (s *OperationsService) CheckAccount(ctx context.Context) account.Status {
 	status, err := s.account.Check(ctx)
+	if errors.Is(err, credential.ErrReauthenticationRequired) {
+		return account.Status{State: account.ReauthenticationRequired}
+	}
 	if err != nil {
 		return account.Status{State: account.VerificationFailed}
 	}
 	return status
 }
 
-type SaveAccountInput struct {
-	SESSDATA string `json:"sessdata"`
-	BiliJCT  string `json:"biliJct"`
+func (s *OperationsService) BeginQRLogin(ctx context.Context) (account.QRLoginStatus, error) {
+	owner, ok := s.account.(qrLoginService)
+	if !ok {
+		return account.QRLoginStatus{}, protect(account.ErrSessionClosed)
+	}
+	result, err := owner.BeginQRLogin(ctx)
+	return result, protect(err)
 }
 
-func (s *OperationsService) SaveAccount(_ context.Context, input SaveAccountInput) error {
-	if err := s.store.Save(credential.Credentials{SESSDATA: input.SESSDATA, BiliJCT: input.BiliJCT}); err != nil {
-		return protect(err)
+func (s *OperationsService) PollQRLogin(ctx context.Context) (account.QRLoginStatus, error) {
+	owner, ok := s.account.(qrLoginService)
+	if !ok {
+		return account.QRLoginStatus{}, protect(account.ErrSessionClosed)
 	}
-	s.changed(EventAccountChanged)
-	return nil
+	result, err := owner.PollQRLogin(ctx)
+	return result, protect(err)
+}
+
+func (s *OperationsService) ConfirmQRAccount(ctx context.Context) error {
+	owner, ok := s.account.(qrLoginService)
+	if !ok {
+		return protect(account.ErrSessionClosed)
+	}
+	return protect(owner.ConfirmQRAccount(ctx))
+}
+
+func (s *OperationsService) CancelQRLogin(ctx context.Context) error {
+	owner, ok := s.account.(qrLoginService)
+	if !ok {
+		return protect(account.ErrSessionClosed)
+	}
+	return protect(owner.CancelQRLogin(ctx))
 }
 
 func (s *OperationsService) ClearAccount(_ context.Context) error {

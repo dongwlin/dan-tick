@@ -53,8 +53,9 @@ func assertPassportErrorSafe(t *testing.T, err error) {
 
 func TestPassportGenerateValidatesQRURLAndKey(t *testing.T) {
 	for name, rawURL := range map[string]string{
-		"current path": "https://passport.bilibili.com/qrcode/h5/login?qrcode_key=test-key",
-		"legacy path":  "https://passport.bilibili.com/h5-app/passport/login/scan?navhide=1&qrcode_key=test-key&from=",
+		"observed account path": "https://account.bilibili.com/h5/account-h5/auth/scan-web?callback=https%3A%2F%2Fpassport.bilibili.com%2F&from=main_web&navhide=1&qrcode_key=test-key",
+		"current path":          "https://passport.bilibili.com/qrcode/h5/login?qrcode_key=test-key",
+		"legacy path":           "https://passport.bilibili.com/h5-app/passport/login/scan?navhide=1&qrcode_key=test-key&from=",
 	} {
 		t.Run(name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -70,17 +71,21 @@ func TestPassportGenerateValidatesQRURLAndKey(t *testing.T) {
 		})
 	}
 	for name, data := range map[string]map[string]string{
-		"http":            {"url": "http://passport.bilibili.com/qrcode/h5/login?qrcode_key=test-key", "qrcode_key": "test-key"},
-		"other host":      {"url": "https://attacker.example/qrcode/h5/login?qrcode_key=test-key", "qrcode_key": "test-key"},
-		"userinfo":        {"url": "https://secret@passport.bilibili.com/qrcode/h5/login?qrcode_key=test-key", "qrcode_key": "test-key"},
-		"explicit port":   {"url": "https://passport.bilibili.com:443/qrcode/h5/login?qrcode_key=test-key", "qrcode_key": "test-key"},
-		"fragment":        {"url": "https://passport.bilibili.com/qrcode/h5/login?qrcode_key=test-key#secret", "qrcode_key": "test-key"},
-		"unexpected path": {"url": "https://passport.bilibili.com/other?qrcode_key=test-key", "qrcode_key": "test-key"},
-		"encoded path":    {"url": "https://passport.bilibili.com/qrcode/h5/%6cogin?qrcode_key=test-key", "qrcode_key": "test-key"},
-		"wrong key":       {"url": "https://passport.bilibili.com/qrcode/h5/login?qrcode_key=other-key", "qrcode_key": "test-key"},
-		"duplicate key":   {"url": "https://passport.bilibili.com/qrcode/h5/login?qrcode_key=test-key&qrcode_key=test-key", "qrcode_key": "test-key"},
-		"missing key":     {"url": "https://passport.bilibili.com/qrcode/h5/login"},
-		"oversize key":    {"url": "https://passport.bilibili.com/qrcode/h5/login", "qrcode_key": strings.Repeat("x", 513)},
+		"http":                  {"url": "http://passport.bilibili.com/qrcode/h5/login?qrcode_key=test-key", "qrcode_key": "test-key"},
+		"other host":            {"url": "https://attacker.example/qrcode/h5/login?qrcode_key=test-key", "qrcode_key": "test-key"},
+		"userinfo":              {"url": "https://secret@passport.bilibili.com/qrcode/h5/login?qrcode_key=test-key", "qrcode_key": "test-key"},
+		"explicit port":         {"url": "https://passport.bilibili.com:443/qrcode/h5/login?qrcode_key=test-key", "qrcode_key": "test-key"},
+		"fragment":              {"url": "https://passport.bilibili.com/qrcode/h5/login?qrcode_key=test-key#secret", "qrcode_key": "test-key"},
+		"unexpected path":       {"url": "https://passport.bilibili.com/other?qrcode_key=test-key", "qrcode_key": "test-key"},
+		"wrong account path":    {"url": "https://account.bilibili.com/arbitrary?qrcode_key=test-key", "qrcode_key": "test-key"},
+		"account userinfo":      {"url": "https://secret@account.bilibili.com/h5/account-h5/auth/scan-web?qrcode_key=test-key", "qrcode_key": "test-key"},
+		"account explicit port": {"url": "https://account.bilibili.com:443/h5/account-h5/auth/scan-web?qrcode_key=test-key", "qrcode_key": "test-key"},
+		"account fragment":      {"url": "https://account.bilibili.com/h5/account-h5/auth/scan-web?qrcode_key=test-key#secret", "qrcode_key": "test-key"},
+		"encoded path":          {"url": "https://passport.bilibili.com/qrcode/h5/%6cogin?qrcode_key=test-key", "qrcode_key": "test-key"},
+		"wrong key":             {"url": "https://passport.bilibili.com/qrcode/h5/login?qrcode_key=other-key", "qrcode_key": "test-key"},
+		"duplicate key":         {"url": "https://passport.bilibili.com/qrcode/h5/login?qrcode_key=test-key&qrcode_key=test-key", "qrcode_key": "test-key"},
+		"missing key":           {"url": "https://passport.bilibili.com/qrcode/h5/login"},
+		"oversize key":          {"url": "https://passport.bilibili.com/qrcode/h5/login", "qrcode_key": strings.Repeat("x", 513)},
 	} {
 		t.Run(name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -296,6 +301,41 @@ func TestPassportPollLegacyCrossDomainDoesNotFetchURL(t *testing.T) {
 	require.EqualValues(t, 1, requests.Load())
 }
 
+func TestPassportTicketRequiresCompleteCookiesAndSupportedHTTPStatus(t *testing.T) {
+	for name, test := range map[string]struct {
+		status  int
+		cookies bool
+		want    error
+	}{
+		"direct success":      {http.StatusOK, true, nil},
+		"missing cookies":     {http.StatusOK, false, ErrPassportInvalidResponse},
+		"failed ticket":       {http.StatusBadGateway, true, ErrPassportUnavailable},
+		"unexpected redirect": {http.StatusTemporaryRedirect, true, ErrPassportUnavailable},
+	} {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/x/passport-login/web/qrcode/poll" {
+					_, _ = io.WriteString(w, `{"code":0,"data":{"code":0,"refresh_token":"`+passportRefreshSecret+`","url":"https://passport.biligame.com/x/passport-login/web/crossDomain?ticket=fake-ticket"}}`)
+					return
+				}
+				if test.cookies {
+					passportWriteCookies(w, "42")
+				}
+				w.WriteHeader(test.status)
+			}))
+			defer server.Close()
+			result, err := passportRoutedClient(t, server).Poll(context.Background(), "test-key")
+			if test.want == nil {
+				require.NoError(t, err)
+				require.Equal(t, passportTestCredentials(), result.Credentials)
+			} else {
+				require.Empty(t, result)
+				require.ErrorIs(t, err, test.want)
+			}
+		})
+	}
+}
+
 func TestPassportRefreshInfoValidatesFieldsAndUsesMatchingCookie(t *testing.T) {
 	for name, body := range map[string]string{
 		"needed":     `{"code":0,"data":{"refresh":true,"timestamp":1800000000000}}`,
@@ -400,6 +440,45 @@ func TestPassportRefreshDoesNotPostWhenCSRFIsInvalid(t *testing.T) {
 			require.ErrorIs(t, err, ErrPassportInvalidResponse)
 			require.NotErrorIs(t, err, ErrRefreshUncertain)
 			require.EqualValues(t, 1, requests.Load())
+		})
+	}
+}
+
+func TestPassportRefreshDoesNotPostWhenCorrespondRequestFails(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+	result, err := passportTestClient(server).Refresh(context.Background(), passportTestCredentials(), 1800000000000)
+	require.Empty(t, result)
+	require.ErrorIs(t, err, ErrPassportUnavailable)
+	require.NotErrorIs(t, err, ErrRefreshUncertain)
+	require.EqualValues(t, 1, requests.Load())
+}
+
+func TestPassportConfirmOnlyAcceptsExplicitBusinessSuccess(t *testing.T) {
+	for name, test := range map[string]struct {
+		status int
+		body   string
+		want   error
+	}{
+		"expired":      {http.StatusOK, `{"code":-101,"message":"` + passportRefreshSecret + `"}`, ErrPassportExpired},
+		"csrf failure": {http.StatusOK, `{"code":-111}`, ErrPassportExpired},
+		"rejected":     {http.StatusOK, `{"code":-400}`, ErrPassportRejected},
+		"missing code": {http.StatusOK, `{"message":"` + sessionSecret + `"}`, ErrPassportInvalidResponse},
+		"HTTP failure": {http.StatusBadGateway, csrfSecret, ErrPassportUnavailable},
+	} {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(test.status)
+				_, _ = io.WriteString(w, test.body)
+			}))
+			defer server.Close()
+			err := passportTestClient(server).Confirm(context.Background(), passportTestCredentials(), passportRefreshSecret)
+			require.ErrorIs(t, err, test.want)
+			assertPassportErrorSafe(t, err)
 		})
 	}
 }

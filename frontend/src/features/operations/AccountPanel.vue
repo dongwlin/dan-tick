@@ -1,54 +1,35 @@
 <script setup lang="ts">
-import { shallowRef } from 'vue'
+import { computed, shallowRef } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
-import { SaveAccount } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice'
+import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
 import { ShieldCheck, RefreshCw } from 'lucide-vue-next'
 import { bindingError } from '@/features/configuration/queries'
-import {
-  fieldClass,
-  labelClass,
-  flatPanel,
-  primaryButton,
-  secondaryButton,
-} from '@/features/configuration/style'
-import { operationKeys, useAccountStatus, useClearAccount } from './queries'
+import { flatPanel, secondaryButton } from '@/features/configuration/style'
+import { accountStatusLabels, operationKeys, useAccountStatus, useClearAccount } from './queries'
+import QRLoginCard from './QRLoginCard.vue'
+import { useQRLogin } from './useQRLogin'
 
 const status = useAccountStatus()
 const client = useQueryClient()
-const saving = shallowRef(false)
 const clear = useClearAccount()
-const sessdata = shallowRef('')
-const biliJct = shallowRef('')
 const feedback = shallowRef('')
 const errorMessage = shallowRef('')
+const qr = useQRLogin({
+  onConfirmed: () => client.invalidateQueries({ queryKey: operationKeys.account }),
+})
+const statusLabel = computed(() => {
+  if (status.isFetching.value) return '验证中…'
+  if (status.isError.value) return '状态暂不可用'
+  return accountStatusLabels[status.data.value?.state ?? ''] ?? '暂不可用'
+})
+const needsReauthentication = computed(
+  () => status.data.value?.state === State.ReauthenticationRequired,
+)
 
-const statusLabels: Record<string, string> = {
-  unconfigured: '未配置',
-  logged_in: '已登录',
-  expired: '已过期',
-  verification_failed: '验证失败',
-}
-
-async function saveCredentials() {
-  if (saving.value) return
-  saving.value = true
+async function beginLogin() {
   errorMessage.value = ''
   feedback.value = ''
-  try {
-    // Do NOT pass Cookie values to a Vue Query mutation: its mutation cache
-    // retains variables after settle. Only the Wails call sees this input.
-    await SaveAccount({ sessdata: sessdata.value, biliJct: biliJct.value })
-    // Never leave submitted Cookie values in a mounted form longer than needed.
-    sessdata.value = ''
-    biliJct.value = ''
-    await client.invalidateQueries({ queryKey: operationKeys.account })
-    feedback.value = '凭证已保存至系统安全存储。登录状态已重新检查。'
-  } catch (error) {
-    // Preserve both fields for correction, not in a Store or localStorage.
-    errorMessage.value = bindingError(error)
-  } finally {
-    saving.value = false
-  }
+  await qr.begin()
 }
 
 async function clearCredentials() {
@@ -57,8 +38,6 @@ async function clearCredentials() {
   feedback.value = ''
   try {
     await clear.mutateAsync()
-    sessdata.value = ''
-    biliJct.value = ''
     feedback.value = '账号凭证已清除。'
   } catch (error) {
     errorMessage.value = bindingError(error)
@@ -72,61 +51,37 @@ async function clearCredentials() {
       <h2 id="account-heading" class="text-base font-semibold">B站账号凭证</h2>
       <span class="flex items-center gap-2 text-sm text-text-secondary" aria-live="polite">
         <ShieldCheck class="size-4" aria-hidden="true" />
-        {{
-          status.isFetching.value
-            ? '验证中…'
-            : (statusLabels[status.data.value?.state ?? ''] ?? '暂不可用')
-        }}
+        {{ statusLabel }}
       </span>
     </div>
-    <div class="grid gap-3">
-      <label for="account-sessdata" :class="labelClass">
-        SESSDATA
-        <input
-          id="account-sessdata"
-          v-model="sessdata"
-          type="password"
-          autocomplete="off"
-          :class="fieldClass"
-          placeholder="输入 SESSDATA"
-        />
-      </label>
-      <label for="account-bili-jct" :class="labelClass">
-        bili_jct
-        <input
-          id="account-bili-jct"
-          v-model="biliJct"
-          type="password"
-          autocomplete="off"
-          :class="fieldClass"
-          placeholder="输入 bili_jct"
-        />
-      </label>
-    </div>
-    <p class="text-xs text-text-tertiary">
-      输入仅在本页临时保留；保存后清空。应用不会显示或读取回已存凭证。
+    <p v-if="needsReauthentication" class="text-sm text-soft-warning-fg">
+      现有凭证需要重新扫码绑定。原凭证和任务会保留，扫码成功后更新账号。
     </p>
-    <div class="flex flex-wrap gap-2">
+    <QRLoginCard
+      :state="qr.state.value"
+      :qr-image="qr.qrImage.value"
+      :candidate-u-i-d="qr.candidateUID.value"
+      :busy="qr.busy.value"
+      :cancel-pending="qr.cancelPending.value"
+      :disabled="clear.isPending.value"
+      :error-message="qr.errorMessage.value"
+      @begin="beginLogin"
+      @cancel="qr.cancel"
+      @confirm="qr.confirmAccount"
+    />
+    <div class="flex flex-wrap gap-2 border-t border-border-hairline pt-4">
       <button
         type="button"
-        :class="primaryButton"
-        :disabled="saving || clear.isPending.value"
-        @click="saveCredentials"
-      >
-        {{ saving ? '保存中…' : '保存凭证' }}
-      </button>
-      <button
-        type="button"
-        :class="secondaryButton"
-        :disabled="status.isFetching.value"
+        :class="[secondaryButton, 'min-h-11']"
+        :disabled="status.isFetching.value || qr.active.value || qr.busy.value"
         @click="status.refetch()"
       >
         <RefreshCw class="size-4" aria-hidden="true" />检查登录状态
       </button>
       <button
         type="button"
-        :class="secondaryButton"
-        :disabled="clear.isPending.value || saving"
+        :class="[secondaryButton, 'min-h-11']"
+        :disabled="clear.isPending.value || qr.active.value || qr.busy.value"
         @click="clearCredentials"
       >
         清除凭证

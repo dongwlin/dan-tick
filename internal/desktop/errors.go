@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dongwlin/dan-tick/internal/account"
 	"github.com/dongwlin/dan-tick/internal/credential"
 	"github.com/dongwlin/dan-tick/internal/danmaku"
 	"github.com/dongwlin/dan-tick/internal/executor"
@@ -37,6 +38,14 @@ func protect(err error) error {
 func classify(err error) safeError {
 	reply := safeError{Code: "internal", Message: "操作失败，请重试或查看诊断日志"}
 	switch {
+	case errors.Is(err, credential.ErrReauthenticationRequired), errors.Is(err, account.ErrRefreshUncertain):
+		reply = safeError{"reauthentication_required", "登录会话无法安全续期，请重新扫码登录"}
+	case errors.Is(err, account.ErrPassportExpired):
+		reply = safeError{"qr_expired", "二维码或登录会话已过期，请重新扫码"}
+	case errors.Is(err, account.ErrPassportUnavailable), errors.Is(err, account.ErrPassportInvalidResponse), errors.Is(err, account.ErrPassportRejected), errors.Is(err, account.ErrUnavailable), errors.Is(err, account.ErrInvalidResponse):
+		reply = safeError{"login_unavailable", "登录服务暂不可用，请稍后重新扫码或检查登录状态"}
+	case errors.Is(err, account.ErrSessionClosed):
+		reply = safeError{"unavailable", "应用正在关闭，暂时无法登录"}
 	case errors.Is(err, scheduler.ErrScheduleSync), errors.Is(err, scheduler.ErrRecoveryNeeded):
 		reply = safeError{"schedule_sync", "修改已保存，但定时调度同步失败，请重新启动应用后检查"}
 	case errors.Is(err, room.ErrInvalidInput), errors.Is(err, room.ErrInvalidPage), errors.Is(err, history.ErrInvalidPage), errors.Is(err, task.ErrInvalidTask), errors.Is(err, settings.ErrInvalidCloseBehavior), errors.Is(err, settings.ErrInvalidTimezone):

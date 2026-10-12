@@ -11,7 +11,10 @@ import SettingsPage from './SettingsPage.vue'
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice', () => ({
   CheckAccount: vi.fn().mockResolvedValue({ state: 'unconfigured' }),
-  SaveAccount: vi.fn(),
+  BeginQRLogin: vi.fn(),
+  PollQRLogin: vi.fn(),
+  ConfirmQRAccount: vi.fn(),
+  CancelQRLogin: vi.fn().mockResolvedValue(undefined),
   ClearAccount: vi.fn(),
   TestSend: vi.fn(),
 }))
