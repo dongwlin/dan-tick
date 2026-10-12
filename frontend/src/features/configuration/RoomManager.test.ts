@@ -80,6 +80,12 @@ it('loads real binding pages, switches views, adds rooms and retains input on fa
   expect(listActions?.classList.contains('md:ml-auto')).toBe(true)
   expect(listActions?.parentElement?.classList.contains('md:flex-row')).toBe(true)
   expect(listActions?.parentElement?.classList.contains('pr-7')).toBe(true)
+  const actionControls = listActions?.querySelectorAll('a, button')
+  expect(actionControls).toHaveLength(3)
+  actionControls?.forEach((control) => {
+    expect(control.classList.contains('size-8')).toBe(true)
+    expect(control.classList.contains('justify-center')).toBe(true)
+  })
 
   await user.click(screen.getByRole('button', { name: '卡片' }))
   const cardActions = screen.getByRole('button', { name: '修改 300 的备注' }).parentElement

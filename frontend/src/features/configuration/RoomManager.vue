@@ -17,6 +17,8 @@ const remark = shallowRef('')
 const message = shallowRef('')
 const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
 const coverColors = ['bg-(--accent-panel)', 'bg-surface-muted', 'bg-(--accent-panel-alt)'] as const
+const roomActionClass =
+  'inline-flex size-8 items-center justify-center rounded-md hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring'
 
 function secondaryTitle(room: Room): string {
   if (!room.title) return '未获取到直播标题'
@@ -220,6 +222,7 @@ async function deleteRoom(room: Room) {
               >
               <div class="flex items-center gap-2">
                 <a
+                  :class="roomActionClass"
                   :href="`https://live.bilibili.com/${encodeURIComponent(room.platformRoomId)}`"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -229,6 +232,7 @@ async function deleteRoom(room: Room) {
                 /></a>
                 <button
                   type="button"
+                  :class="roomActionClass"
                   :aria-label="`修改 ${room.platformRoomId} 的备注`"
                   title="修改备注"
                   @click="beginEdit(room)"
@@ -238,6 +242,7 @@ async function deleteRoom(room: Room) {
                 <button
                   type="button"
                   class="text-soft-danger-fg"
+                  :class="roomActionClass"
                   :aria-label="`删除直播间 ${room.platformRoomId}`"
                   title="删除直播间"
                   :disabled="remove.isPending.value"
