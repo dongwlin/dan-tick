@@ -7,12 +7,20 @@ import { buttonClass, type ButtonSize, type ButtonVariant } from './buttonStyles
 const props = withDefaults(
   defineProps<{
     to?: RouteLocationRaw
+    type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
     loading?: boolean
     variant?: ButtonVariant
     size?: ButtonSize
   }>(),
-  { to: undefined, disabled: false, loading: false, variant: 'secondary', size: 'large' },
+  {
+    to: undefined,
+    type: 'button',
+    disabled: false,
+    loading: false,
+    variant: 'secondary',
+    size: 'large',
+  },
 )
 
 const classes = computed(() => buttonClass(props.variant, props.size))
@@ -36,7 +44,7 @@ function preventDisabledLink(event: MouseEvent) {
   </RouterLink>
   <button
     v-else
-    type="button"
+    :type="type"
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
     :class="classes"

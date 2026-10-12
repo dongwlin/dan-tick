@@ -10,11 +10,21 @@ it('uses shared variants and button sizes, with a visible loading state', () => 
   })
 
   const button = screen.getByRole('button', { name: '删除中…' })
+  expect(button.getAttribute('type')).toBe('button')
   expect(button.classList.contains('ui-button')).toBe(true)
   expect(button.classList.contains('ui-button--default')).toBe(true)
   expect(button.classList.contains('bg-danger-solid')).toBe(true)
   expect(button.hasAttribute('disabled')).toBe(true)
   expect(button.getAttribute('aria-busy')).toBe('true')
+})
+
+it('acts as a submit button when a form needs one', () => {
+  render(UiButton, {
+    props: { type: 'submit', variant: 'primary' },
+    slots: { default: '保存任务' },
+  })
+
+  expect(screen.getByRole('button', { name: '保存任务' }).getAttribute('type')).toBe('submit')
 })
 
 it('prevents navigating while a link-style button is disabled', async () => {

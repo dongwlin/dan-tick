@@ -38,6 +38,12 @@ export default withVueTs(
   {
     files: ['src/**/*.vue'],
     extends: [vue.configs['flat/recommended'], accessibility.configs['flat/recommended']],
+    rules: {
+      // The plugin default requires a label to nest its control *and* carry
+      // `for`, which rejects the equally valid explicit `<label for>` pairing
+      // used by shared field components.
+      'vuejs-accessibility/label-has-for': ['error', { required: { some: ['nesting', 'id'] } }],
+    },
   },
   {
     files: ['src/**/*.{ts,tsx,vue}'],
