@@ -205,8 +205,7 @@ const submit = handleSubmit(async (data) => {
         aria-label="任务配置表单"
       >
         <section :class="[flatPanel, 'p-5']">
-          <h2 class="text-base font-semibold">基本信息</h2>
-          <p class="mb-4 text-sm text-text-secondary">先决定把什么内容发到哪里</p>
+          <h2 class="mb-4 text-base font-semibold">基本信息</h2>
           <div class="grid gap-4 md:grid-cols-2">
             <div :class="[labelClass, 'md:col-span-2']">
               任务名称
@@ -267,10 +266,7 @@ const submit = handleSubmit(async (data) => {
           </div>
         </section>
         <section :class="[flatPanel, 'p-5']">
-          <h2 class="text-base font-semibold">弹幕内容</h2>
-          <p class="mb-3 text-sm text-text-secondary">
-            {{ kind === 'loop' ? '每行一条，按照顺序依次发送，到末尾后循环' : '单次发送一条弹幕' }}
-          </p>
+          <h2 class="mb-3 text-base font-semibold">弹幕内容</h2>
           <div :class="labelClass">
             发送队列
             <textarea
@@ -341,8 +337,7 @@ const submit = handleSubmit(async (data) => {
           </div>
         </section>
         <section :class="[flatPanel, 'p-5']">
-          <h2 class="text-base font-semibold">执行计划</h2>
-          <p class="mb-4 text-sm text-text-secondary">指定触发方式和时间</p>
+          <h2 class="mb-4 text-base font-semibold">执行计划</h2>
           <div class="grid gap-4 md:grid-cols-2">
             <div :class="labelClass">
               调度方式

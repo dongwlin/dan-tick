@@ -77,6 +77,13 @@ it('validates task conditions, retains edits on failure and submits typed bindin
     const card = screen.getByRole('heading', { name }).closest('section')
     expect(card?.classList.contains('shadow-sm')).toBe(false)
   }
+  for (const description of [
+    '先决定把什么内容发到哪里',
+    '单次发送一条弹幕',
+    '指定触发方式和时间',
+  ]) {
+    expect(screen.queryByText(description)).toBeNull()
+  }
   await screen.findByRole('option', { name: '测试直播间 · 98765' })
   await user.type(screen.getByRole('textbox', { name: '任务名称' }), '自动问候')
   await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '1')
@@ -155,6 +162,7 @@ it('loads and edits a weekly loop task without losing message order', async () =
   })
   const name = await screen.findByRole<HTMLInputElement>('textbox', { name: '任务名称' })
   expect(name.value).toBe('旧任务')
+  expect(screen.queryByText('每行一条，按照顺序依次发送，到末尾后循环')).toBeNull()
   expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' }).value).toBe(
     '第一条\n第二条',
   )
