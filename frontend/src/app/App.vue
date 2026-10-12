@@ -19,9 +19,11 @@ const route = useRoute()
         tabindex="-1"
       >
         <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          <div class="absolute top-24 right-12 h-72 w-80 rounded-[20px] bg-(--accent-panel)"></div>
           <div
-            class="absolute bottom-12 left-12 h-64 w-72 rounded-[20px] bg-(--accent-panel-alt)"
+            class="absolute top-24 -right-28 size-80 rounded-full bg-(--accent-panel) opacity-30"
+          ></div>
+          <div
+            class="absolute bottom-12 -left-24 size-72 rounded-full bg-(--accent-panel-alt) opacity-20"
           ></div>
         </div>
         <div
