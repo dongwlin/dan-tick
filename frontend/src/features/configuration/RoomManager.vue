@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
+import { Browser } from '@wailsio/runtime'
 import { ExternalLink, LayoutGrid, List, Pencil, Plus, Radio, Trash2 } from 'lucide-vue-next'
 import type { Room } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import { bindingError, useAddRoom, useDeleteRoom, useRoomPages, useUpdateRoom } from './queries'
@@ -23,6 +24,19 @@ const roomActionClass =
 function secondaryTitle(room: Room): string {
   if (!room.title) return '未获取到直播标题'
   return room.title.trim() === (room.remark || room.title).trim() ? '' : room.title
+}
+
+function roomURL(room: Room): string {
+  return `https://live.bilibili.com/${encodeURIComponent(room.platformRoomId)}`
+}
+
+async function openRoom(room: Room) {
+  message.value = ''
+  try {
+    await Browser.OpenURL(roomURL(room))
+  } catch {
+    message.value = '无法打开直播间，请检查系统默认浏览器后重试'
+  }
 }
 
 async function addRoom(value: string) {
@@ -223,11 +237,12 @@ async function deleteRoom(room: Room) {
               <div class="flex items-center gap-2">
                 <a
                   :class="roomActionClass"
-                  :href="`https://live.bilibili.com/${encodeURIComponent(room.platformRoomId)}`"
+                  :href="roomURL(room)"
                   target="_blank"
                   rel="noopener noreferrer"
                   :aria-label="`打开直播间 ${room.platformRoomId}`"
                   title="打开直播间"
+                  @click.prevent="openRoom(room)"
                   ><ExternalLink class="size-4" aria-hidden="true"
                 /></a>
                 <button

@@ -1,6 +1,7 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { render, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
+import { Browser } from '@wailsio/runtime'
 import { expect, it, vi } from 'vitest'
 import {
   AddRoom,
@@ -16,6 +17,49 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationse
   UpdateRoom: vi.fn(),
   DeleteRoom: vi.fn(),
 }))
+vi.mock('@wailsio/runtime', () => ({ Browser: { OpenURL: vi.fn() } }))
+
+it('opens rooms in the system browser in both views and reports failures safely', async () => {
+  vi.mocked(ListRoomPage).mockResolvedValue({
+    items: [
+      {
+        id: 3,
+        platformRoomId: '300',
+        title: '直播三',
+        anchorName: '主播',
+        remark: '',
+        taskCount: 0,
+      },
+    ],
+    nextCursor: null,
+  })
+  vi.mocked(Browser.OpenURL)
+    .mockReset()
+    .mockResolvedValueOnce(undefined)
+    .mockRejectedValueOnce(new Error('native browser error with private details'))
+    .mockResolvedValueOnce(undefined)
+
+  const user = userEvent.setup()
+  render(RoomManager, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+  const link = await screen.findByRole<HTMLAnchorElement>('link', { name: '打开直播间 300' })
+  expect(link.href).toBe('https://live.bilibili.com/300')
+  await user.click(link)
+  await waitFor(() => expect(Browser.OpenURL).toHaveBeenCalledWith('https://live.bilibili.com/300'))
+
+  await user.click(screen.getByRole('button', { name: '列表' }))
+  await user.click(screen.getByRole('link', { name: '打开直播间 300' }))
+  expect(await screen.findByRole('alert')).toHaveProperty(
+    'textContent',
+    '无法打开直播间，请检查系统默认浏览器后重试',
+  )
+  expect(screen.getByRole('alert').textContent).not.toContain('private details')
+
+  await user.click(screen.getByRole('link', { name: '打开直播间 300' }))
+  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+  expect(Browser.OpenURL).toHaveBeenCalledTimes(3)
+})
 
 it('loads real binding pages, switches views, adds rooms and retains input on failure', async () => {
   const rows = [
