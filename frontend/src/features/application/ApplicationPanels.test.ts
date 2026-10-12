@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { VueQueryPlugin } from '@tanstack/vue-query'
+import { CancellablePromise } from '@wailsio/runtime'
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { Component } from 'vue'
 import { createAppQueryClient } from '@/app/queryClient'
@@ -57,12 +58,21 @@ beforeEach(() => {
 
 it('updates scheduling through Go and preserves authoritative state after failures', async () => {
   const user = userEvent.setup()
+  vi.mocked(SetSchedulingEnabled).mockImplementationOnce((enabled) => {
+    vi.mocked(GetPreferences).mockResolvedValue({
+      defaultTimezone: 'Asia/Shanghai',
+      schedulingEnabled: enabled,
+    })
+    return new CancellablePromise<void>((resolve) => resolve())
+  })
   show(SchedulingPanel)
-  const toggle = await screen.findByRole<HTMLInputElement>('checkbox', { name: /启用自动调度/ })
-  await waitFor(() => expect(toggle.checked).toBe(true))
-  await user.click(toggle)
+  const toggle = await screen.findByRole('switch', { name: /启用自动调度/ })
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
+  expect(toggle.querySelector('[data-state="checked"]')).toBeTruthy()
+  await user.click(screen.getByText('启用自动调度'))
   expect(SetSchedulingEnabled).toHaveBeenCalledWith(false)
   expect(await screen.findByText(/已暂停新的自动调度/)).toBeTruthy()
+  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
 
   vi.mocked(SetDefaultTimezone).mockRejectedValueOnce(new Error('private DB path'))
   const input = screen.getByRole<HTMLInputElement>('textbox', { name: /默认时区/ })
@@ -78,6 +88,32 @@ it('updates scheduling through Go and preserves authoritative state after failur
   await user.click(screen.getByRole('button', { name: '保存默认时区' }))
   await waitFor(() => expect(SetDefaultTimezone).toHaveBeenCalledWith('Europe/Berlin'))
   expect(await screen.findByText(/默认时区已保存/)).toBeTruthy()
+})
+
+it('keeps the scheduling switch on after a failed update and supports keyboard activation', async () => {
+  const user = userEvent.setup()
+  let rejectChange: (reason: Error) => void = () => {}
+  vi.mocked(SetSchedulingEnabled).mockImplementationOnce(
+    () =>
+      new CancellablePromise<void>((_resolve, reject) => {
+        rejectChange = reject
+      }),
+  )
+  show(SchedulingPanel)
+
+  const toggle = await screen.findByRole('switch', { name: /启用自动调度/ })
+  toggle.focus()
+  await user.keyboard(' ')
+
+  expect(SetSchedulingEnabled).toHaveBeenCalledWith(false)
+  await waitFor(() => expect(toggle.hasAttribute('disabled')).toBe(true))
+  await user.click(toggle)
+  expect(SetSchedulingEnabled).toHaveBeenCalledTimes(1)
+  rejectChange(new Error('private failure'))
+  expect(await screen.findByText(/更改调度状态未成功确认/)).toBeTruthy()
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
+  expect(toggle.hasAttribute('disabled')).toBe(false)
+  expect(document.body.textContent).not.toContain('private failure')
 })
 
 it('opens local directories and exports with result feedback without the explanatory notice', async () => {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { shallowRef, watch } from 'vue'
+import { SwitchRoot, SwitchThumb } from 'reka-ui'
 import { bindingError } from '@/features/configuration/queries'
 import { fieldClass, secondaryButton } from '@/features/configuration/style'
 import { usePreferences, useSetDefaultTimezone, useSetSchedulingEnabled } from './queries'
@@ -28,10 +29,7 @@ async function saveTimezone() {
   }
 }
 
-async function toggleScheduling(event: Event) {
-  const target = event.target as HTMLInputElement
-  const enabled = target.checked
-  target.checked = preferences.data.value?.schedulingEnabled ?? !enabled
+async function toggleScheduling(enabled: boolean) {
   feedback.value = ''
   try {
     await setScheduling.mutateAsync(enabled)
@@ -57,20 +55,30 @@ async function toggleScheduling(event: Event) {
       <button type="button" class="ml-2 underline" @click="preferences.refetch()">重新读取</button>
     </div>
     <div v-else class="divide-y divide-border-hairline">
-      <label for="scheduling-switch" class="flex min-h-20 items-center justify-between gap-5 py-3">
-        <span class="flex flex-col gap-1">
+      <SwitchRoot
+        id="scheduling-switch"
+        class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-60"
+        aria-label="启用自动调度"
+        aria-describedby="scheduling-description"
+        :model-value="preferences.data.value?.schedulingEnabled ?? false"
+        :disabled="setScheduling.isPending.value"
+        @update:model-value="toggleScheduling"
+      >
+        <span class="flex min-w-0 flex-col gap-1">
           <strong class="text-sm">启用自动调度</strong>
-          <span class="text-xs text-text-tertiary">暂停后不会触发新的计划，手动执行仍可使用</span>
+          <span id="scheduling-description" class="text-xs text-text-tertiary">
+            暂停后不会触发新的计划，手动执行仍可使用
+          </span>
         </span>
-        <input
-          id="scheduling-switch"
-          type="checkbox"
-          class="size-5 shrink-0 accent-accent-solid"
-          :checked="preferences.data.value?.schedulingEnabled ?? false"
-          :disabled="setScheduling.isPending.value"
-          @change="toggleScheduling"
-        />
-      </label>
+        <span
+          aria-hidden="true"
+          class="flex h-[19px] w-[31px] shrink-0 items-center rounded-full border border-border-strong bg-surface-muted px-[2px] group-data-[state=checked]:border-accent-solid group-data-[state=checked]:bg-accent-solid group-hover:bg-surface-solid-hover group-data-[state=checked]:group-hover:bg-accent-solid group-data-[state=checked]:group-hover:brightness-95 group-active:brightness-90 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-focus-ring motion-safe:transition-colors motion-safe:duration-200"
+        >
+          <SwitchThumb
+            class="pointer-events-none block size-[13px] rounded-full border border-border-hairline bg-text-tertiary data-[state=checked]:translate-x-3 data-[state=checked]:bg-on-accent motion-safe:transition-[translate,background-color] motion-safe:duration-200"
+          />
+        </span>
+      </SwitchRoot>
       <form
         class="flex flex-wrap items-end justify-between gap-4 py-4"
         @submit.prevent="saveTimezone"
