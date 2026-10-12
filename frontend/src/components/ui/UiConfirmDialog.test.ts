@@ -26,6 +26,17 @@ it('opens as an Alert Dialog with focus on the safe action', async () => {
   expect(document.activeElement).toBe(screen.getByRole('button', { name: '取消' }))
 })
 
+it('prevents the backdrop mousedown from taking focus out of the dialog', async () => {
+  renderDialog()
+  await nextTick()
+
+  const overlay = document.querySelector('.fixed.inset-0')
+  expect(overlay).not.toBeNull()
+  const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+  expect(overlay?.dispatchEvent(event)).toBe(false)
+  expect(event.defaultPrevented).toBe(true)
+})
+
 it('emits confirm and requests closing when the action button is pressed', async () => {
   const view = renderDialog()
   await nextTick()

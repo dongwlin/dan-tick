@@ -90,7 +90,16 @@ function onEscapeKeyDown(event: Event) {
 <template>
   <component :is="rootComponent" :open="open" @update:open="updateOpen">
     <component :is="portalComponent">
-      <component :is="overlayComponent" class="fixed inset-0 z-50 bg-[rgb(8_14_20/42%)]" />
+      <!-- Keep focus inside a modal Alert Dialog: preventing the overlay's
+           default mousedown action stops the browser from blurring the
+           focused safe action to <body>. A regular Dialog still receives the
+           pointer sequence and can dismiss itself. -->
+      <component
+        :is="overlayComponent"
+        class="fixed inset-0 z-50 bg-[rgb(8_14_20/42%)]"
+        @pointerdown.prevent
+        @mousedown.prevent
+      />
       <component
         :is="contentComponent"
         aria-modal="true"
