@@ -4,6 +4,7 @@ package desktop
 
 import (
 	"context"
+	"errors"
 
 	"github.com/dongwlin/dan-tick/internal/room"
 	"github.com/dongwlin/dan-tick/internal/schedule"
@@ -18,6 +19,16 @@ type ConfigurationService struct {
 	rooms   *room.Service
 	tasks   *task.Service
 	manager *scheduler.Manager
+	changed func()
+}
+
+// SetOnChange installs a notification hook. It carries no business payload.
+func (s *ConfigurationService) SetOnChange(changed func()) { s.changed = changed }
+
+func (s *ConfigurationService) notifyAfter(err error) {
+	if (err == nil || errors.Is(err, scheduler.ErrScheduleSync)) && s.changed != nil {
+		s.changed()
+	}
 }
 
 func NewConfigurationService(db *bun.DB, client *room.Client, manager *scheduler.Manager) *ConfigurationService {
@@ -97,6 +108,7 @@ func (s *ConfigurationService) AddRoom(ctx context.Context, input AddRoomInput) 
 	if err != nil {
 		return Room{}, protect(err)
 	}
+	s.notifyAfter(nil)
 	return roomView(saved), nil
 }
 
@@ -105,6 +117,7 @@ func (s *ConfigurationService) UpdateRoom(ctx context.Context, id int64, input U
 	if err != nil {
 		return Room{}, protect(err)
 	}
+	s.notifyAfter(nil)
 	return roomView(saved), nil
 }
 
@@ -114,10 +127,12 @@ func (s *ConfigurationService) DeleteRoom(ctx context.Context, id int64) error {
 	if err := s.rooms.Delete(ctx, id); err != nil {
 		return protect(err)
 	}
-	if err := s.manager.Rebuild(ctx); err != nil {
-		return protect(scheduleSyncError(err))
+	err := s.manager.Rebuild(ctx)
+	if err != nil {
+		err = scheduleSyncError(err)
 	}
-	return nil
+	s.notifyAfter(err)
+	return protect(err)
 }
 
 type Plan struct {
@@ -246,19 +261,24 @@ func (s *ConfigurationService) GetTask(ctx context.Context, id int64) (Task, err
 
 func (s *ConfigurationService) CreateTask(ctx context.Context, input TaskInput) (Task, error) {
 	saved, err := s.manager.CreateTask(ctx, input.taskInput())
+	s.notifyAfter(err)
 	return taskView(saved), protect(err)
 }
 
 func (s *ConfigurationService) UpdateTask(ctx context.Context, id int64, input TaskInput) (Task, error) {
 	saved, err := s.manager.UpdateTask(ctx, id, input.taskInput())
+	s.notifyAfter(err)
 	return taskView(saved), protect(err)
 }
 
 func (s *ConfigurationService) SetTaskEnabled(ctx context.Context, id int64, enabled bool) (Task, error) {
 	saved, err := s.manager.SetTaskEnabled(ctx, id, enabled)
+	s.notifyAfter(err)
 	return taskView(saved), protect(err)
 }
 
 func (s *ConfigurationService) DeleteTask(ctx context.Context, id int64) error {
-	return protect(s.manager.DeleteTask(ctx, id))
+	err := s.manager.DeleteTask(ctx, id)
+	s.notifyAfter(err)
+	return protect(err)
 }

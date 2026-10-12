@@ -51,7 +51,7 @@ const navigation = [
       <RouterLink
         to="/settings"
         class="flex min-h-[47px] items-center justify-center rounded-[10px] p-0.5 hover:bg-surface-muted"
-        aria-label="打开 B 站账号设置（尚未接入）"
+        aria-label="打开 B 站账号设置"
         title="账号设置"
       >
         <span

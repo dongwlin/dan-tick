@@ -5,7 +5,7 @@
 - dan-tick 是面向 Windows、Linux 的 B 站直播弹幕定时发送桌面应用：本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
 - 开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它用于安排实施步骤，不覆盖 PRD 与技术选型的权威性；UI 原型可以独立继续迭代。
-- **F1～F6 中除 F2-c 外的业务集成已完成。** Go 已负责 SQLite、凭证、共享发送器、Cron、启动恢复、执行记录与窗口后台生命周期；正式 Vue 已接入直播间 / 任务配置、账号与测试发送、手动执行 / 停止、执行记录列表和详情，使用 Vue Query 与 Wails Events 更新权威状态。总览与调度设置仍待 F2-c + F7 + L3；G1 Windows / Linux 人工验收仍待完成。`prototype/` 是独立的 Vanilla TypeScript 模拟 UI。按功能渐进引入，不为未来需求创建空架构。
+- **F1～F7 的业务集成已完成。** Go 已负责 SQLite、凭证、共享发送器、Cron、启动恢复、执行记录与窗口后台生命周期；正式 Vue 已接入直播间 / 任务配置、账号与测试发送、手动执行 / 停止、执行记录列表和详情，使用 Vue Query 与 Wails Events 更新权威状态。总览、调度设置与安全诊断导出均已接入；G1 Windows / Linux 人工验收仍待完成。`prototype/` 是独立的 Vanilla TypeScript 模拟 UI。按功能渐进引入，不为未来需求创建空架构。
 - `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 说明正式 Vue 前端的工具链与构建流程。
 
 ## 2. 现有结构与调用边界
@@ -14,11 +14,11 @@
 | --- | --- |
 | `main.go` | 启动时打开并迁移数据库、退出时关闭连接；Wails 应用、窗口、生命周期钩子及前端嵌入 |
 | `internal/app/` | Keyring、共享 Sender / Executor / Scheduler 及配置 Binding 的业务组合根与启动 / 退出收尾 |
-| `internal/desktop/` | 直播间 / 任务、账号操作、执行记录及窗口设置 Wails Service；安全 DTO / 错误，任务写入经 Scheduler Manager 同步 Cron |
+| `internal/desktop/` | 直播间 / 任务、账号操作、执行记录、调度 / 总览、诊断及窗口设置 Wails Service；安全 DTO / 错误，任务写入经 Scheduler Manager 同步 Cron |
 | `internal/storage/` | 用户数据目录中的 SQLite 连接、Bun Migration、首版六张表及真实数据库测试 |
 | `internal/history/` | E4 执行历史的分页列表、详情及发送尝试查询；不读取当前任务定义重建历史 |
 | `frontend/src/main.ts`、`src/app/`、`src/pages/` | Vue 入口、应用装配（Hash Router、Events 与 Query）和路由页面；使用 `<script setup lang="ts">` 和 Composition API |
-| `frontend/src/features/` | 直播间 / 任务配置、账号与手动执行、分页执行历史及详情的独立业务功能和测试 |
+| `frontend/src/features/` | 直播间 / 任务配置、账号与手动执行、分页执行历史及详情、总览与设置、日志操作的独立业务功能和测试 |
 | `frontend/src/style.css`、`src/app/theme.ts` | Tailwind v4 CSS-first 语义令牌、亚克力材质及深浅 / 跟随系统 UI 主题；仅保存 `dan-tick-theme` 偏好，存储故障提供可见反馈 |
 | `frontend/src/components/UiButton.vue` | 当前跨页面复用的按钮 / RouterLink 样式，保留原生动作与导航语义；Reka RadioGroup 当前直接用于设置页 |
 | `frontend/public/`、`frontend/index.html` | 静态资源及 HTML 入口 |
@@ -30,7 +30,7 @@
 | `Taskfile.yml`、`build/` | Wails 3 / Task 的开发、构建和各平台打包配置；`build/config.yml` 为 Wails 开发配置 |
 | `docs/PRD.md`、`docs/技术栈选型.md`、`docs/specs/` | 产品规则、项目决策与引入的工程规范 |
 
-- Go 模块名为 `github.com/dongwlin/dan-tick`（见 `go.mod`）；正式 Wails 模板演示 Service / 时间事件已移除，配置 / 操作 / 历史 / 窗口 Binding 已在 `internal/desktop/` 接入；构建任务使用 `./...` 扫描子包。不要手动编辑 `frontend/bindings/` 或 `frontend/dist/`；它们由 Wails / Vite 生成且当前未提交。
+- Go 模块名为 `github.com/dongwlin/dan-tick`（见 `go.mod`）；正式 Wails 模板演示 Service / 时间事件已移除，配置 / 操作 / 历史 / 应用 / 诊断 / 窗口 Binding 已在 `internal/desktop/` 接入；构建任务使用 `./...` 扫描子包。不要手动编辑 `frontend/bindings/` 或 `frontend/dist/`；它们由 Wails / Vite 生成且当前未提交。
 - 业务落地后，**Go 是权威业务状态来源**：处理调度、数据库、HTTP 发送、频率限制、凭证、进程生命周期；前端只承担配置、展示与交互。前端调用使用 **Wails Service Binding**，Go 主动通知使用 **Wails Events**，不要为桌面业务另建 HTTP API。
 - 前端按 Feature 聚合业务，Page 负责组合及解析路由参数，共享组件不能反向依赖 Feature；保持小模块扁平，有实际复用需求再提取。
 - `build/` 中也保留了 macOS、iOS 和 Android 的模板打包文件，但 PRD 首版目标平台仅为 Windows、Linux；不要把模板存在等同于要求支持这些平台。

@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -134,6 +135,23 @@ func run(logger *diagnostic.Logger) error {
 	desktopApp.RegisterService(application.NewServiceWithOptions(runtime.Config, application.ServiceOptions{
 		MarshalError: desktop.MarshalError,
 	}))
+	desktopApp.RegisterService(application.NewServiceWithOptions(
+		desktop.NewApplicationService(db, runtime.Scheduler, func(event string) { desktopApp.Event.Emit(event) }),
+		application.ServiceOptions{MarshalError: desktop.MarshalError},
+	))
+	version := "development"
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
+		version = info.Main.Version
+	}
+	desktopApp.RegisterService(application.NewServiceWithOptions(
+		desktop.NewDiagnosticsService(logger, func(path string) error {
+			return desktopApp.Env.OpenFileManager(path, false)
+		}, func() (string, error) {
+			return desktopApp.Dialog.SaveFile().SetFilename("dan-tick-diagnostics.zip").
+				AddFilter("ZIP archive", "*.zip").PromptForSingleSelection()
+		}, version),
+		application.ServiceOptions{MarshalError: desktop.MarshalError},
+	))
 	desktopApp.RegisterService(application.NewServiceWithOptions(runtime.Operations, application.ServiceOptions{
 		MarshalError: desktop.MarshalError,
 	}))

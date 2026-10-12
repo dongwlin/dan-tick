@@ -39,8 +39,10 @@ func classify(err error) safeError {
 	switch {
 	case errors.Is(err, scheduler.ErrScheduleSync), errors.Is(err, scheduler.ErrRecoveryNeeded):
 		reply = safeError{"schedule_sync", "修改已保存，但定时调度同步失败，请重新启动应用后检查"}
-	case errors.Is(err, room.ErrInvalidInput), errors.Is(err, room.ErrInvalidPage), errors.Is(err, history.ErrInvalidPage), errors.Is(err, task.ErrInvalidTask), errors.Is(err, settings.ErrInvalidCloseBehavior):
+	case errors.Is(err, room.ErrInvalidInput), errors.Is(err, room.ErrInvalidPage), errors.Is(err, history.ErrInvalidPage), errors.Is(err, task.ErrInvalidTask), errors.Is(err, settings.ErrInvalidCloseBehavior), errors.Is(err, settings.ErrInvalidTimezone):
 		reply = safeError{"invalid_input", "输入无效，请检查填写内容"}
+	case isUnsafeExport(err):
+		reply = safeError{"unsafe_logs", "日志内容未通过安全检查，已取消导出，请先检查本地日志"}
 	case errors.Is(err, credential.ErrInvalid), errors.Is(err, danmaku.ErrInvalidInput):
 		reply = safeError{"invalid_input", "输入无效，请检查填写内容"}
 	case errors.Is(err, credential.ErrUnavailable), errors.Is(err, credential.ErrCorrupt):

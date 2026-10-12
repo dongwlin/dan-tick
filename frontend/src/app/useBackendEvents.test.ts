@@ -8,6 +8,7 @@ import { createAppQueryClient } from './queryClient'
 import { useBackendEvents } from './useBackendEvents'
 import { operationKeys } from '@/features/operations/queries'
 import { historyKeys } from '@/features/history/queries'
+import { applicationKeys } from '@/features/application/queries'
 
 vi.mock('@wailsio/runtime', async (importOriginal) => {
   const actual = await importOriginal<typeof WailsRuntime>()
@@ -32,15 +33,18 @@ it('invalidates only matching Query keys and detaches all listeners on unmount',
   const view = render(Observer, {
     global: { plugins: [[VueQueryPlugin, { queryClient: client }]] },
   })
-  expect(handlers.size).toBe(2)
+  expect(handlers.size).toBe(3)
   handlers.get('dan-tick:execution-changed')?.()
   await waitFor(() =>
     expect(invalidated).toHaveBeenCalledWith({ queryKey: operationKeys.executions }),
   )
   expect(invalidated).toHaveBeenCalledWith({ queryKey: historyKeys.all })
+  expect(invalidated).toHaveBeenCalledWith({ queryKey: applicationKeys.overview })
   expect(invalidated).not.toHaveBeenCalledWith({ queryKey: operationKeys.account })
   handlers.get('dan-tick:account-changed')?.()
   await waitFor(() => expect(invalidated).toHaveBeenCalledWith({ queryKey: operationKeys.account }))
+  handlers.get('dan-tick:application-changed')?.()
+  await waitFor(() => expect(invalidated).toHaveBeenCalledWith({ queryKey: applicationKeys.all }))
   view.unmount()
-  expect(off).toHaveBeenCalledTimes(2)
+  expect(off).toHaveBeenCalledTimes(3)
 })

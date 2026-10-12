@@ -19,6 +19,21 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice',
   GetCloseBehavior: vi.fn().mockResolvedValue('hide'),
   SetCloseBehavior: vi.fn().mockResolvedValue(undefined),
 }))
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice', () => ({
+  GetPreferences: vi
+    .fn()
+    .mockResolvedValue({ defaultTimezone: 'Asia/Shanghai', schedulingEnabled: true }),
+  SetDefaultTimezone: vi.fn(),
+  SetSchedulingEnabled: vi.fn(),
+}))
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/diagnosticsservice', () => ({
+  GetDiagnosticsStatus: vi
+    .fn()
+    .mockResolvedValue({ directory: '/tmp/logs', degraded: false, warning: '' }),
+  OpenLogDirectory: vi.fn(),
+  OpenDataDirectory: vi.fn(),
+  ExportDiagnostics: vi.fn(),
+}))
 
 it('switches and restores the theme with visible feedback and safe storage failure', async () => {
   const listeners: ((event: MediaQueryListEvent) => void)[] = []
@@ -40,7 +55,7 @@ it('switches and restores the theme with visible feedback and safe storage failu
   expect(restore.disabled).toBe(true)
   await user.click(screen.getByRole('radio', { name: '浅色' }))
   expect(screen.getByRole('radio', { name: '浅色' }).getAttribute('aria-checked')).toBe('true')
-  expect(screen.getByRole('status').textContent).toContain('当前显示：浅色')
+  expect(screen.getByText('当前显示：浅色')).toBeTruthy()
   expect(document.documentElement.dataset.theme).toBe('light')
   expect(localStorage.getItem('dan-tick-theme')).toBe('light')
   expect(restore.disabled).toBe(false)
@@ -48,7 +63,7 @@ it('switches and restores the theme with visible feedback and safe storage failu
   await user.click(screen.getByRole('radio', { name: '跟随系统' }))
   for (const listener of listeners) listener({ matches: true } as MediaQueryListEvent)
   await waitFor(() => {
-    expect(screen.getByRole('status').textContent).toContain('当前显示：深色')
+    expect(screen.getByText('当前显示：深色')).toBeTruthy()
   })
   expect(document.documentElement.dataset.theme).toBe('dark')
 
@@ -61,7 +76,7 @@ it('switches and restores the theme with visible feedback and safe storage failu
   })
   await user.click(screen.getByRole('radio', { name: '浅色' }))
   expect(screen.getByRole('alert').textContent).toContain('无法保存主题偏好')
-  expect(screen.getByRole('status').textContent).toContain('当前显示：浅色')
+  expect(screen.getByText('当前显示：浅色')).toBeTruthy()
   write.mockRestore()
   await user.click(restore)
   expect(restore.disabled).toBe(true)

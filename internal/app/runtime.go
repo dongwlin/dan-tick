@@ -66,6 +66,11 @@ func newRuntimeWithStore(db *bun.DB, log *diagnostic.Logger, store *credential.S
 // no task content or credentials, and only request frontend cache refreshes.
 func (r *Runtime) BindEvents(emit func(string)) {
 	r.emit = emit
+	r.Config.SetOnChange(func() {
+		if r.emit != nil {
+			r.emit(desktop.EventApplicationChanged)
+		}
+	})
 	r.Executor.SetOnChange(func(_, _ int64) {
 		if r.emit != nil {
 			r.emit(desktop.EventExecutionChanged)

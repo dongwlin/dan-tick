@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import { RouterLink, onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ArrowLeft, Check, Clock3, Info } from 'lucide-vue-next'
 import { useForm } from 'vee-validate'
@@ -11,11 +11,13 @@ import type {
 import { Kind as TaskKind } from '@bindings/github.com/dongwlin/dan-tick/internal/task/models'
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
 import { bindingError, useRoomOptions, useSaveTask } from './queries'
+import { usePreferences } from '@/features/application/queries'
 import { fieldClass, labelClass, panel, primaryButton, secondaryButton } from './style'
 
 const props = defineProps<{ task?: Task }>()
 const router = useRouter()
 const rooms = useRoomOptions()
+const preferences = usePreferences()
 const save = useSaveTask(props.task?.id)
 const errorMessage = shallowRef('')
 const navigatingAfterSave = shallowRef(false)
@@ -72,7 +74,7 @@ const schema = z
 
 type EditorValues = z.input<typeof schema>
 const original = props.task
-const { defineField, values, errors, meta, handleSubmit, setFieldValue } = useForm<
+const { defineField, values, errors, meta, handleSubmit, setFieldValue, resetForm } = useForm<
   EditorValues,
   EditorValues,
   typeof schema
@@ -103,6 +105,18 @@ const { defineField, values, errors, meta, handleSubmit, setFieldValue } = useFo
     enabled: original?.enabled ?? true,
   },
 })
+// Apply the persisted default only before the user edits a new task. Reset
+// the initial value too, so asynchronously loading it doesn't mark a fresh
+// editor as dirty or trigger an unnecessary leave confirmation.
+watch(
+  () => preferences.data.value?.defaultTimezone,
+  (value) => {
+    if (!original && value && !meta.value.dirty) {
+      resetForm({ values: { ...values, timezone: value } })
+    }
+  },
+  { immediate: true },
+)
 const [name, nameAttrs] = defineField('name')
 const [roomId, roomAttrs] = defineField('roomId')
 const [kind, kindAttrs] = defineField('kind')

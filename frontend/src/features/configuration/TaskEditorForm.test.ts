@@ -10,6 +10,7 @@ import {
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice'
 import { Kind as TaskKind } from '@bindings/github.com/dongwlin/dan-tick/internal/task/models'
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
+import { GetPreferences } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice'
 import App from '@/app/App.vue'
 import { createAppRouter } from '@/app/router'
 import { createAppQueryClient } from '@/app/queryClient'
@@ -21,6 +22,12 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationse
   CreateTask: vi.fn(),
   GetTask: vi.fn(),
   UpdateTask: vi.fn(),
+}))
+
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice', () => ({
+  GetPreferences: vi
+    .fn()
+    .mockResolvedValue({ defaultTimezone: 'Asia/Shanghai', schedulingEnabled: true }),
 }))
 
 it('validates task conditions, retains edits on failure and submits typed binding input', async () => {
@@ -164,4 +171,19 @@ it('loads and edits a weekly loop task without losing message order', async () =
     ),
   )
   await waitFor(() => expect(window.location.hash).toBe('#/tasks'))
+})
+
+it('uses the persisted IANA default for new tasks without dirtying the form', async () => {
+  vi.mocked(GetPreferences).mockResolvedValueOnce({
+    defaultTimezone: 'Europe/Berlin',
+    schedulingEnabled: true,
+  })
+  vi.mocked(ListRooms).mockResolvedValue([])
+  window.history.replaceState(null, '', '/#/tasks/new')
+  const router = createAppRouter()
+  render(App, {
+    global: { plugins: [router, [VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+  const input = await screen.findByRole<HTMLInputElement>('textbox', { name: '时区' })
+  await waitFor(() => expect(input.value).toBe('Europe/Berlin'))
 })

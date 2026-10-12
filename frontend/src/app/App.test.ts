@@ -34,6 +34,32 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/historyservice'
   GetExecutionHistory: vi.fn(),
 }))
 
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice', () => ({
+  GetPreferences: vi
+    .fn()
+    .mockResolvedValue({ defaultTimezone: 'Asia/Shanghai', schedulingEnabled: true }),
+  GetOverview: vi.fn().mockResolvedValue({
+    totalTasks: 0,
+    enabledTasks: 0,
+    activeExecutions: 0,
+    roomCount: 0,
+    upcoming: [],
+    recent: [],
+    latestFailure: null,
+  }),
+  SetDefaultTimezone: vi.fn(),
+  SetSchedulingEnabled: vi.fn(),
+}))
+
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/diagnosticsservice', () => ({
+  GetDiagnosticsStatus: vi
+    .fn()
+    .mockResolvedValue({ directory: '/tmp/logs', degraded: false, warning: '' }),
+  OpenLogDirectory: vi.fn(),
+  OpenDataDirectory: vi.fn(),
+  ExportDiagnostics: vi.fn(),
+}))
+
 function renderAtHash(path: string) {
   window.history.replaceState(null, '', `/#${path}`)
   const router = createAppRouter()
@@ -72,7 +98,7 @@ describe('application navigation', () => {
     await user.click(screen.getByRole('link', { name: '执行记录' }))
     expect(await screen.findByRole('heading', { name: '执行记录' })).toBeTruthy()
     expect(screen.getByRole('link', { name: '执行记录' }).getAttribute('aria-current')).toBe('page')
-    await user.click(screen.getByRole('link', { name: '打开 B 站账号设置（尚未接入）' }))
+    await user.click(screen.getByRole('link', { name: '打开 B 站账号设置' }))
     expect(await screen.findByRole('heading', { name: '设置' })).toBeTruthy()
   })
 })
