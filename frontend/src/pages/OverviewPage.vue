@@ -187,7 +187,9 @@ const statusLabels: Record<string, string> = {
             class="flex items-center justify-between border-t border-border-hairline px-5 py-3 text-xs text-text-tertiary"
           >
             <span>已添加直播间</span
-            ><RouterLink to="/rooms" class="text-accent-text hover:underline"
+            ><RouterLink
+              to="/rooms"
+              class="inline-flex items-center gap-1 font-semibold text-text-secondary hover:text-accent-text hover:underline"
               >{{ overview.data.value.roomCount }} 个
               <ChevronRight class="inline size-3" aria-hidden="true"
             /></RouterLink>

@@ -84,6 +84,11 @@ it('shows live task summaries, a paused schedule notice, and navigable failure d
   )
   expect(screen.getByText('Europe/Berlin')).toBeTruthy()
   expect(screen.getByText('未配置')).toBeTruthy()
+  const roomCountLink = screen.getByRole('link', { name: '3 个' })
+  expect(roomCountLink.getAttribute('href')).toBe('/rooms')
+  expect(roomCountLink.classList.contains('text-text-secondary')).toBe(true)
+  expect(roomCountLink.classList.contains('text-accent-text')).toBe(false)
+  expect(roomCountLink.classList.contains('hover:text-accent-text')).toBe(true)
 })
 
 it('renders empty state and retries failed overview reads', async () => {
