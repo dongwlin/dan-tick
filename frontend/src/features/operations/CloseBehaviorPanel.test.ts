@@ -1,5 +1,5 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import { render, screen, waitFor } from '@testing-library/vue'
+import { render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import {
@@ -24,6 +24,7 @@ it('reads native close behavior, updates it and reports persistence failures', a
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
   const section = screen.getByRole('region', { name: '窗口与后台运行' })
+  const initialChildCount = section.children.length
   expect(section.tagName).toBe('SECTION')
   expect(section.querySelector('h2')?.textContent).toBe('窗口与后台运行')
   expect(section.querySelector('legend')).toBeNull()
@@ -32,7 +33,11 @@ it('reads native close behavior, updates it and reports persistence failures', a
   await waitFor(() => expect(hide.getAttribute('aria-checked')).toBe('true'))
 
   await user.click(quit)
-  expect((await screen.findByRole('alert')).textContent).toContain('保存窗口偏好失败，设置未更改。')
+  expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
+    '保存窗口偏好失败，设置未更改。',
+  )
+  expect(section.children).toHaveLength(initialChildCount)
+  expect(within(section).queryByText('保存窗口偏好失败，设置未更改。')).toBeNull()
   expect(hide.getAttribute('aria-checked')).toBe('true')
   expect(quit.getAttribute('aria-checked')).toBe('false')
 

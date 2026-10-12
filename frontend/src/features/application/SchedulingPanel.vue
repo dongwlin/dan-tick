@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { shallowRef, watch } from 'vue'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
+import UiToast from '@/components/UiToast.vue'
 import { bindingError } from '@/features/configuration/queries'
 import { fieldClass, secondaryButton } from '@/features/configuration/style'
 import { usePreferences, useSetDefaultTimezone, useSetSchedulingEnabled } from './queries'
@@ -9,7 +10,12 @@ const preferences = usePreferences()
 const setTimezone = useSetDefaultTimezone()
 const setScheduling = useSetSchedulingEnabled()
 const timezone = shallowRef('')
-const feedback = shallowRef('')
+const toast = shallowRef<{ id: number; message: string; tone: 'success' | 'error' } | null>(null)
+let nextToastId = 0
+
+function notify(message: string, tone: 'success' | 'error') {
+  toast.value = { id: ++nextToastId, message, tone }
+}
 
 watch(
   () => preferences.data.value?.defaultTimezone,
@@ -20,22 +26,25 @@ watch(
 )
 
 async function saveTimezone() {
-  feedback.value = ''
+  toast.value = null
   try {
     await setTimezone.mutateAsync(timezone.value.trim())
-    feedback.value = '默认时区已保存，仅应用于新建任务。'
+    notify('默认时区已保存，仅应用于新建任务。', 'success')
   } catch {
-    feedback.value = '默认时区保存失败，请检查时区名称后重试。'
+    notify('默认时区保存失败，请检查时区名称后重试。', 'error')
   }
 }
 
 async function toggleScheduling(enabled: boolean) {
-  feedback.value = ''
+  toast.value = null
   try {
     await setScheduling.mutateAsync(enabled)
-    feedback.value = enabled ? '自动调度已恢复。' : '已暂停新的自动调度，当前运行中的任务不受影响。'
+    notify(
+      enabled ? '自动调度已恢复。' : '已暂停新的自动调度，当前运行中的任务不受影响。',
+      'success',
+    )
   } catch {
-    feedback.value = '更改调度状态未成功确认，请重新读取当前状态。'
+    notify('更改调度状态未成功确认，请重新读取当前状态。', 'error')
   }
 }
 </script>
@@ -106,6 +115,12 @@ async function toggleScheduling(enabled: boolean) {
         </button>
       </form>
     </div>
-    <p v-if="feedback" class="mt-2 text-sm text-text-secondary" role="status">{{ feedback }}</p>
+    <UiToast
+      v-if="toast"
+      :key="toast.id"
+      :message="toast.message"
+      :tone="toast.tone"
+      @dismiss="toast = null"
+    />
   </section>
 </template>

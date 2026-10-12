@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/vue'
+import { render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { CancellablePromise } from '@wailsio/runtime'
@@ -66,12 +66,18 @@ it('updates scheduling through Go and preserves authoritative state after failur
     return new CancellablePromise<void>((resolve) => resolve())
   })
   show(SchedulingPanel)
+  const card = screen.getByRole('region', { name: '调度设置' })
+  const initialChildCount = card.children.length
   const toggle = await screen.findByRole('switch', { name: /启用自动调度/ })
   expect(toggle.getAttribute('aria-checked')).toBe('true')
   expect(toggle.querySelector('[data-state="checked"]')).toBeTruthy()
   await user.click(screen.getByText('启用自动调度'))
   expect(SetSchedulingEnabled).toHaveBeenCalledWith(false)
-  expect(await screen.findByText(/已暂停新的自动调度/)).toBeTruthy()
+  expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
+    '已暂停新的自动调度',
+  )
+  expect(card.children).toHaveLength(initialChildCount)
+  expect(within(card).queryByText(/已暂停新的自动调度/)).toBeNull()
   await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
 
   vi.mocked(SetDefaultTimezone).mockRejectedValueOnce(new Error('private DB path'))
@@ -79,15 +85,22 @@ it('updates scheduling through Go and preserves authoritative state after failur
   await user.clear(input)
   await user.type(input, 'Invalid/Timezone')
   await user.click(screen.getByRole('button', { name: '保存默认时区' }))
-  expect(await screen.findByText(/默认时区保存失败/)).toBeTruthy()
+  expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
+    '默认时区保存失败',
+  )
   expect(input.value).toBe('Invalid/Timezone')
+  expect(card.children).toHaveLength(initialChildCount)
+  expect(within(card).queryByText(/默认时区保存失败/)).toBeNull()
   expect(document.body.textContent).not.toContain('private DB path')
 
   await user.clear(input)
   await user.type(input, 'Europe/Berlin')
   await user.click(screen.getByRole('button', { name: '保存默认时区' }))
   await waitFor(() => expect(SetDefaultTimezone).toHaveBeenCalledWith('Europe/Berlin'))
-  expect(await screen.findByText(/默认时区已保存/)).toBeTruthy()
+  expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
+    '默认时区已保存',
+  )
+  expect(card.children).toHaveLength(initialChildCount)
 })
 
 it('keeps the scheduling switch on after a failed update and supports keyboard activation', async () => {
@@ -110,7 +123,12 @@ it('keeps the scheduling switch on after a failed update and supports keyboard a
   await user.click(toggle)
   expect(SetSchedulingEnabled).toHaveBeenCalledTimes(1)
   rejectChange(new Error('private failure'))
-  expect(await screen.findByText(/更改调度状态未成功确认/)).toBeTruthy()
+  expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
+    '更改调度状态未成功确认',
+  )
+  expect(
+    within(screen.getByRole('region', { name: '调度设置' })).queryByText(/更改调度状态未成功确认/),
+  ).toBeNull()
   expect(toggle.getAttribute('aria-checked')).toBe('true')
   expect(toggle.hasAttribute('disabled')).toBe(false)
   expect(document.body.textContent).not.toContain('private failure')
@@ -119,6 +137,8 @@ it('keeps the scheduling switch on after a failed update and supports keyboard a
 it('opens local directories and exports with result feedback without the explanatory notice', async () => {
   const user = userEvent.setup()
   show(DiagnosticsPanel)
+  const card = screen.getByRole('region', { name: '数据与日志' })
+  const initialChildCount = card.children.length
   expect(screen.queryByText(/不包含数据库、账号凭证或弹幕正文/)).toBeNull()
   await user.click(screen.getByRole('button', { name: '打开日志目录' }))
   await waitFor(() => expect(OpenLogDirectory).toHaveBeenCalledOnce())
@@ -126,11 +146,19 @@ it('opens local directories and exports with result feedback without the explana
   await waitFor(() => expect(OpenDataDirectory).toHaveBeenCalledOnce())
   vi.mocked(ExportDiagnostics).mockResolvedValueOnce({ cancelled: true, filename: '' })
   await user.click(screen.getByRole('button', { name: /导出诊断包/ }))
-  expect(await screen.findByText('已取消导出。')).toBeTruthy()
+  expect((await screen.findByRole('status', { name: '操作提示通知' })).textContent).toContain(
+    '已取消导出。',
+  )
   vi.mocked(ExportDiagnostics).mockRejectedValueOnce(new Error('secret should not appear'))
   await user.click(screen.getByRole('button', { name: /导出诊断包/ }))
-  expect(await screen.findByText(/诊断包导出失败或未通过安全检查/)).toBeTruthy()
+  expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
+    '诊断包导出失败或未通过安全检查',
+  )
   expect(document.body.textContent).not.toContain('secret should not appear')
   await user.click(screen.getByRole('button', { name: /导出诊断包/ }))
-  expect(await screen.findByText(/诊断包已保存为 safe.zip/)).toBeTruthy()
+  expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
+    '诊断包已保存为 safe.zip',
+  )
+  expect(card.children).toHaveLength(initialChildCount)
+  expect(within(card).queryByText(/诊断包已保存为/)).toBeNull()
 })

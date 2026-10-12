@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
 import { Check } from 'lucide-vue-next'
 import { shallowRef, watch } from 'vue'
+import UiToast from '@/components/UiToast.vue'
 import {
   GetCloseBehavior,
   SetCloseBehavior,
@@ -20,6 +21,8 @@ const {
   queryFn: GetCloseBehavior,
 })
 const selected = shallowRef<string | undefined>()
+const toast = shallowRef<{ id: number; message: string; tone: 'error' } | null>(null)
+let nextToastId = 0
 watch(
   behavior,
   (value) => {
@@ -32,11 +35,17 @@ const update = useMutation({
   onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   onError: () => {
     selected.value = behavior.value
+    toast.value = {
+      id: ++nextToastId,
+      message: '保存窗口偏好失败，设置未更改。',
+      tone: 'error',
+    }
   },
 })
 
 function onChange(value: unknown) {
   if (value === 'hide' || value === 'quit') {
+    toast.value = null
     selected.value = value
     update.mutate(value)
   }
@@ -52,6 +61,7 @@ function onChange(value: unknown) {
     <RadioGroupRoot
       :model-value="selected"
       :disabled="isPending || update.isPending.value"
+      :aria-busy="isPending || update.isPending.value"
       orientation="vertical"
       aria-label="关闭窗口行为"
       aria-describedby="close-behavior-description"
@@ -87,20 +97,19 @@ function onChange(value: unknown) {
         <span>关闭时退出应用，停止后台调度</span>
       </RadioGroupItem>
     </RadioGroupRoot>
-    <p v-if="isPending" role="status" class="mt-3 text-sm text-text-secondary">正在读取窗口偏好…</p>
-    <p v-if="update.isPending.value" role="status" class="mt-3 text-sm text-text-secondary">
-      正在保存…
-    </p>
-    <p
-      v-if="isError || update.isError.value"
-      role="alert"
-      class="mt-3 text-sm text-soft-warning-fg"
-    >
-      {{ isError ? '读取窗口偏好失败。' : '保存窗口偏好失败，设置未更改。' }}
-      <button v-if="isError" type="button" class="underline" @click="refetch()">重试</button>
+    <p v-if="isError" role="alert" class="mt-3 text-sm text-soft-warning-fg">
+      读取窗口偏好失败。
+      <button type="button" class="underline" @click="refetch()">重试</button>
     </p>
     <p class="mt-3 text-sm text-text-tertiary">
       标题栏的「退出应用」始终可以明确结束后台任务；存在已启用或运行中的任务时会询问确认。
     </p>
+    <UiToast
+      v-if="toast"
+      :key="toast.id"
+      :message="toast.message"
+      :tone="toast.tone"
+      @dismiss="toast = null"
+    />
   </section>
 </template>

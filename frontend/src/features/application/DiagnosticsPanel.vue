@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue'
 import { FolderOpen, FileArchive } from 'lucide-vue-next'
+import UiToast from '@/components/UiToast.vue'
 import { secondaryButton } from '@/features/configuration/style'
 import {
   useDiagnosticsStatus,
@@ -13,25 +14,38 @@ const status = useDiagnosticsStatus()
 const logs = useOpenLogDirectory()
 const data = useOpenDataDirectory()
 const exportAction = useExportDiagnostics()
-const feedback = shallowRef('')
+const toast = shallowRef<{
+  id: number
+  message: string
+  tone: 'success' | 'error' | 'info'
+} | null>(null)
+let nextToastId = 0
+
+function notify(message: string, tone: 'success' | 'error' | 'info') {
+  toast.value = { id: ++nextToastId, message, tone }
+}
 
 async function run(action: 'logs' | 'data' | 'export') {
-  feedback.value = ''
+  toast.value = null
   try {
     if (action === 'export') {
       const result = await exportAction.mutateAsync()
-      feedback.value = result.cancelled
-        ? '已取消导出。'
-        : `诊断包已保存为 ${result.filename}。分享前请检查包内内容。`
+      if (result.cancelled) {
+        notify('已取消导出。', 'info')
+      } else {
+        notify(`诊断包已保存为 ${result.filename}。分享前请检查包内内容。`, 'success')
+      }
     } else {
       await (action === 'logs' ? logs.mutateAsync() : data.mutateAsync())
-      feedback.value = action === 'logs' ? '已请求打开日志目录。' : '已请求打开数据目录。'
+      notify(action === 'logs' ? '已请求打开日志目录。' : '已请求打开数据目录。', 'success')
     }
   } catch {
-    feedback.value =
+    notify(
       action === 'export'
         ? '诊断包导出失败或未通过安全检查，请查看本地日志后重试。'
-        : '无法打开目录，请检查系统文件管理器和目录权限。'
+        : '无法打开目录，请检查系统文件管理器和目录权限。',
+      'error',
+    )
   }
   if (action === 'export') void status.refetch()
 }
@@ -93,6 +107,12 @@ async function run(action: 'logs' | 'data' | 'export') {
       <FileArchive class="size-4" aria-hidden="true" />
       {{ exportAction.isPending.value ? '正在检查并导出…' : '导出诊断包…' }}
     </button>
-    <p v-if="feedback" class="mt-3 text-sm text-text-secondary" role="status">{{ feedback }}</p>
+    <UiToast
+      v-if="toast"
+      :key="toast.id"
+      :message="toast.message"
+      :tone="toast.tone"
+      @dismiss="toast = null"
+    />
   </section>
 </template>

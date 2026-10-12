@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
+import { shallowRef } from 'vue'
 import { Send } from 'lucide-vue-next'
 import { Outcome } from '@bindings/github.com/dongwlin/dan-tick/internal/danmaku/models'
+import UiToast from '@/components/UiToast.vue'
 import { bindingError, useRoomOptions } from '@/features/configuration/queries'
 import { fieldClass, flatPanel, labelClass, primaryButton } from '@/features/configuration/style'
 import { sendFailureText, useTestSend } from './queries'
@@ -10,22 +11,31 @@ const rooms = useRoomOptions()
 const send = useTestSend()
 const roomID = shallowRef(0)
 const message = shallowRef('')
-const errorMessage = shallowRef('')
-const outcomeMessage = computed(() => {
-  const result = send.data.value
-  if (!result) return ''
-  if (result.outcome === Outcome.Accepted) return '测试弹幕已被 B 站接受（不计入任务执行记录）。'
-  if (result.outcome === Outcome.Unknown) return '发送结果无法确认，请勿立即重试。'
-  return sendFailureText[result.errorCode] ?? '测试发送未成功，请检查账号及弹幕内容。'
-})
+const toast = shallowRef<{
+  id: number
+  message: string
+  tone: 'success' | 'error' | 'warning'
+} | null>(null)
+let nextToastId = 0
+
+function notify(message: string, tone: 'success' | 'error' | 'warning') {
+  toast.value = { id: ++nextToastId, message, tone }
+}
 
 async function submit() {
-  errorMessage.value = ''
+  toast.value = null
   send.reset()
   try {
-    await send.mutateAsync({ roomId: roomID.value, message: message.value })
+    const result = await send.mutateAsync({ roomId: roomID.value, message: message.value })
+    if (result.outcome === Outcome.Accepted) {
+      notify('测试弹幕已被 B 站接受（不计入任务执行记录）。', 'success')
+    } else if (result.outcome === Outcome.Unknown) {
+      notify('发送结果无法确认，请勿立即重试。', 'warning')
+    } else {
+      notify(sendFailureText[result.errorCode] ?? '测试发送未成功，请检查账号及弹幕内容。', 'error')
+    }
   } catch (error) {
-    errorMessage.value = bindingError(error)
+    notify(bindingError(error), 'error')
   }
 }
 </script>
@@ -73,9 +83,12 @@ async function submit() {
     <p v-if="rooms.isError.value" role="alert" class="text-sm text-soft-danger-fg">
       {{ bindingError(rooms.error.value) }}
     </p>
-    <p v-if="outcomeMessage" aria-live="polite" class="text-sm text-text-secondary">
-      {{ outcomeMessage }}
-    </p>
-    <p v-if="errorMessage" role="alert" class="text-sm text-soft-danger-fg">{{ errorMessage }}</p>
+    <UiToast
+      v-if="toast"
+      :key="toast.id"
+      :message="toast.message"
+      :tone="toast.tone"
+      @dismiss="toast = null"
+    />
   </section>
 </template>

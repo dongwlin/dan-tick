@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircle2, CircleAlert, X } from 'lucide-vue-next'
+import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from 'lucide-vue-next'
 import {
   ToastClose,
   ToastDescription,
@@ -11,7 +11,7 @@ import {
 
 defineProps<{
   message: string
-  tone: 'success' | 'error'
+  tone: 'success' | 'error' | 'warning' | 'info'
 }>()
 const emit = defineEmits<{ dismiss: [] }>()
 
@@ -25,16 +25,39 @@ function updateOpen(open: boolean) {
     <ToastProvider label="通知">
       <ToastRoot
         :open="true"
-        :duration="tone === 'error' ? 8000 : 5000"
-        :role="tone === 'error' ? 'alert' : 'status'"
-        :aria-label="tone === 'error' ? '操作失败通知' : '操作成功通知'"
+        :duration="tone === 'error' || tone === 'warning' ? 8000 : 5000"
+        :role="tone === 'error' || tone === 'warning' ? 'alert' : 'status'"
+        :aria-label="
+          tone === 'error'
+            ? '操作失败通知'
+            : tone === 'warning'
+              ? '操作警告通知'
+              : tone === 'info'
+                ? '操作提示通知'
+                : '操作成功通知'
+        "
         class="flex w-full items-start gap-3 rounded-xl border bg-surface-solid px-4 py-3 text-sm text-text-primary shadow-(--shadow-overlay)"
-        :class="tone === 'error' ? 'border-soft-danger-border' : 'border-soft-success-border'"
+        :class="{
+          'border-soft-danger-border': tone === 'error',
+          'border-soft-warning-border': tone === 'warning',
+          'border-soft-accent-border': tone === 'info',
+          'border-soft-success-border': tone === 'success',
+        }"
         @update:open="updateOpen"
       >
         <CircleAlert
           v-if="tone === 'error'"
           class="mt-0.5 size-5 shrink-0 text-soft-danger-fg"
+          aria-hidden="true"
+        />
+        <TriangleAlert
+          v-else-if="tone === 'warning'"
+          class="mt-0.5 size-5 shrink-0 text-soft-warning-fg"
+          aria-hidden="true"
+        />
+        <Info
+          v-else-if="tone === 'info'"
+          class="mt-0.5 size-5 shrink-0 text-accent-text"
           aria-hidden="true"
         />
         <CheckCircle2
