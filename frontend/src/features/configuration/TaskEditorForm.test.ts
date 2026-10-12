@@ -1,5 +1,5 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import { render, screen, waitFor } from '@testing-library/vue'
+import { render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import {
@@ -29,6 +29,11 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationserv
     .fn()
     .mockResolvedValue({ defaultTimezone: 'Asia/Shanghai', schedulingEnabled: true }),
 }))
+
+function requiredElement<T extends Element>(element: T | null): T {
+  if (!element) throw new Error('Expected a form element to be present')
+  return element
+}
 
 it('validates task conditions, retains edits on failure and submits typed binding input', async () => {
   vi.mocked(ListRooms).mockResolvedValue([
@@ -85,18 +90,37 @@ it('validates task conditions, retains edits on failure and submits typed bindin
     expect(screen.queryByText(description)).toBeNull()
   }
   await screen.findByRole('option', { name: '测试直播间 · 98765' })
+  const messageCard = requiredElement(
+    screen.getByRole('heading', { name: '弹幕内容' }).closest('section'),
+  )
+  const cardChildren = messageCard.children.length
+  const errorSlot = requiredElement(document.getElementById('task-messages-error'))
+  const actions = requiredElement(screen.getByRole('button', { name: '创建任务' }).closest('aside'))
+  const actionChildren = actions.children.length
+  expect(errorSlot.textContent).toBe('')
   await user.type(screen.getByRole('textbox', { name: '任务名称' }), '自动问候')
   await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '1')
   await user.type(screen.getByRole('textbox', { name: '发送队列' }), '你好\n晚上好')
   await user.click(screen.getByRole('button', { name: '创建任务' }))
   expect(await screen.findByText('单次任务只能填写一条弹幕')).toBeTruthy()
+  expect(screen.getByRole('textbox', { name: '发送队列' }).getAttribute('aria-invalid')).toBe(
+    'true',
+  )
+  expect(messageCard.children).toHaveLength(cardChildren)
+  expect(document.getElementById('task-messages-error')).toBe(errorSlot)
+  expect(actions.children).toHaveLength(actionChildren)
   expect(vi.mocked(CreateTask)).not.toHaveBeenCalled()
 
   const messages = screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' })
   await user.clear(messages)
   await user.type(messages, '你好')
+  await waitFor(() => expect(errorSlot.textContent).toBe(''))
   await user.click(screen.getByRole('button', { name: '创建任务' }))
-  expect(await screen.findByText('输入无效，请检查填写内容')).toBeTruthy()
+  expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
+    '输入无效，请检查填写内容',
+  )
+  expect(actions.children).toHaveLength(actionChildren)
+  expect(within(actions).queryByText('输入无效，请检查填写内容')).toBeNull()
   expect(messages.value).toBe('你好')
   await user.click(screen.getByRole('button', { name: '创建任务' }))
   await waitFor(() => expect(window.location.hash).toBe('#/tasks'))
@@ -117,6 +141,64 @@ it('validates task conditions, retains edits on failure and submits typed bindin
     },
     enabled: true,
   })
+})
+
+it('keeps field error slots mounted and focuses the submitted error summary', async () => {
+  vi.mocked(ListRooms).mockResolvedValue([
+    {
+      id: 2,
+      platformRoomId: '98765',
+      title: '测试直播间',
+      anchorName: '',
+      remark: '',
+      coverUrl: '',
+      taskCount: 0,
+    },
+  ])
+  window.history.replaceState(null, '', '/#/tasks/new')
+  const user = userEvent.setup()
+  render(App, {
+    global: {
+      plugins: [createAppRouter(), [VueQueryPlugin, { queryClient: createAppQueryClient() }]],
+    },
+  })
+  await screen.findByRole('option', { name: '测试直播间 · 98765' })
+  const nameError = requiredElement(document.getElementById('task-name-error'))
+  const roomError = requiredElement(document.getElementById('task-roomId-error'))
+  const messageError = requiredElement(document.getElementById('task-messages-error'))
+  await user.click(screen.getByRole('button', { name: '创建任务' }))
+  const summary = requiredElement((await screen.findByText('请检查 3 处填写问题：')).parentElement)
+  await waitFor(() => expect(document.activeElement).toBe(summary))
+  expect(nameError.textContent).toBe('请输入任务名称')
+  expect(roomError.textContent).toBe('请选择直播间')
+  expect(messageError.textContent).toBe('请填写至少一条弹幕')
+  await user.click(within(summary).getByRole('button', { name: '发送队列' }))
+  expect(document.activeElement).toBe(screen.getByRole('textbox', { name: '发送队列' }))
+  expect(document.getElementById('task-name-error')).toBe(nameError)
+  expect(document.getElementById('task-roomId-error')).toBe(roomError)
+  expect(document.getElementById('task-messages-error')).toBe(messageError)
+  expect(vi.mocked(CreateTask)).not.toHaveBeenCalled()
+})
+
+it('reuses the room selector position for loading failures and empty-room recovery', async () => {
+  vi.mocked(ListRooms).mockRejectedValueOnce(new Error('读取失败')).mockResolvedValueOnce([])
+  window.history.replaceState(null, '', '/#/tasks/new')
+  const user = userEvent.setup()
+  render(App, {
+    global: {
+      plugins: [createAppRouter(), [VueQueryPlugin, { queryClient: createAppQueryClient() }]],
+    },
+  })
+  const retry = await screen.findByRole('button', { name: /重试读取直播间/ })
+  const roomField = requiredElement(retry.parentElement)
+  const childrenCount = roomField.children.length
+  expect(screen.queryByRole('link', { name: /先添加直播间/ })).toBeNull()
+  await user.click(retry)
+  const addRoom = await screen.findByRole('link', { name: '暂无直播间，先添加直播间' })
+  expect(addRoom.parentElement).toBe(roomField)
+  expect(roomField.children).toHaveLength(childrenCount)
+  expect(screen.queryByRole('button', { name: /重试读取直播间/ })).toBeNull()
+  expect(screen.getByRole('button', { name: '创建任务' }).hasAttribute('disabled')).toBe(true)
 })
 
 it('loads and edits a weekly loop task without losing message order', async () => {
@@ -153,7 +235,9 @@ it('loads and edits a weekly loop task without losing message order', async () =
     updatedAt: 12345,
   }
   vi.mocked(GetTask).mockResolvedValue(saved)
-  vi.mocked(UpdateTask).mockResolvedValue({ ...saved, name: '新任务' })
+  vi.mocked(UpdateTask)
+    .mockRejectedValueOnce(new Error('修改已保存，但定时调度同步失败，请重新启动应用后检查'))
+    .mockResolvedValueOnce({ ...saved, name: '新任务' })
   window.history.replaceState(null, '', '/#/tasks/42/edit')
   const user = userEvent.setup()
   const router = createAppRouter()
@@ -170,6 +254,16 @@ it('loads and edits a weekly loop task without losing message order', async () =
   expect(screen.getByRole<HTMLInputElement>('checkbox', { name: '周三' }).checked).toBe(true)
   await user.clear(name)
   await user.type(name, '新任务')
+  const saveButton = screen.getByRole('button', { name: '保存修改' })
+  const actions = requiredElement(saveButton.closest('aside'))
+  const cancel = within(actions).getByRole('link', { name: '取消' })
+  await user.click(saveButton)
+  const warning = await within(actions).findByRole('alert')
+  expect(warning.textContent).toContain('定时调度同步失败')
+  expect(actions.children[1]).toBe(saveButton)
+  expect(actions.children[2]).toBe(cancel)
+  expect(actions.lastElementChild).toBe(warning)
+  expect(screen.queryByRole('alert', { name: '操作失败通知' })).toBeNull()
   await user.click(screen.getByRole('button', { name: '保存修改' }))
   await waitFor(() =>
     expect(vi.mocked(UpdateTask)).toHaveBeenCalledWith(

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef, watch } from 'vue'
+import { computed, nextTick, shallowRef, useTemplateRef, watch } from 'vue'
 import { RouterLink, onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ArrowLeft, Check, Clock3, Info } from 'lucide-vue-next'
 import { useForm } from 'vee-validate'
@@ -12,6 +12,7 @@ import { Kind as TaskKind } from '@bindings/github.com/dongwlin/dan-tick/interna
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
 import { bindingError, useRoomOptions, useSaveTask } from './queries'
 import { usePreferences } from '@/features/application/queries'
+import UiToast from '@/components/UiToast.vue'
 import { fieldClass, flatPanel, labelClass, primaryButton, secondaryButton } from './style'
 
 const props = defineProps<{ task?: Task }>()
@@ -19,7 +20,9 @@ const router = useRouter()
 const rooms = useRoomOptions()
 const preferences = usePreferences()
 const save = useSaveTask(props.task?.id)
-const errorMessage = shallowRef('')
+const saveWarning = shallowRef('')
+const toast = shallowRef<{ id: number; message: string; tone: 'error' } | null>(null)
+let nextToastId = 0
 const navigatingAfterSave = shallowRef(false)
 
 const weekdays = [
@@ -74,37 +77,34 @@ const schema = z
 
 type EditorValues = z.input<typeof schema>
 const original = props.task
-const { defineField, values, errors, meta, handleSubmit, setFieldValue, resetForm } = useForm<
-  EditorValues,
-  EditorValues,
-  typeof schema
->({
-  validationSchema: schema,
-  initialValues: {
-    name: original?.name ?? '',
-    roomId: original ? String(original.roomId) : '',
-    kind: original?.kind === TaskKind.Loop ? 'loop' : 'single',
-    messages: original?.messages?.join('\n') ?? '',
-    interval: String(original?.intervalSeconds ?? 15),
-    maxCount: String(original?.maxCount ?? 1),
-    maxDuration: String(original?.maxDurationSeconds ?? ''),
-    scheduleKind:
-      original?.schedule.kind === ScheduleKind.Weekly
-        ? 'weekly'
-        : original?.schedule.kind === ScheduleKind.Once
-          ? 'once'
-          : 'daily',
-    localDate: original?.schedule.localDate ?? '',
-    localTime: original?.schedule.localTime ?? '21:00:00',
-    timezone: original?.schedule.timezone ?? 'Asia/Shanghai',
-    weekdays: original
-      ? weekdays
-          .filter((day) => (original.schedule.weekdays & (1 << day.bit)) !== 0)
-          .map((day) => day.bit)
-      : [0, 1, 2, 3, 4],
-    enabled: original?.enabled ?? true,
-  },
-})
+const { defineField, values, errors, meta, submitCount, handleSubmit, setFieldValue, resetForm } =
+  useForm<EditorValues, EditorValues, typeof schema>({
+    validationSchema: schema,
+    initialValues: {
+      name: original?.name ?? '',
+      roomId: original ? String(original.roomId) : '',
+      kind: original?.kind === TaskKind.Loop ? 'loop' : 'single',
+      messages: original?.messages?.join('\n') ?? '',
+      interval: String(original?.intervalSeconds ?? 15),
+      maxCount: String(original?.maxCount ?? 1),
+      maxDuration: String(original?.maxDurationSeconds ?? ''),
+      scheduleKind:
+        original?.schedule.kind === ScheduleKind.Weekly
+          ? 'weekly'
+          : original?.schedule.kind === ScheduleKind.Once
+            ? 'once'
+            : 'daily',
+      localDate: original?.schedule.localDate ?? '',
+      localTime: original?.schedule.localTime ?? '21:00:00',
+      timezone: original?.schedule.timezone ?? 'Asia/Shanghai',
+      weekdays: original
+        ? weekdays
+            .filter((day) => (original.schedule.weekdays & (1 << day.bit)) !== 0)
+            .map((day) => day.bit)
+        : [0, 1, 2, 3, 4],
+      enabled: original?.enabled ?? true,
+    },
+  })
 // Apply the persisted default only before the user edits a new task. Reset
 // the initial value too, so asynchronously loading it doesn't mark a fresh
 // editor as dirty or trigger an unnecessary leave confirmation.
@@ -130,6 +130,33 @@ const [localTime, timeAttrs] = defineField('localTime')
 const [timezone, timezoneAttrs] = defineField('timezone')
 const [enabled] = defineField('enabled')
 
+const fieldErrorClass = 'min-h-5 text-xs leading-5 text-soft-danger-fg'
+const fieldNames = {
+  name: '任务名称',
+  roomId: '目标直播间',
+  messages: '发送队列',
+  interval: '发送间隔',
+  maxCount: '最大发送次数',
+  maxDuration: '最长运行时长',
+  localTime: '执行时间',
+  localDate: '执行日期',
+  timezone: '时区',
+  weekdays: '选择星期',
+} as const
+type ErrorField = keyof typeof fieldNames
+const errorSummary = computed(() =>
+  submitCount.value > 0
+    ? (Object.keys(fieldNames) as ErrorField[])
+        .filter((field) => Boolean(errors.value[field]))
+        .map((field) => ({ field, label: fieldNames[field] }))
+    : [],
+)
+const errorSummaryElement = useTemplateRef<HTMLDivElement>('errorSummary')
+
+function focusErrorField(field: ErrorField) {
+  document.getElementById(`task-${field}`)?.focus()
+}
+
 const messageCount = computed(
   () => values.messages.split(/\r?\n/).filter((line) => line.trim()).length,
 )
@@ -144,44 +171,60 @@ onBeforeRouteLeave(() => {
     return window.confirm('任务尚未保存，确定放弃修改并离开吗？')
 })
 
-const submit = handleSubmit(async (data) => {
-  errorMessage.value = ''
-  const input: TaskInput = {
-    name: data.name.trim(),
-    roomId: Number(data.roomId),
-    kind: data.kind === 'loop' ? TaskKind.Loop : TaskKind.Single,
-    messages: data.messages
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean),
-    intervalSeconds: data.kind === 'loop' ? Number(data.interval) : null,
-    maxCount: data.kind === 'loop' && data.maxCount ? Number(data.maxCount) : null,
-    maxDurationSeconds: data.kind === 'loop' && data.maxDuration ? Number(data.maxDuration) : null,
-    schedule: {
-      kind:
-        data.scheduleKind === 'once'
-          ? ScheduleKind.Once
-          : data.scheduleKind === 'weekly'
-            ? ScheduleKind.Weekly
-            : ScheduleKind.Daily,
-      localDate: data.scheduleKind === 'once' ? data.localDate : '',
-      localTime: data.localTime.length === 5 ? `${data.localTime}:00` : data.localTime,
-      timezone: data.timezone.trim(),
-      weekdays:
-        data.scheduleKind === 'weekly'
-          ? data.weekdays.reduce((bits, day) => bits | (1 << day), 0)
-          : 0,
-    },
-    enabled: data.enabled,
-  }
-  try {
-    await save.mutateAsync(input)
-    navigatingAfterSave.value = true
-    await router.push('/tasks')
-  } catch (error) {
-    errorMessage.value = bindingError(error)
-  }
-})
+const submit = handleSubmit(
+  async (data) => {
+    toast.value = null
+    saveWarning.value = ''
+    const input: TaskInput = {
+      name: data.name.trim(),
+      roomId: Number(data.roomId),
+      kind: data.kind === 'loop' ? TaskKind.Loop : TaskKind.Single,
+      messages: data.messages
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+      intervalSeconds: data.kind === 'loop' ? Number(data.interval) : null,
+      maxCount: data.kind === 'loop' && data.maxCount ? Number(data.maxCount) : null,
+      maxDurationSeconds:
+        data.kind === 'loop' && data.maxDuration ? Number(data.maxDuration) : null,
+      schedule: {
+        kind:
+          data.scheduleKind === 'once'
+            ? ScheduleKind.Once
+            : data.scheduleKind === 'weekly'
+              ? ScheduleKind.Weekly
+              : ScheduleKind.Daily,
+        localDate: data.scheduleKind === 'once' ? data.localDate : '',
+        localTime: data.localTime.length === 5 ? `${data.localTime}:00` : data.localTime,
+        timezone: data.timezone.trim(),
+        weekdays:
+          data.scheduleKind === 'weekly'
+            ? data.weekdays.reduce((bits, day) => bits | (1 << day), 0)
+            : 0,
+      },
+      enabled: data.enabled,
+    }
+    try {
+      await save.mutateAsync(input)
+      navigatingAfterSave.value = true
+      await router.push('/tasks')
+    } catch (error) {
+      const message = bindingError(error)
+      if (message === '修改已保存，但定时调度同步失败，请重新启动应用后检查') {
+        // This result needs to remain visible: the database write may have succeeded.
+        saveWarning.value = message
+      } else {
+        toast.value = { id: ++nextToastId, message, tone: 'error' }
+      }
+    }
+  },
+  () => {
+    void nextTick(() => {
+      if (errorSummary.value.length > 1) errorSummaryElement.value?.focus()
+      else if (errorSummary.value[0]) focusErrorField(errorSummary.value[0].field)
+    })
+  },
+)
 </script>
 
 <template>
@@ -191,8 +234,27 @@ const submit = handleSubmit(async (data) => {
       class="inline-flex w-fit items-center gap-2 text-sm text-text-secondary hover:text-text-primary"
       ><ArrowLeft class="size-4" aria-hidden="true" />返回任务列表</RouterLink
     >
-    <header>
+    <header class="grid min-h-19 grid-cols-1 gap-1 sm:grid-cols-[auto_minmax(0,1fr)]">
       <h1>{{ task ? '编辑任务' : '新建任务' }}</h1>
+      <div
+        ref="errorSummary"
+        tabindex="-1"
+        aria-live="polite"
+        class="flex h-6 min-w-0 items-center gap-2 overflow-x-auto text-xs whitespace-nowrap text-soft-danger-fg sm:justify-self-end"
+      >
+        <template v-if="errorSummary.length">
+          <span>请检查 {{ errorSummary.length }} 处填写问题：</span>
+          <button
+            v-for="entry in errorSummary"
+            :key="entry.field"
+            type="button"
+            class="shrink-0 underline"
+            @click="focusErrorField(entry.field)"
+          >
+            {{ entry.label }}
+          </button>
+        </template>
+      </div>
     </header>
     <form
       class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]"
@@ -210,23 +272,33 @@ const submit = handleSubmit(async (data) => {
             <div :class="[labelClass, 'md:col-span-2']">
               任务名称
               <input
+                id="task-name"
                 v-model="name"
                 v-bind="nameAttrs"
                 :class="fieldClass"
                 placeholder="例如：每日晚安问候"
                 aria-label="任务名称"
+                :aria-invalid="!!errors.name"
+                aria-describedby="task-name-error"
               />
-              <span v-if="errors.name" class="text-xs text-soft-danger-fg">{{ errors.name }}</span>
+              <span id="task-name-error" :class="fieldErrorClass">{{ errors.name }}</span>
             </div>
             <div :class="labelClass">
               目标直播间
               <select
+                v-if="rooms.isPending.value || (!rooms.isError.value && rooms.data.value?.length)"
+                id="task-roomId"
                 v-model="roomId"
                 v-bind="roomAttrs"
                 :class="fieldClass"
                 aria-label="目标直播间"
+                :aria-invalid="!!errors.roomId"
+                aria-describedby="task-roomId-error"
+                :disabled="rooms.isPending.value"
               >
-                <option value="">请选择直播间</option>
+                <option value="">
+                  {{ rooms.isPending.value ? '正在读取直播间…' : '请选择直播间' }}
+                </option>
                 <option
                   v-for="room in rooms.data.value ?? []"
                   :key="room.id"
@@ -235,19 +307,24 @@ const submit = handleSubmit(async (data) => {
                   {{ room.remark || room.title || room.platformRoomId }} · {{ room.platformRoomId }}
                 </option>
               </select>
-              <span v-if="errors.roomId" class="text-xs text-soft-danger-fg">{{
-                errors.roomId
-              }}</span>
-              <span v-if="rooms.isError.value" role="alert" class="text-xs text-soft-danger-fg"
-                >{{ bindingError(rooms.error.value) }}
-                <button type="button" class="underline" @click="rooms.refetch()">重试</button></span
+              <button
+                v-else-if="rooms.isError.value"
+                id="task-roomId"
+                type="button"
+                :class="[fieldClass, 'text-left text-soft-danger-fg']"
+                :aria-label="`${bindingError(rooms.error.value)}，重试读取直播间`"
+                @click="rooms.refetch()"
               >
+                读取直播间失败，点击重试
+              </button>
               <RouterLink
-                v-if="!rooms.isPending.value && !rooms.data.value?.length"
+                v-else
+                id="task-roomId"
                 to="/rooms"
-                class="text-xs text-accent-text"
-                >先添加直播间</RouterLink
+                :class="[fieldClass, 'flex items-center text-accent-text']"
+                >暂无直播间，先添加直播间</RouterLink
               >
+              <span id="task-roomId-error" :class="fieldErrorClass">{{ errors.roomId }}</span>
             </div>
             <div :class="labelClass">
               任务类型
@@ -270,6 +347,7 @@ const submit = handleSubmit(async (data) => {
           <div :class="labelClass">
             发送队列
             <textarea
+              id="task-messages"
               v-model="messages"
               v-bind="messagesAttrs"
               :class="fieldClass"
@@ -277,10 +355,10 @@ const submit = handleSubmit(async (data) => {
               class="resize-y"
               placeholder="在这里输入弹幕内容…"
               aria-label="发送队列"
+              :aria-invalid="!!errors.messages"
+              aria-describedby="task-messages-error"
             />
-            <span v-if="errors.messages" class="text-xs text-soft-danger-fg">{{
-              errors.messages
-            }}</span>
+            <span id="task-messages-error" :class="fieldErrorClass">{{ errors.messages }}</span>
           </div>
           <p class="mt-2 flex items-center gap-2 text-xs text-text-tertiary">
             <Info
@@ -292,6 +370,7 @@ const submit = handleSubmit(async (data) => {
             <div :class="labelClass">
               发送间隔（秒）
               <input
+                id="task-interval"
                 v-model="interval"
                 v-bind="intervalAttrs"
                 :class="fieldClass"
@@ -299,14 +378,15 @@ const submit = handleSubmit(async (data) => {
                 min="1"
                 step="1"
                 aria-label="发送间隔"
+                :aria-invalid="!!errors.interval"
+                aria-describedby="task-interval-error"
               />
-              <span v-if="errors.interval" class="text-xs text-soft-danger-fg">{{
-                errors.interval
-              }}</span>
+              <span id="task-interval-error" :class="fieldErrorClass">{{ errors.interval }}</span>
             </div>
             <div :class="labelClass">
               最大发送次数
               <input
+                id="task-maxCount"
                 v-model="maxCount"
                 v-bind="countAttrs"
                 :class="fieldClass"
@@ -314,14 +394,15 @@ const submit = handleSubmit(async (data) => {
                 min="1"
                 step="1"
                 aria-label="最大发送次数"
+                :aria-invalid="!!errors.maxCount"
+                aria-describedby="task-maxCount-error"
               />
-              <span v-if="errors.maxCount" class="text-xs text-soft-danger-fg">{{
-                errors.maxCount
-              }}</span>
+              <span id="task-maxCount-error" :class="fieldErrorClass">{{ errors.maxCount }}</span>
             </div>
             <div :class="labelClass">
               最长运行时长（秒）
               <input
+                id="task-maxDuration"
                 v-model="maxDuration"
                 v-bind="durationAttrs"
                 :class="fieldClass"
@@ -329,8 +410,10 @@ const submit = handleSubmit(async (data) => {
                 min="1"
                 step="1"
                 aria-label="最长运行时长"
+                :aria-invalid="!!errors.maxDuration"
+                aria-describedby="task-maxDuration-error"
               />
-              <span v-if="errors.maxDuration" class="text-xs text-soft-danger-fg">{{
+              <span id="task-maxDuration-error" :class="fieldErrorClass">{{
                 errors.maxDuration
               }}</span>
             </div>
@@ -355,42 +438,45 @@ const submit = handleSubmit(async (data) => {
             <div :class="labelClass">
               执行时间
               <input
+                id="task-localTime"
                 v-model="localTime"
                 v-bind="timeAttrs"
                 :class="fieldClass"
                 type="time"
                 step="1"
                 aria-label="执行时间"
+                :aria-invalid="!!errors.localTime"
+                aria-describedby="task-localTime-error"
               />
-              <span v-if="errors.localTime" class="text-xs text-soft-danger-fg">{{
-                errors.localTime
-              }}</span>
+              <span id="task-localTime-error" :class="fieldErrorClass">{{ errors.localTime }}</span>
             </div>
             <div v-if="scheduleKind === 'once'" :class="labelClass">
               执行日期
               <input
+                id="task-localDate"
                 v-model="localDate"
                 v-bind="dateAttrs"
                 :class="fieldClass"
                 type="date"
                 aria-label="执行日期"
+                :aria-invalid="!!errors.localDate"
+                aria-describedby="task-localDate-error"
               />
-              <span v-if="errors.localDate" class="text-xs text-soft-danger-fg">{{
-                errors.localDate
-              }}</span>
+              <span id="task-localDate-error" :class="fieldErrorClass">{{ errors.localDate }}</span>
             </div>
             <div :class="labelClass">
               时区（IANA）
               <input
+                id="task-timezone"
                 v-model="timezone"
                 v-bind="timezoneAttrs"
                 :class="fieldClass"
                 aria-label="时区"
                 placeholder="Asia/Shanghai"
+                :aria-invalid="!!errors.timezone"
+                aria-describedby="task-timezone-error"
               />
-              <span v-if="errors.timezone" class="text-xs text-soft-danger-fg">{{
-                errors.timezone
-              }}</span>
+              <span id="task-timezone-error" :class="fieldErrorClass">{{ errors.timezone }}</span>
             </div>
           </div>
           <fieldset v-if="scheduleKind === 'weekly'" class="mt-4">
@@ -402,15 +488,18 @@ const submit = handleSubmit(async (data) => {
                 class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border-strong px-3 py-2 text-sm"
               >
                 <input
+                  :id="day.bit === 0 ? 'task-weekdays' : undefined"
                   type="checkbox"
                   :aria-label="day.name"
+                  :aria-invalid="!!errors.weekdays"
+                  aria-describedby="task-weekdays-error"
                   :checked="values.weekdays.includes(day.bit)"
                   @change="toggleWeekday(day.bit, ($event.target as HTMLInputElement).checked)"
                 />
                 {{ day.name }}
               </div>
             </div>
-            <span v-if="errors.weekdays" class="text-xs text-soft-danger-fg">{{
+            <span id="task-weekdays-error" :class="['mt-2 block', fieldErrorClass]">{{
               errors.weekdays
             }}</span>
           </fieldset>
@@ -446,16 +535,6 @@ const submit = handleSubmit(async (data) => {
           </dl>
           <p class="mt-4 text-xs text-text-tertiary">仅预览配置，不会立即发送弹幕。</p>
         </section>
-        <p
-          v-if="errorMessage"
-          role="alert"
-          class="rounded-lg bg-soft-danger-bg p-3 text-sm text-soft-danger-fg"
-        >
-          {{ errorMessage }}
-        </p>
-        <p v-if="Object.keys(errors).length" role="alert" class="text-sm text-soft-danger-fg">
-          请检查表单中标出的字段。
-        </p>
         <button
           type="submit"
           :disabled="save.isPending.value || rooms.isPending.value || !rooms.data.value?.length"
@@ -467,7 +546,21 @@ const submit = handleSubmit(async (data) => {
           }}
         </button>
         <RouterLink to="/tasks" :class="secondaryButton">取消</RouterLink>
+        <p
+          v-if="saveWarning"
+          role="alert"
+          class="rounded-lg border border-soft-warning-border bg-soft-warning-bg p-3 text-sm text-soft-warning-fg"
+        >
+          {{ saveWarning }}
+        </p>
       </aside>
+      <UiToast
+        v-if="toast"
+        :key="toast.id"
+        :message="toast.message"
+        :tone="toast.tone"
+        @dismiss="toast = null"
+      />
     </form>
   </section>
 </template>
