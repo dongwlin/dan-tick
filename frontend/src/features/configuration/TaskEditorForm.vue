@@ -206,7 +206,7 @@ const submit = handleSubmit(async (data) => {
       >
         <section :class="[panel, 'p-5']">
           <h2 class="text-base font-semibold">基本信息</h2>
-          <p class="mb-4 text-sm">先决定把什么内容发到哪里</p>
+          <p class="mb-4 text-sm text-text-secondary">先决定把什么内容发到哪里</p>
           <div class="grid gap-4 md:grid-cols-2">
             <div :class="[labelClass, 'md:col-span-2']">
               任务名称
@@ -268,7 +268,7 @@ const submit = handleSubmit(async (data) => {
         </section>
         <section :class="[panel, 'p-5']">
           <h2 class="text-base font-semibold">弹幕内容</h2>
-          <p class="mb-3 text-sm">
+          <p class="mb-3 text-sm text-text-secondary">
             {{ kind === 'loop' ? '每行一条，按照顺序依次发送，到末尾后循环' : '单次发送一条弹幕' }}
           </p>
           <div :class="labelClass">
@@ -342,7 +342,7 @@ const submit = handleSubmit(async (data) => {
         </section>
         <section :class="[panel, 'p-5']">
           <h2 class="text-base font-semibold">执行计划</h2>
-          <p class="mb-4 text-sm">指定触发方式和时间</p>
+          <p class="mb-4 text-sm text-text-secondary">指定触发方式和时间</p>
           <div class="grid gap-4 md:grid-cols-2">
             <div :class="labelClass">
               调度方式

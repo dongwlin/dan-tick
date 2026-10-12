@@ -16,6 +16,7 @@ const editingID = shallowRef<number | null>(null)
 const remark = shallowRef('')
 const message = shallowRef('')
 const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
+const coverColors = ['bg-(--accent-panel)', 'bg-surface-muted', 'bg-(--accent-panel-alt)'] as const
 
 async function addRoom(value: string) {
   message.value = ''
@@ -109,7 +110,7 @@ async function deleteRoom(room: Room) {
       正在加载直播间…
     </div>
     <div v-else-if="pages.isError.value" role="alert" :class="[panel, 'p-6']">
-      <p>{{ bindingError(pages.error.value) }}</p>
+      <p class="text-soft-danger-fg">{{ bindingError(pages.error.value) }}</p>
       <button type="button" :class="secondaryButton" class="mt-3" @click="pages.refetch()">
         重试读取
       </button>
@@ -117,7 +118,7 @@ async function deleteRoom(room: Room) {
     <div v-else-if="!rooms.length" :class="[panel, 'p-8 text-center']">
       <Radio class="mx-auto mb-3 size-9 text-text-tertiary" aria-hidden="true" />
       <h2 class="mb-1 text-base font-medium">还没有添加直播间</h2>
-      <p class="mb-4 text-sm">添加一个直播间即可创建弹幕任务。</p>
+      <p class="mb-4 text-sm text-text-secondary">添加一个直播间即可创建弹幕任务。</p>
       <button type="button" :class="secondaryButton" @click="showForm = true">添加直播间</button>
     </div>
     <div v-else class="min-h-0 flex-1 overflow-y-auto pb-3" aria-label="直播间内容" tabindex="0">
@@ -135,11 +136,18 @@ async function deleteRoom(room: Room) {
         >
           <div
             v-if="view === 'cards'"
-            class="flex h-25 items-end justify-between bg-(--accent-panel) px-5 pb-3"
-            :class="index % 2 ? 'bg-(--accent-panel-alt)' : ''"
+            class="relative flex h-[134px] items-end justify-end border-b border-border-hairline px-[19px] py-4"
+            :class="coverColors[index % coverColors.length]"
           >
-            <Radio class="size-8 text-accent-text" aria-hidden="true" />
-            <span class="text-xs text-text-secondary">直播间 · {{ room.platformRoomId }}</span>
+            <span
+              class="absolute top-1/2 left-1/2 grid size-[66px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-soft-accent-border text-accent-text"
+              aria-hidden="true"
+            >
+              <Radio class="size-[26px]" />
+            </span>
+            <span class="relative text-[11px] text-text-secondary tabular-nums">
+              直播间 · {{ room.platformRoomId }}
+            </span>
           </div>
           <div
             class="p-5"
@@ -155,7 +163,10 @@ async function deleteRoom(room: Room) {
                 >备注</span
               >
             </div>
-            <p class="mt-1 truncate text-sm" :class="view === 'list' ? 'min-w-40 flex-1' : ''">
+            <p
+              class="mt-1 truncate text-sm text-text-secondary"
+              :class="view === 'list' ? 'min-w-40 flex-1' : ''"
+            >
               {{ room.title || '未获取到直播标题' }}
             </p>
             <p

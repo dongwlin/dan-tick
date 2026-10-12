@@ -68,7 +68,7 @@ const statusLabels: Record<string, string> = {
                     : '已暂停'
             }}
           </strong>
-          <RouterLink to="/settings" class="text-xs"
+          <RouterLink to="/settings" class="text-xs text-accent-text hover:underline"
             >调度设置 <ChevronRight class="inline size-3" aria-hidden="true"
           /></RouterLink>
         </div>
@@ -81,7 +81,7 @@ const statusLabels: Record<string, string> = {
                 ? '状态不可用'
                 : (statusLabels[account.data.value?.state ?? ''] ?? '暂不可用')
           }}</strong>
-          <RouterLink to="/settings" class="text-xs"
+          <RouterLink to="/settings" class="text-xs text-accent-text hover:underline"
             >账号设置 <ChevronRight class="inline size-3" aria-hidden="true"
           /></RouterLink>
         </div>
@@ -93,7 +93,7 @@ const statusLabels: Record<string, string> = {
               >/ {{ overview.data.value.totalTasks }}</span
             ></strong
           >
-          <RouterLink to="/tasks" class="text-xs"
+          <RouterLink to="/tasks" class="text-xs text-accent-text hover:underline"
             >全部任务 <ChevronRight class="inline size-3" aria-hidden="true"
           /></RouterLink>
         </div>
@@ -102,7 +102,7 @@ const statusLabels: Record<string, string> = {
           <strong class="text-2xl font-semibold tabular-nums">{{
             overview.data.value.activeExecutions
           }}</strong>
-          <RouterLink to="/history" class="text-xs"
+          <RouterLink to="/history" class="text-xs text-accent-text hover:underline"
             >执行记录 <ChevronRight class="inline size-3" aria-hidden="true"
           /></RouterLink>
         </div>
@@ -116,7 +116,9 @@ const statusLabels: Record<string, string> = {
             class="flex items-center justify-between gap-3 border-b border-border-hairline px-5 py-4"
           >
             <h2 id="upcoming-heading" class="font-semibold">即将执行</h2>
-            <RouterLink to="/tasks" class="text-xs"
+            <RouterLink
+              to="/tasks"
+              class="text-xs text-text-tertiary hover:text-accent-text hover:underline"
               >全部任务 <ChevronRight class="inline size-3" aria-hidden="true"
             /></RouterLink>
           </div>
@@ -139,7 +141,7 @@ const statusLabels: Record<string, string> = {
               <div class="min-w-0">
                 <RouterLink
                   :to="`/tasks/${item.id}/edit`"
-                  class="block truncate text-sm font-semibold"
+                  class="block truncate text-sm font-semibold text-text-primary hover:text-accent-text hover:underline"
                   >{{ item.name }}</RouterLink
                 >
                 <span class="text-xs text-text-tertiary"
@@ -159,7 +161,9 @@ const statusLabels: Record<string, string> = {
           >
             <CalendarClock class="size-7 text-text-tertiary" aria-hidden="true" />
             暂无即将执行的任务
-            <RouterLink to="/tasks/new" class="text-xs">创建任务</RouterLink>
+            <RouterLink to="/tasks/new" class="text-xs text-accent-text underline"
+              >创建任务</RouterLink
+            >
           </div>
         </section>
         <section :class="[panel, 'flex flex-col overflow-hidden']" aria-labelledby="alerts-heading">
@@ -167,7 +171,9 @@ const statusLabels: Record<string, string> = {
             class="flex items-center justify-between gap-3 border-b border-border-hairline px-5 py-4"
           >
             <h2 id="alerts-heading" class="font-semibold">最近异常</h2>
-            <RouterLink to="/history" class="text-xs"
+            <RouterLink
+              to="/history"
+              class="text-xs text-text-tertiary hover:text-accent-text hover:underline"
               >执行记录 <ChevronRight class="inline size-3" aria-hidden="true"
             /></RouterLink>
           </div>
@@ -183,7 +189,9 @@ const statusLabels: Record<string, string> = {
             <p class="text-xs text-text-tertiary">
               {{ displayTime(overview.data.value.latestFailure.time) }}
             </p>
-            <RouterLink :to="`/history/${overview.data.value.latestFailure.id}`" class="text-sm"
+            <RouterLink
+              :to="`/history/${overview.data.value.latestFailure.id}`"
+              class="text-sm text-accent-text underline hover:text-text-primary"
               >查看执行详情</RouterLink
             >
           </div>
@@ -194,7 +202,7 @@ const statusLabels: Record<string, string> = {
             class="flex items-center justify-between border-t border-border-hairline px-5 py-3 text-xs text-text-tertiary"
           >
             <span>已添加直播间</span
-            ><RouterLink to="/rooms"
+            ><RouterLink to="/rooms" class="text-accent-text hover:underline"
               >{{ overview.data.value.roomCount }} 个
               <ChevronRight class="inline size-3" aria-hidden="true"
             /></RouterLink>
@@ -209,7 +217,9 @@ const statusLabels: Record<string, string> = {
           class="flex items-center justify-between gap-3 border-b border-border-hairline px-5 py-4"
         >
           <h2 id="recent-heading" class="font-semibold">最近执行</h2>
-          <RouterLink to="/history" class="text-xs"
+          <RouterLink
+            to="/history"
+            class="text-xs text-text-tertiary hover:text-accent-text hover:underline"
             >全部记录 <ChevronRight class="inline size-3" aria-hidden="true"
           /></RouterLink>
         </div>

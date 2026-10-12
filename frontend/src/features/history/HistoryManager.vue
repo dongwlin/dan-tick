@@ -94,14 +94,16 @@ onUnmounted(() => {
           正在加载执行记录…
         </div>
         <div v-else-if="history.isError.value" class="p-6" role="alert">
-          <p>{{ bindingError(history.error.value) }}</p>
+          <p class="text-soft-danger-fg">{{ bindingError(history.error.value) }}</p>
           <button type="button" :class="secondaryButton" class="mt-3" @click="history.refetch()">
             重试读取
           </button>
         </div>
         <div v-else-if="!items.length" class="p-8 text-center">
           <History class="mx-auto mb-3 size-9 text-text-tertiary" aria-hidden="true" />
-          <p>{{ knownTotal ? '当前页没有记录' : '还没有执行记录' }}</p>
+          <p class="text-text-secondary">
+            {{ knownTotal ? '当前页没有记录' : '还没有执行记录' }}
+          </p>
         </div>
         <template v-else>
           <HistoryTable :items="items" />

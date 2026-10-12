@@ -29,12 +29,4 @@ useBackendEvents()
 .app-content :deep(h1) {
   @apply mb-2 text-[27px] leading-tight font-semibold tracking-tight;
 }
-
-.app-content :deep(p) {
-  @apply text-text-secondary;
-}
-
-.app-content :deep(a:not(.ui-button)) {
-  @apply text-accent-text underline hover:text-text-primary;
-}
 </style>

@@ -88,13 +88,15 @@ async function deleteTask(task: Task) {
           正在加载任务…
         </div>
         <div v-else-if="tasks.isError.value" class="p-6" role="alert">
-          <p>{{ bindingError(tasks.error.value) }}</p>
+          <p class="text-soft-danger-fg">{{ bindingError(tasks.error.value) }}</p>
           <button type="button" :class="secondaryButton" class="mt-3" @click="tasks.refetch()">
             重试读取
           </button>
         </div>
         <div v-else-if="!items.length" class="p-8 text-center">
-          <p>{{ search ? '没有找到匹配的任务' : '还没有创建弹幕任务' }}</p>
+          <p class="text-text-secondary">
+            {{ search ? '没有找到匹配的任务' : '还没有创建弹幕任务' }}
+          </p>
           <button
             v-if="search"
             type="button"

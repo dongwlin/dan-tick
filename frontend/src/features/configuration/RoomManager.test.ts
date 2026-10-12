@@ -41,9 +41,21 @@ it('loads real binding pages, switches views, adds rooms and retains input on fa
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
   expect(await screen.findByRole('heading', { name: '直播三' })).toBeTruthy()
+  const cover = screen.getByText('直播间 · 300').parentElement
+  expect(cover?.classList.contains('h-[134px]')).toBe(true)
+  expect(cover?.classList.contains('bg-(--accent-panel)')).toBe(true)
+  const symbol = cover?.querySelector('[aria-hidden="true"]')
+  expect(symbol?.classList.contains('size-[66px]')).toBe(true)
+  expect(symbol?.querySelector('svg')?.classList.contains('size-[26px]')).toBe(true)
+  expect(
+    screen.getByText('直播间 · 200').parentElement?.classList.contains('bg-surface-muted'),
+  ).toBe(true)
   expect(screen.queryByRole('heading', { name: '直播一' })).toBeNull()
   await user.click(screen.getByRole('button', { name: '加载更多' }))
   expect(await screen.findByRole('heading', { name: '直播一' })).toBeTruthy()
+  expect(
+    screen.getByText('直播间 · 100').parentElement?.classList.contains('bg-(--accent-panel-alt)'),
+  ).toBe(true)
   expect(vi.mocked(ListRoomPage)).toHaveBeenCalledWith({ cursor: 2, limit: 12 })
   await user.click(screen.getByRole('button', { name: '列表' }))
   expect(screen.getByRole('button', { name: '列表' }).getAttribute('aria-pressed')).toBe('true')

@@ -19,7 +19,9 @@ const attempts = computed(() => detail.data.value?.attempts ?? [])
     <header class="flex items-center justify-between gap-3">
       <div>
         <h1>执行详情</h1>
-        <p class="text-sm">执行 #{{ valid ? executionId : '无效编号' }} · 历史快照</p>
+        <p class="text-sm text-text-secondary">
+          执行 #{{ valid ? executionId : '无效编号' }} · 历史快照
+        </p>
       </div>
       <RouterLink to="/history" :class="secondaryButton">
         <ArrowLeft class="size-4" aria-hidden="true" />返回执行记录
@@ -30,7 +32,7 @@ const attempts = computed(() => detail.data.value?.attempts ?? [])
       正在加载执行详情…
     </div>
     <div v-else-if="detail.isError.value" :class="[panel, 'p-6']" role="alert">
-      <p>{{ bindingError(detail.error.value) }}</p>
+      <p class="text-soft-danger-fg">{{ bindingError(detail.error.value) }}</p>
       <button type="button" :class="secondaryButton" class="mt-3" @click="detail.refetch()">
         重试读取
       </button>
