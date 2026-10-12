@@ -132,6 +132,43 @@ func TestRoomCRUDAndPersistence(t *testing.T) {
 	assert.Equal(t, second.ID, rooms[0].ID)
 }
 
+func TestCoverIsAvailableForExistingRoomsAndFailsOpen(t *testing.T) {
+	var available = true
+	lookups := 0
+	s, _ := setupRoomService(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/room/v1/Room/get_info" {
+			lookups++
+			if !available {
+				http.Error(w, "offline", http.StatusBadGateway)
+				return
+			}
+			fmt.Fprint(w, `{"code":0,"data":{"room_id":5440,"user_cover":"https://i0.hdslb.com/bfs/live/cover.jpg"}}`)
+			return
+		}
+		http.NotFound(w, r)
+	})
+	ctx := context.Background()
+	for _, id := range []int64{-1, 0, 42} {
+		_, err := s.Cover(ctx, id)
+		require.ErrorIs(t, err, ErrNotSaved)
+	}
+	assert.Zero(t, lookups)
+	saved, err := s.Add(ctx, "1")
+	require.NoError(t, err)
+	cover, err := s.Cover(ctx, saved.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "https://i0.hdslb.com/bfs/live/cover.jpg", cover)
+	available = false
+	cover, err = s.Cover(ctx, saved.ID)
+	require.NoError(t, err)
+	assert.Empty(t, cover)
+	require.NoError(t, s.Delete(ctx, saved.ID))
+	before := lookups
+	_, err = s.Cover(ctx, saved.ID)
+	require.ErrorIs(t, err, ErrNotSaved)
+	assert.Equal(t, before, lookups)
+}
+
 func TestRestoreRoomKeepsIdentityRemarkAndHistoryButNotTasks(t *testing.T) {
 	s, db := setupRoomService(t, validRoomResponse)
 	ctx := context.Background()

@@ -33,10 +33,10 @@ func configurationTest(t *testing.T) (*ConfigurationService, *scheduler.Manager,
 
 	// Public room lookups use a fake transport; no actual Bilibili traffic.
 	client := room.NewClient(&http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		require.Equal(t, "12345", req.URL.Query().Get("room_id"))
+		require.Contains(t, []string{"12345", "98765"}, req.URL.Query().Get("room_id"))
 		return &http.Response{
 			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(`{"code":0,"data":{"room_id":98765,"uid":0,"title":"private room title"}}`)),
+			Body:       io.NopCloser(strings.NewReader(`{"code":0,"data":{"room_id":98765,"uid":0,"title":"private room title","user_cover":"https://i0.hdslb.com/bfs/live/cover.jpg"}}`)),
 			Header:     make(http.Header),
 		}, nil
 	})})
@@ -79,6 +79,11 @@ func TestConfigurationBindingRoomTaskLifecycle(t *testing.T) {
 	require.Equal(t, "98765", savedRoom.PlatformRoomID)
 	require.Equal(t, "private room title", savedRoom.Title)
 	require.Zero(t, savedRoom.TaskCount)
+	cover, err := service.GetRoomCover(ctx, savedRoom.ID)
+	require.NoError(t, err)
+	require.Equal(t, "https://i0.hdslb.com/bfs/live/cover.jpg", cover)
+	_, err = service.GetRoomCover(ctx, -1)
+	assertPublicError(t, err, "not_found", "private")
 	_, err = service.AddRoom(ctx, AddRoomInput{Value: "12345"})
 	assertPublicError(t, err, "already_exists", "98765")
 

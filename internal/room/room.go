@@ -37,6 +37,14 @@ type Info struct {
 	AnchorName string
 }
 
+type roomData struct {
+	RoomID    int64  `json:"room_id"`
+	UID       int64  `json:"uid"`
+	Title     string `json:"title"`
+	UserCover string `json:"user_cover"`
+	Cover     string `json:"cover"`
+}
+
 // ParseInput accepts a numeric short/long room ID or a direct Bilibili live
 // room URL. It does not follow untrusted links or resolve third-party short URLs.
 func ParseInput(input string) (string, error) {
@@ -116,38 +124,18 @@ func (c *Client) Resolve(ctx context.Context, input string) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	var response struct {
-		Code *int `json:"code"`
-		Data *struct {
-			RoomID int64  `json:"room_id"`
-			UID    int64  `json:"uid"`
-			Title  string `json:"title"`
-		} `json:"data"`
+	data, err := c.getRoomData(ctx, id)
+	if err != nil {
+		return Info{}, err
 	}
-	if err := c.getJSON(ctx, c.roomURL, "room_id", id, &response); err != nil {
-		return Info{}, fmt.Errorf("query live room: %w", err)
-	}
-	if response.Code == nil {
-		return Info{}, fmt.Errorf("query live room: %w: missing code", ErrInvalidResponse)
-	}
-	if *response.Code == 1 {
-		return Info{}, ErrNotFound
-	}
-	if *response.Code != 0 {
-		return Info{}, fmt.Errorf("%w: room info code %d", ErrUnavailable, *response.Code)
-	}
-	if response.Data == nil || response.Data.RoomID <= 0 || response.Data.UID < 0 {
-		return Info{}, fmt.Errorf("query live room: %w: missing or invalid ID", ErrInvalidResponse)
-	}
-
 	info := Info{
-		RoomID: strconv.FormatInt(response.Data.RoomID, 10),
-		Title:  response.Data.Title,
+		RoomID: strconv.FormatInt(data.RoomID, 10),
+		Title:  data.Title,
 	}
 	if err := ctx.Err(); err != nil {
 		return Info{}, err
 	}
-	if response.Data.UID == 0 {
+	if data.UID == 0 {
 		return info, nil
 	}
 	var master struct {
@@ -158,7 +146,7 @@ func (c *Client) Resolve(ctx context.Context, input string) (Info, error) {
 			} `json:"info"`
 		} `json:"data"`
 	}
-	if err := c.getJSON(ctx, c.masterURL, "uid", strconv.FormatInt(response.Data.UID, 10), &master); err == nil &&
+	if err := c.getJSON(ctx, c.masterURL, "uid", strconv.FormatInt(data.UID, 10), &master); err == nil &&
 		master.Code != nil && *master.Code == 0 && master.Data != nil && master.Data.Info != nil {
 		info.AnchorName = master.Data.Info.Uname
 	}
@@ -166,6 +154,65 @@ func (c *Client) Resolve(ctx context.Context, input string) (Info, error) {
 		return Info{}, err
 	}
 	return info, nil
+}
+
+// Cover looks up only optional artwork, without requesting the anchor name.
+// Empty or untrusted image URLs are treated as missing artwork.
+func (c *Client) Cover(ctx context.Context, roomID string) (string, error) {
+	id, err := canonicalID(roomID)
+	if err != nil {
+		return "", err
+	}
+	data, err := c.getRoomData(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	for _, candidate := range []string{data.UserCover, data.Cover} {
+		if cover := safeCoverURL(candidate); cover != "" {
+			return cover, nil
+		}
+	}
+	return "", nil
+}
+
+// Cover URLs are controlled by Bilibili, not users. Only display HTTPS images
+// from its image CDN, never arbitrary URLs supplied by an upstream response.
+func safeCoverURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if strings.HasPrefix(raw, "//") {
+		raw = "https:" + raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Port() != "" ||
+		!strings.HasSuffix(strings.ToLower(u.Hostname()), ".hdslb.com") {
+		return ""
+	}
+	u.Scheme = "https"
+	u.Fragment = ""
+	return u.String()
+}
+
+func (c *Client) getRoomData(ctx context.Context, id string) (roomData, error) {
+	var response struct {
+		Code *int      `json:"code"`
+		Data *roomData `json:"data"`
+	}
+	if err := c.getJSON(ctx, c.roomURL, "room_id", id, &response); err != nil {
+		return roomData{}, fmt.Errorf("query live room: %w", err)
+	}
+	if response.Code == nil {
+		return roomData{}, fmt.Errorf("query live room: %w: missing code", ErrInvalidResponse)
+	}
+	if *response.Code == 1 {
+		return roomData{}, ErrNotFound
+	}
+	if *response.Code != 0 {
+		return roomData{}, fmt.Errorf("%w: room info code %d", ErrUnavailable, *response.Code)
+	}
+	if response.Data == nil || response.Data.RoomID <= 0 || response.Data.UID < 0 {
+		return roomData{}, fmt.Errorf("query live room: %w: missing or invalid ID", ErrInvalidResponse)
+	}
+	return *response.Data, nil
 }
 
 func (c *Client) getJSON(ctx context.Context, endpoint, key, value string, dest any) error {

@@ -2,6 +2,7 @@ package room
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -99,6 +100,59 @@ func TestResolveShortAndLongIDsShareCanonicalIdentity(t *testing.T) {
 	assert.Equal(t, short.RoomID, long.RoomID)
 	assert.Equal(t, "5440", short.RoomID)
 	assert.Equal(t, []string{"1", "5440"}, queried)
+}
+
+func TestCoverPrefersCustomArtworkAndUsesOnlyTrustedCDN(t *testing.T) {
+	tests := []struct {
+		name      string
+		userCover string
+		cover     string
+		want      string
+	}{
+		{"custom cover", "https://i0.hdslb.com/bfs/live/custom.jpg", "https://i1.hdslb.com/bfs/live/default.jpg", "https://i0.hdslb.com/bfs/live/custom.jpg"},
+		{"default cover", "", "https://i1.hdslb.com/bfs/live/default.jpg", "https://i1.hdslb.com/bfs/live/default.jpg"},
+		{"protocol relative", "//i2.hdslb.com/bfs/live/cover.jpg", "", "https://i2.hdslb.com/bfs/live/cover.jpg"},
+		{"upgrade HTTP", "http://i0.hdslb.com/bfs/live/cover.jpg", "", "https://i0.hdslb.com/bfs/live/cover.jpg"},
+		{"untrusted primary uses fallback", "https://evil.example/bad.png", "https://i0.hdslb.com/bfs/live/ok.jpg", "https://i0.hdslb.com/bfs/live/ok.jpg"},
+		{"untrusted URL rejected", "https://i0.hdslb.com.evil.example/bad.png", "", ""},
+		{"script URL rejected", "javascript:alert(1)", "", ""},
+		{"no artwork", "", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			roomCalls, masterCalls := 0, 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/live_user/v1/Master/info" {
+					masterCalls++
+					t.Error("cover should not fetch anchor metadata")
+					return
+				}
+				roomCalls++
+				assert.Equal(t, "5440", r.URL.Query().Get("room_id"))
+				_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{
+					"room_id": 5440, "uid": 8, "user_cover": tt.userCover, "cover": tt.cover,
+				}})
+			}))
+			defer server.Close()
+			got, err := testClient(server).Cover(context.Background(), "5440")
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, 1, roomCalls)
+			assert.Zero(t, masterCalls)
+		})
+	}
+}
+
+func TestCoverLookupErrorsAndInvalidRoomID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"code":-400}`)
+	}))
+	defer server.Close()
+	client := testClient(server)
+	_, err := client.Cover(context.Background(), "not a room")
+	require.ErrorIs(t, err, ErrInvalidInput)
+	_, err = client.Cover(context.Background(), "123")
+	require.ErrorIs(t, err, ErrUnavailable)
 }
 
 func TestResolveOptionalMetadata(t *testing.T) {

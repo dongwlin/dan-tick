@@ -103,6 +103,13 @@ func (s *ConfigurationService) ListRooms(ctx context.Context) ([]Room, error) {
 	return result, nil
 }
 
+// GetRoomCover is presentation-only and never blocks room list queries or
+// scheduled tasks when Bilibili is unavailable.
+func (s *ConfigurationService) GetRoomCover(ctx context.Context, id int64) (string, error) {
+	cover, err := s.rooms.Cover(ctx, id)
+	return cover, protect(err)
+}
+
 func (s *ConfigurationService) AddRoom(ctx context.Context, input AddRoomInput) (Room, error) {
 	saved, err := s.rooms.Add(ctx, input.Value)
 	if err != nil {

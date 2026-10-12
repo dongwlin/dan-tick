@@ -78,6 +78,28 @@ func (s *Service) ListPage(ctx context.Context, cursor *int64, limit int) ([]Roo
 	return rooms, &next, nil
 }
 
+// Cover fetches optional artwork for an existing active room. Remote failures
+// are not configuration failures: the UI simply keeps its placeholder.
+func (s *Service) Cover(ctx context.Context, id int64) (string, error) {
+	if id <= 0 {
+		return "", ErrNotSaved
+	}
+	var platformID string
+	err := s.db.QueryRowContext(ctx,
+		"SELECT platform_room_id FROM rooms WHERE id = ? AND deleted_at IS NULL", id).Scan(&platformID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotSaved
+	}
+	if err != nil {
+		return "", fmt.Errorf("read room cover target: %w", err)
+	}
+	cover, err := s.client.Cover(ctx, platformID)
+	if err != nil {
+		return "", nil
+	}
+	return cover, nil
+}
+
 // Add validates the input with Bilibili and persists its canonical room ID.
 // Already-active IDs are rejected without overwriting user data. Readding a
 // deleted room restores its original row and remark, but NOT its deleted tasks.

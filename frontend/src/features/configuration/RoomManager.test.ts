@@ -16,6 +16,7 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationse
   AddRoom: vi.fn(),
   UpdateRoom: vi.fn(),
   DeleteRoom: vi.fn(),
+  GetRoomCover: vi.fn().mockResolvedValue(''),
 }))
 vi.mock('@wailsio/runtime', () => ({ Browser: { OpenURL: vi.fn() } }))
 

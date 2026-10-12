@@ -9,12 +9,13 @@
 | 用途 | 方法与接口 | 项目需要的数据 | 对应需求 |
 | --- | --- | --- | --- |
 | 检查登录状态 | `GET https://api.bilibili.com/x/web-interface/nav` | `code`、`data.isLogin`，可选 `data.uname` | FR-002 |
-| 查询直播间 | `GET https://api.live.bilibili.com/room/v1/Room/get_info` | 入参 `room_id`；返回 `data.room_id`、`data.uid`、`data.title`，可选 `data.live_status` | FR-004、FR-005 |
+| 查询直播间 | `GET https://api.live.bilibili.com/room/v1/Room/get_info` | 入参 `room_id`；返回 `data.room_id`、`data.uid`、`data.title`，可选 `data.live_status`、`data.user_cover` | FR-004、FR-005 |
 | 查询主播名称 | `GET https://api.live.bilibili.com/live_user/v1/Master/info` | 入参为上一步的 `uid`；返回 `data.info.uname` | FR-004 |
 | 发送直播弹幕 | `POST https://api.live.bilibili.com/msg/send` | 房间 ID、内容、Cookie、CSRF 等，详见下文 | FR-020～FR-023 |
 
 - 用户输入直播间短号或直播间链接后，先解析房间号，再以 `get_info` 返回的 `data.room_id` 作为实际房间 ID。SQLite 中的 `rooms.platform_room_id` 存规范化的十进制字符串，避免将短号和真实房间号保存为两个直播间。
 - `get_info` 返回主播 `uid`，不直接提供项目需要的主播名称；需要名称时再调用 `Master/info`。主播名称与直播状态属于展示信息，查询失败不应中断已配置任务的调度。
+- 卡片视图按需获取 `get_info` 的 `data.user_cover`，不存在时尝试 `data.cover`；仅使用验证过的 B 站图片 CDN HTTPS 地址。缺少封面、查询失败或图片加载失败时使用原占位封面，不影响直播间列表与任务调度。
 - `nav` 的 `code = 0` 且 `data.isLogin = true` 可作为登录状态判断，但**不等于具备直播间发言权限**；实际发送是否被接受仍以发送接口结果为准。
 
 ## 2. 发送直播弹幕

@@ -5,6 +5,7 @@ import { ExternalLink, LayoutGrid, List, Pencil, Plus, Radio, Trash2 } from 'luc
 import type { Room } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import { bindingError, useAddRoom, useDeleteRoom, useRoomPages, useUpdateRoom } from './queries'
 import { fieldClass, panel, primaryButton, secondaryButton } from './style'
+import RoomCover from './RoomCover.vue'
 import RoomForm from './RoomForm.vue'
 
 const pages = useRoomPages()
@@ -17,7 +18,6 @@ const editingID = shallowRef<number | null>(null)
 const remark = shallowRef('')
 const message = shallowRef('')
 const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
-const coverColors = ['bg-(--accent-panel)', 'bg-surface-muted', 'bg-(--accent-panel-alt)'] as const
 const roomActionClass =
   'inline-flex size-8 items-center justify-center rounded-md hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring'
 
@@ -155,21 +155,12 @@ async function deleteRoom(room: Room) {
           :key="room.id"
           :class="[panel, 'min-w-0 overflow-hidden']"
         >
-          <div
+          <RoomCover
             v-if="view === 'cards'"
-            class="relative flex h-[134px] items-end justify-end border-b border-border-hairline px-[19px] py-4"
-            :class="coverColors[index % coverColors.length]"
-          >
-            <span
-              class="absolute top-1/2 left-1/2 grid size-[66px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-soft-accent-border text-accent-text"
-              aria-hidden="true"
-            >
-              <Radio class="size-[26px]" />
-            </span>
-            <span class="relative text-[11px] text-text-secondary tabular-nums">
-              直播间 · {{ room.platformRoomId }}
-            </span>
-          </div>
+            :room-id="room.id"
+            :platform-room-id="room.platformRoomId"
+            :index="index"
+          />
           <div
             class="p-5"
             :class="view === 'list' ? 'flex flex-col gap-4 pr-7 md:flex-row md:items-center' : ''"
