@@ -21,8 +21,8 @@
 | `frontend/src/main.ts`、`src/app/`、`src/pages/` | Vue 入口、应用装配（Hash Router、Events 与 Query）和路由页面；使用 `<script setup lang="ts">` 和 Composition API |
 | `frontend/src/features/` | 直播间 / 任务配置、账号与手动执行、分页执行历史及详情、总览与设置、日志操作的独立业务功能和测试 |
 | `frontend/src/style.css`、`src/app/theme.ts` | Tailwind v4 CSS-first 语义令牌、亚克力材质及深浅 / 跟随系统 UI 主题；仅保存 `dan-tick-theme` 偏好，存储故障提供可见反馈 |
-| `frontend/src/components/UiButton.vue` | 当前跨页面复用的按钮 / RouterLink 样式，保留原生动作与导航语义；Reka RadioGroup 当前直接用于设置页 |
-| `frontend/src/components/UiToastHost.vue`、`src/composables/useToast.ts` | 全应用唯一的 Toast 视口与共享反馈状态；`App.vue` 根级挂载一次，Feature 通过 `useToast()` 上报，不再各自渲染 Provider，组件测试用 `src/test/toastHost.ts` 挂载同一宿主 |
+| `frontend/src/components/ui/` | 跨页面复用的无业务语义基础组件与共享样式（`UiButton.vue`、`UiField.vue`、`UiToastHost.vue`、`buttonStyles.ts`、`uiStyles.ts` 等）；按钮保留原生动作与 RouterLink 导航语义，Reka RadioGroup 当前直接用于设置页 |
+| `frontend/src/components/ui/UiToastHost.vue`、`src/composables/useToast.ts` | 全应用唯一的 Toast 视口与共享反馈状态；`App.vue` 根级挂载一次，Feature 通过 `useToast()` 上报，不再各自渲染 Provider，组件测试用 `src/test/toastHost.ts` 挂载同一宿主 |
 | `frontend/public/`、`frontend/index.html` | 静态资源及 HTML 入口 |
 | `frontend/package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`.node-version` | 前端脚本、固定工具链、依赖锁文件及 pnpm 安装策略 |
 | `frontend/vite.config.ts`、`tsconfig.json`、`tsconfig.node.json` | Vite + Wails Binding 插件、源码与构建配置的 TypeScript 检查 |
