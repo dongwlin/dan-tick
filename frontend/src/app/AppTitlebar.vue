@@ -84,7 +84,7 @@ async function controlWindow(action: 'minimise' | 'maximise' | 'close' | 'quit')
     <p
       v-if="error"
       role="alert"
-      class="absolute top-[48px] right-4 z-30 max-w-sm rounded-[10px] border border-soft-warning-border bg-soft-warning-bg px-3 py-2 text-xs text-soft-warning-fg shadow-lg [--wails-draggable:no-drag]"
+      class="absolute top-[48px] right-4 z-30 max-w-sm rounded-[10px] border border-soft-warning-border bg-soft-warning-bg px-3 py-2 text-xs text-soft-warning-fg shadow-(--shadow-overlay) [--wails-draggable:no-drag]"
     >
       {{ error }}
     </p>

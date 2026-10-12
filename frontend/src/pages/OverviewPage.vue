@@ -5,7 +5,7 @@ import { CalendarClock, ChevronRight, CircleAlert, CircleCheck, Plus } from 'luc
 import { useAccountStatus } from '@/features/operations/queries'
 import { useOverview, usePreferences } from '@/features/application/queries'
 import { bindingError } from '@/features/configuration/queries'
-import { flatPanel, primaryButton } from '@/features/configuration/style'
+import { flatPanel, primaryButton, solidPanel } from '@/features/configuration/style'
 import { displayTime, statusText } from '@/features/history/presentation'
 import HistoryTable from '@/features/history/HistoryTable.vue'
 
@@ -213,7 +213,7 @@ const statusLabels: Record<string, string> = {
         </section>
       </div>
       <section
-        :class="[flatPanel, 'flex min-h-35 flex-1 flex-col overflow-hidden']"
+        :class="[solidPanel, 'flex min-h-35 flex-1 flex-col overflow-hidden']"
         aria-labelledby="recent-heading"
       >
         <div class="flex shrink-0 items-center justify-between gap-3 px-5 pt-4 pb-2">

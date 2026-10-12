@@ -44,7 +44,7 @@ const navigation = [
       >
         <component :is="item.icon" class="size-[18px]" :stroke-width="1.8" aria-hidden="true" />
         <span
-          class="pointer-events-none absolute top-1/2 left-[calc(100%+14px)] z-20 hidden -translate-y-1/2 whitespace-nowrap rounded-[7px] border border-border-strong bg-surface-solid-hover px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-lg group-hover:block group-focus-visible:block"
+          class="pointer-events-none absolute top-1/2 left-[calc(100%+14px)] z-20 hidden -translate-y-1/2 whitespace-nowrap rounded-[7px] bg-surface-solid-hover px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-(--shadow-overlay) group-hover:block group-focus-visible:block"
           aria-hidden="true"
         >
           {{ item.label }}

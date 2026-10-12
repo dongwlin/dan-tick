@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowLeft } from 'lucide-vue-next'
 import { bindingError } from '@/features/configuration/queries'
-import { flatPanel, secondaryButton } from '@/features/configuration/style'
+import { flatPanel, secondaryButton, solidPanel } from '@/features/configuration/style'
 import { attemptResult, displayTime, errorText, statusClass, statusText } from './presentation'
 import { useExecutionHistoryDetail } from './queries'
 
@@ -86,7 +86,7 @@ const attempts = computed(() => detail.data.value?.attempts ?? [])
           </div>
         </dl>
       </div>
-      <div :class="[flatPanel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
+      <div :class="[solidPanel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
         <div class="shrink-0 border-b border-border-hairline px-5 py-4">
           <h2 class="font-semibold">
             发送尝试 <span class="text-sm text-text-tertiary">{{ attempts.length }}</span>

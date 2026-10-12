@@ -3,7 +3,7 @@ import { computed, shallowRef } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Clock3, ListTodo, Plus, Search, Trash2 } from 'lucide-vue-next'
 import { bindingError, useDeleteTask, useSetTaskEnabled, useTaskPages } from './queries'
-import { fieldClass, flatPanel, primaryButton, secondaryButton } from './style'
+import { fieldClass, primaryButton, secondaryButton, solidPanel } from './style'
 import { useLatestExecutions } from '@/features/operations/queries'
 import TaskRunActions from '@/features/operations/TaskRunActions.vue'
 import { Kind as ScheduleKind } from '@bindings/github.com/dongwlin/dan-tick/internal/schedule/models'
@@ -62,7 +62,7 @@ async function deleteTask(task: Task) {
         <Plus class="size-4" aria-hidden="true" />新建任务
       </RouterLink>
     </header>
-    <div :class="[flatPanel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
+    <div :class="[solidPanel, 'flex min-h-0 flex-1 flex-col overflow-hidden']">
       <div
         class="flex flex-wrap items-center justify-between gap-3 border-b border-border-hairline px-5 py-4"
       >

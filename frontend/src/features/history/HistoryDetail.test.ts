@@ -63,7 +63,7 @@ it('shows persisted task snapshots, lifecycle times, ordered attempts and safe e
   })
   mount(12)
   expect(await screen.findByRole('heading', { name: '已删除任务的快照' })).toBeTruthy()
-  const summary = screen.getByRole('heading', { name: '已删除任务的快照' }).closest('.rounded-2xl')
+  const summary = screen.getByRole('heading', { name: '已删除任务的快照' }).closest('.acrylic')
   expect(summary?.classList.contains('shadow-sm')).toBe(false)
   expect(screen.getByLabelText('发送尝试详情').parentElement?.classList.contains('shadow-sm')).toBe(
     false,

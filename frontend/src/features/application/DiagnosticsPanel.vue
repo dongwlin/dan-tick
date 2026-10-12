@@ -38,10 +38,7 @@ async function run(action: 'logs' | 'data' | 'export') {
 </script>
 
 <template>
-  <section
-    class="rounded-2xl border border-border-hairline bg-surface-solid p-5"
-    aria-label="数据与日志"
-  >
+  <section class="acrylic rounded-[14px] p-5" aria-label="数据与日志">
     <h2 class="mb-2 text-base font-semibold">数据与日志</h2>
     <div
       class="flex flex-wrap items-center justify-between gap-4 border-b border-border-hairline py-4"

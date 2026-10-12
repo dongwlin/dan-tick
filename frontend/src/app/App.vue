@@ -13,9 +13,19 @@ const route = useRoute()
     <AppTitlebar />
     <div class="flex min-h-0 min-w-0 flex-1">
       <AppSidebar />
-      <main id="main" class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" tabindex="-1">
+      <main
+        id="main"
+        class="relative isolate flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+        tabindex="-1"
+      >
+        <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          <div class="absolute top-24 right-12 h-72 w-80 rounded-[20px] bg-(--accent-panel)"></div>
+          <div
+            class="absolute bottom-12 left-12 h-64 w-72 rounded-[20px] bg-(--accent-panel-alt)"
+          ></div>
+        </div>
         <div
-          class="app-content mx-auto flex min-h-0 w-full flex-1 flex-col pt-5 pb-3"
+          class="app-content relative mx-auto flex min-h-0 w-full flex-1 flex-col pt-5 pb-3"
           :class="
             route.name === 'settings'
               ? 'overflow-hidden'
