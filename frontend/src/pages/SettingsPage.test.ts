@@ -50,6 +50,10 @@ it('switches and restores the theme with visible feedback and safe storage failu
   render(SettingsPage, {
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
+  const section = screen.getByRole('region', { name: '界面主题' })
+  expect(section.tagName).toBe('SECTION')
+  expect(section.querySelector('h2')?.textContent).toBe('界面主题')
+  expect(section.querySelector('legend')).toBeNull()
   const restore = screen.getByRole<HTMLButtonElement>('button', { name: '恢复默认主题' })
 
   expect(restore.disabled).toBe(true)
