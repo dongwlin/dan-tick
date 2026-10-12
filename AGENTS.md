@@ -99,6 +99,7 @@ WAILS_MCP=1 WAILS_MCP_PORT=0 wails3 dev
 - 凭证只进入系统安全存储；不可用时明确失败，不回退到明文配置。不要记录 Cookie、将其放入普通前端 Store / Query 缓存、持久化 Web 存储或路由；B 站鉴权与请求统一在 Go 后端完成。
 - 前端目标选型：**Vue Router 4 Hash History**、Tailwind CSS v4、Reka UI、`lucide-vue-next` 与亚克力设计系统；Pinia 只管理必要的客户端共享状态，TanStack Query 缓存从 Binding 获取的业务数据，Events 触发相关查询失效，不复制 Go 业务状态。简单表单用本地 Vue 状态，任务编辑使用 vee-validate + Zod；后端仍负责最终校验。
 - 样式兼顾 Windows / Linux WebView 可用性；原生毛玻璃不可用时提供可读的实色回退。交互优先复用 Reka UI 并遵循 `docs/specs/` 的可访问性规范。
+- 写 Reka UI 交互前查官方 LLM 文档索引 [llms.txt](https://reka-ui.com/llms.txt)：它按概览 / 指南 / 组件 / 工具列出全部文档页，任意页面 URL 末尾加 `.md` 即可取到含 props、events、slots 与 API 表的原始 Markdown（例如 `https://reka-ui.com/docs/components/dialog.md`），无需抓取渲染后的 HTML。站点跟随最新版本，与 `frontend/package.json` 锁定的 `reka-ui` 版本不一致时以仓库内实际类型与行为为准。
 - **现有命名证据有限**：Vue 组件文件是 `App.vue`、`HelloWorld.vue` 这样的 PascalCase，Go 文件遵循 Go 命名与 `gofmt`。正式前端的 Prettier 约定为单引号、无分号、2 空格缩进、100 字符行宽、LF 和 `trailingComma: all`；其他命名与组织按引入的规范及相邻模块，不要把模板偶然风格提升为项目硬性规则，也不要借功能变更全面重排无关代码。
 
 ## 5. 变更工作流与测试策略
