@@ -69,7 +69,8 @@ watch(
 
 function close(decision: 'confirm' | 'cancel') {
   decided = true
-  emit(decision)
+  if (decision === 'confirm') emit('confirm')
+  else emit('cancel')
   emit('update:open', false)
 }
 
