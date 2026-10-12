@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, shallowRef, useTemplateRef, watch } from 'vue'
 import { RouterLink, onBeforeRouteLeave, useRouter } from 'vue-router'
-import { ArrowLeft, Check, Clock3, Info } from 'lucide-vue-next'
+import { ArrowLeft, Check } from 'lucide-vue-next'
 import { useForm } from 'vee-validate'
 import { z } from 'zod'
 import type {
@@ -14,6 +14,7 @@ import { bindingError, useRoomOptions, useSaveTask } from './queries'
 import { usePreferences } from '@/features/application/queries'
 import UiToast from '@/components/UiToast.vue'
 import { fieldClass, flatPanel, labelClass, primaryButton, secondaryButton } from './style'
+import TaskFieldLabel from './TaskFieldLabel.vue'
 
 const props = defineProps<{ task?: Task }>()
 const router = useRouter()
@@ -130,7 +131,6 @@ const [localTime, timeAttrs] = defineField('localTime')
 const [timezone, timezoneAttrs] = defineField('timezone')
 const [enabled] = defineField('enabled')
 
-const fieldErrorClass = 'min-h-5 text-xs leading-5 text-soft-danger-fg'
 const fieldNames = {
   name: '任务名称',
   roomId: '目标直播间',
@@ -234,13 +234,13 @@ const submit = handleSubmit(
       class="inline-flex w-fit items-center gap-2 text-sm text-text-secondary hover:text-text-primary"
       ><ArrowLeft class="size-4" aria-hidden="true" />返回任务列表</RouterLink
     >
-    <header class="grid min-h-19 grid-cols-1 gap-1 sm:grid-cols-[auto_minmax(0,1fr)]">
+    <header class="flex min-w-0 items-start justify-between gap-3">
       <h1>{{ task ? '编辑任务' : '新建任务' }}</h1>
       <div
         ref="errorSummary"
         tabindex="-1"
         aria-live="polite"
-        class="flex h-6 min-w-0 items-center gap-2 overflow-x-auto text-xs whitespace-nowrap text-soft-danger-fg sm:justify-self-end"
+        class="flex min-w-0 items-center gap-2 overflow-x-auto py-1 text-xs whitespace-nowrap text-soft-danger-fg"
       >
         <template v-if="errorSummary.length">
           <span>请检查 {{ errorSummary.length }} 处填写问题：</span>
@@ -270,7 +270,7 @@ const submit = handleSubmit(
           <h2 class="mb-4 text-base font-semibold">基本信息</h2>
           <div class="grid gap-4 md:grid-cols-2">
             <div :class="[labelClass, 'md:col-span-2']">
-              任务名称
+              <TaskFieldLabel label="任务名称" :error="errors.name" error-id="task-name-error" />
               <input
                 id="task-name"
                 v-model="name"
@@ -281,10 +281,13 @@ const submit = handleSubmit(
                 :aria-invalid="!!errors.name"
                 aria-describedby="task-name-error"
               />
-              <span id="task-name-error" :class="fieldErrorClass">{{ errors.name }}</span>
             </div>
             <div :class="labelClass">
-              目标直播间
+              <TaskFieldLabel
+                label="目标直播间"
+                :error="errors.roomId"
+                error-id="task-roomId-error"
+              />
               <select
                 v-if="rooms.isPending.value || (!rooms.isError.value && rooms.data.value?.length)"
                 id="task-roomId"
@@ -324,7 +327,6 @@ const submit = handleSubmit(
                 :class="[fieldClass, 'flex items-center text-accent-text']"
                 >暂无直播间，先添加直播间</RouterLink
               >
-              <span id="task-roomId-error" :class="fieldErrorClass">{{ errors.roomId }}</span>
             </div>
             <div :class="labelClass">
               任务类型
@@ -345,7 +347,11 @@ const submit = handleSubmit(
         <section :class="[flatPanel, 'p-5']">
           <h2 class="mb-3 text-base font-semibold">弹幕内容</h2>
           <div :class="labelClass">
-            发送队列
+            <TaskFieldLabel
+              label="发送队列"
+              :error="errors.messages"
+              error-id="task-messages-error"
+            />
             <textarea
               id="task-messages"
               v-model="messages"
@@ -353,22 +359,22 @@ const submit = handleSubmit(
               :class="fieldClass"
               rows="5"
               class="resize-y"
-              placeholder="在这里输入弹幕内容…"
+              placeholder="在这里输入弹幕内容…&#10;每行一条，空行自动忽略；实际发送仍受平台规则限制。"
               aria-label="发送队列"
               :aria-invalid="!!errors.messages"
-              aria-describedby="task-messages-error"
+              aria-describedby="task-messages-error task-messages-help"
             />
-            <span id="task-messages-error" :class="fieldErrorClass">{{ errors.messages }}</span>
+            <span id="task-messages-help" class="sr-only"
+              >每行一条，空行自动忽略；实际发送仍受平台规则限制。</span
+            >
           </div>
-          <p class="mt-2 flex items-center gap-2 text-xs text-text-tertiary">
-            <Info
-              class="size-4"
-              aria-hidden="true"
-            />每行一条，空行自动忽略；实际发送仍受平台规则限制。
-          </p>
           <div v-if="kind === 'loop'" class="mt-4 grid gap-3 md:grid-cols-3">
             <div :class="labelClass">
-              发送间隔（秒）
+              <TaskFieldLabel
+                label="发送间隔（秒）"
+                :error="errors.interval"
+                error-id="task-interval-error"
+              />
               <input
                 id="task-interval"
                 v-model="interval"
@@ -381,10 +387,13 @@ const submit = handleSubmit(
                 :aria-invalid="!!errors.interval"
                 aria-describedby="task-interval-error"
               />
-              <span id="task-interval-error" :class="fieldErrorClass">{{ errors.interval }}</span>
             </div>
             <div :class="labelClass">
-              最大发送次数
+              <TaskFieldLabel
+                label="最大发送次数"
+                :error="errors.maxCount"
+                error-id="task-maxCount-error"
+              />
               <input
                 id="task-maxCount"
                 v-model="maxCount"
@@ -397,10 +406,13 @@ const submit = handleSubmit(
                 :aria-invalid="!!errors.maxCount"
                 aria-describedby="task-maxCount-error"
               />
-              <span id="task-maxCount-error" :class="fieldErrorClass">{{ errors.maxCount }}</span>
             </div>
             <div :class="labelClass">
-              最长运行时长（秒）
+              <TaskFieldLabel
+                label="最长运行时长（秒）"
+                :error="errors.maxDuration"
+                error-id="task-maxDuration-error"
+              />
               <input
                 id="task-maxDuration"
                 v-model="maxDuration"
@@ -413,9 +425,6 @@ const submit = handleSubmit(
                 :aria-invalid="!!errors.maxDuration"
                 aria-describedby="task-maxDuration-error"
               />
-              <span id="task-maxDuration-error" :class="fieldErrorClass">{{
-                errors.maxDuration
-              }}</span>
             </div>
           </div>
         </section>
@@ -436,7 +445,11 @@ const submit = handleSubmit(
               </select>
             </div>
             <div :class="labelClass">
-              执行时间
+              <TaskFieldLabel
+                label="执行时间"
+                :error="errors.localTime"
+                error-id="task-localTime-error"
+              />
               <input
                 id="task-localTime"
                 v-model="localTime"
@@ -448,10 +461,13 @@ const submit = handleSubmit(
                 :aria-invalid="!!errors.localTime"
                 aria-describedby="task-localTime-error"
               />
-              <span id="task-localTime-error" :class="fieldErrorClass">{{ errors.localTime }}</span>
             </div>
             <div v-if="scheduleKind === 'once'" :class="labelClass">
-              执行日期
+              <TaskFieldLabel
+                label="执行日期"
+                :error="errors.localDate"
+                error-id="task-localDate-error"
+              />
               <input
                 id="task-localDate"
                 v-model="localDate"
@@ -462,10 +478,13 @@ const submit = handleSubmit(
                 :aria-invalid="!!errors.localDate"
                 aria-describedby="task-localDate-error"
               />
-              <span id="task-localDate-error" :class="fieldErrorClass">{{ errors.localDate }}</span>
             </div>
             <div :class="labelClass">
-              时区（IANA）
+              <TaskFieldLabel
+                label="时区（IANA）"
+                :error="errors.timezone"
+                error-id="task-timezone-error"
+              />
               <input
                 id="task-timezone"
                 v-model="timezone"
@@ -476,11 +495,16 @@ const submit = handleSubmit(
                 :aria-invalid="!!errors.timezone"
                 aria-describedby="task-timezone-error"
               />
-              <span id="task-timezone-error" :class="fieldErrorClass">{{ errors.timezone }}</span>
             </div>
           </div>
           <fieldset v-if="scheduleKind === 'weekly'" class="mt-4">
-            <legend class="mb-2 text-sm text-text-secondary">选择星期</legend>
+            <legend class="mb-2 w-full text-sm text-text-secondary">
+              <TaskFieldLabel
+                label="选择星期"
+                :error="errors.weekdays"
+                error-id="task-weekdays-error"
+              />
+            </legend>
             <div class="flex flex-wrap gap-2">
               <div
                 v-for="day in weekdays"
@@ -499,16 +523,7 @@ const submit = handleSubmit(
                 {{ day.name }}
               </div>
             </div>
-            <span id="task-weekdays-error" :class="['mt-2 block', fieldErrorClass]">{{
-              errors.weekdays
-            }}</span>
           </fieldset>
-          <p class="mt-3 flex items-center gap-2 text-xs text-text-tertiary">
-            <Clock3
-              class="size-4"
-              aria-hidden="true"
-            />执行计划使用明确时区，保存后由后端计算下次执行时间。
-          </p>
         </section>
       </div>
       <aside class="flex flex-col gap-4">

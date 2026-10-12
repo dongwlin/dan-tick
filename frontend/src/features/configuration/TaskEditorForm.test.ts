@@ -98,6 +98,15 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   const actions = requiredElement(screen.getByRole('button', { name: '创建任务' }).closest('aside'))
   const actionChildren = actions.children.length
   expect(errorSlot.textContent).toBe('')
+  expect(errorSlot.previousElementSibling?.textContent).toBe('发送队列')
+  expect(errorSlot.parentElement?.nextElementSibling).toBe(
+    screen.getByRole('textbox', { name: '发送队列' }),
+  )
+  expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' }).placeholder).toBe(
+    '在这里输入弹幕内容…\n每行一条，空行自动忽略；实际发送仍受平台规则限制。',
+  )
+  expect(messageCard.querySelector('p')).toBeNull()
+  expect(screen.queryByText('执行计划使用明确时区，保存后由后端计算下次执行时间。')).toBeNull()
   await user.type(screen.getByRole('textbox', { name: '任务名称' }), '自动问候')
   await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '1')
   await user.type(screen.getByRole('textbox', { name: '发送队列' }), '你好\n晚上好')
@@ -108,6 +117,9 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   )
   expect(messageCard.children).toHaveLength(cardChildren)
   expect(document.getElementById('task-messages-error')).toBe(errorSlot)
+  expect(errorSlot.parentElement?.nextElementSibling).toBe(
+    screen.getByRole('textbox', { name: '发送队列' }),
+  )
   expect(actions.children).toHaveLength(actionChildren)
   expect(vi.mocked(CreateTask)).not.toHaveBeenCalled()
 
