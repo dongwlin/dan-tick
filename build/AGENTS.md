@@ -26,9 +26,9 @@
 - Windows 当前默认 `CGO_ENABLED=0`，使用原生 Go 交叉编译；非 Windows 主机显式启用 CGO 时走 Docker。Linux 桌面构建需要 CGO，同平台 / 同架构且有 C 编译器时走原生，其余走 Docker；SQLite 驱动纯 Go 不代表 Wails WebView 无平台依赖。
 - 当前 Linux 默认栈为 GTK4 + WebKitGTK 6.0，nFPM 依赖与 Docker 编译环境应与所选栈一致；使用其他 Wails build tag 时同时核对打包依赖和目标环境，不能只改编译标志。
 - 原生开发构建保留 `DEV=true` 的非 production 路径；生产构建使用 `production`、`-trimpath`、`-buildvcs=false` 与剥离符号，Windows 还使用 `-H windowsgui`。调整 flags 时同时检查原生、Docker 和 Binding 生成路径，不假定各路径传参相同；MCP 生产隔离遵守根文档。
-- 图标和 `.syso` 通过 Wails 生成；Windows 构建后的根 `.syso` 会清理，检查失败构建是否遗留生成文件。`config.yml` 的 `info` / 文件关联变更可影响多个平台资源；`wails3 task common:update:build-assets` 会覆盖资源，先核对已有定制，再检查生成差异。
+- 图标和 `.syso` 通过 Wails 生成；Windows 构建后的根 `.syso` 会清理，检查失败构建是否遗留生成文件。`config.yml` 的 `info` / 文件关联变更会自动同步到支持平台的目标资源；`common:update:build-assets` 可按 `PLATFORM` 同步 Windows / Linux。直接运行 Wails 原生 `wails3 update build-assets` 会覆盖多个平台模板资源，先核对已有定制，再检查生成差异。
 - Linux Task 生成 `linux/dan-tick.desktop`，nFPM 引用该路径与各尺寸图标；不要混淆保留的 `linux/desktop` 模板。Windows 资源路径、Manifest 与安装包元数据也应按实际任务核对，保留的占位值不能当作已确认的发行信息。
-- 构建元数据尚未正式接入；后续按技术选型的版本、UTC 构建时间与 Git HEAD 约定实现，不能用应用启动时间或文件时间冒充构建时间。现有 `-buildvcs=false` 不能提供自动 VCS 元数据。
+- 构建元数据由 `tools/` 在实际编译前生成，通过 `-ldflags -X` 注入 `internal/buildinfo`；Windows / Linux 原生与 Docker 路径共用版本、UTC 构建时间与 Git HEAD 定义。显示版本和 Windows 数字资源版本分别生成，不能用启动时间或文件时间冒充构建时间；`-buildvcs=false` 不提供自动 VCS 元数据。具体 CI / Tag 规则见 [构建与发布](../docs/构建与发布.md)。
 
 ## 3. 构建与打包验证
 

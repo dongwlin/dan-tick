@@ -1,0 +1,168 @@
+name: Desktop Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  version:
+    name: Resolve build version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      package-version: ${{ steps.version.outputs.package-version }}
+      commit: ${{ steps.version.outputs.commit }}
+      release: ${{ steps.version.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.node-version
+
+      - name: Test version, resource generation and release handling
+        run: |
+          go test ./build/tools
+          node --test .github/scripts/publish-release.test.mjs
+
+      - name: Resolve version from the checked-out HEAD and event
+        id: version
+        run: go run ./build/tools version -github-output "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.platform }} amd64
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-24.04
+          - platform: windows
+            runner: windows-2022
+    runs-on: ${{ matrix.runner }}
+    env:
+      DAN_TICK_VERSION: ${{ needs.version.outputs.version }}
+      DAN_TICK_PACKAGE_VERSION: ${{ needs.version.outputs.package-version }}
+      DAN_TICK_COMMIT: ${{ needs.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.node-version
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.6.0
+          package_json_file: frontend/package.json
+          run_install: false
+
+      - name: Install Linux build and AppImage dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev patchelf file desktop-file-utils
+
+      - name: Locate or install NSIS
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $nsisDirectory = "${env:ProgramFiles(x86)}\NSIS"
+          if (-not (Test-Path "$nsisDirectory\makensis.exe")) {
+            choco install nsis --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed' }
+          }
+          if (-not (Test-Path "$nsisDirectory\makensis.exe")) { throw 'makensis.exe was not found' }
+          $nsisDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install matching Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.25
+
+      - name: Build Linux AppImage
+        if: matrix.platform == 'linux'
+        run: wails3 task linux:create:appimage ARCH=amd64
+
+      - name: Build Windows EXE and per-user NSIS installer
+        if: matrix.platform == 'windows'
+        run: wails3 task package GOOS=windows ARCH=amd64 INSTALL_SCOPE=user
+
+      # Bindings and frontend assets now exist, including in a clean checkout.
+      - name: Check frontend formatting, lint and behavior
+        if: matrix.platform == 'linux'
+        working-directory: frontend
+        run: |
+          pnpm run format:check
+          pnpm run lint
+          pnpm run test
+
+      - name: Check Go code
+        if: matrix.platform == 'linux'
+        run: |
+          go test ./...
+          go vet ./...
+          go test -race ./...
+
+      - name: Check module files were not changed by the build
+        shell: bash
+        run: git diff --exit-code -- go.mod go.sum
+
+      - name: Name artifacts and generate SHA-256 checksums
+        run: node .github/scripts/stage-artifacts.mjs ${{ matrix.platform }}
+
+      - name: Upload CI artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dan-tick-${{ needs.version.outputs.version }}-${{ matrix.platform }}-amd64
+          path: bin/artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  release:
+    name: Publish tagged release
+    needs: [version, build]
+    if: github.event_name == 'push' && github.ref_type == 'tag' && needs.version.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: dan-tick-${{ needs.version.outputs.version }}-*-amd64
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify artifacts and publish the completed release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.version.outputs.version }}
+        run: bash .github/scripts/publish-release.sh

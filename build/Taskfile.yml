@@ -7,6 +7,8 @@ tasks:
     # Universal/multi-arch builds invoke this concurrently from parallel deps;
     # two `go mod tidy` processes racing on go.mod can corrupt it (#4637).
     run: once
+    deps:
+      - task: prepare:frontend:dist
     cmds:
       - go mod tidy
 
@@ -192,6 +194,17 @@ tasks:
     cmds:
       - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true{{if eq .OBFUSCATED "true"}} -obfuscated{{end}} -ts -i ./...
 
+  prepare:frontend:dist:
+    summary: Prepares the embed input for first-time Binding generation
+    internal: true
+    run: once
+    cmds:
+      - go run ./build/tools prepare-dist
+    env:
+      GOOS: '{{OS}}'
+      GOARCH: '{{ARCH}}'
+      CGO_ENABLED: '0'
+
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` from an image; on macOS, `-iconcomposerinput appicon.icon -macassetdir darwin` also produces `Assets.car` from a `.icon` file (skipped on other platforms).
     run: once
@@ -233,10 +246,18 @@ tasks:
       - bun run dev --port {{.VITE_PORT}} --strictPort
 
   update:build-assets:
-    summary: Updates the build assets
-    dir: build
+    summary: Synchronises supported desktop resources from config and build version
+    run: once
+    deps:
+      - task: go:mod:tidy
     cmds:
-      - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir .
+      - go run ./build/tools assets -name "{{.APP_NAME}}" -platform "{{.PLATFORM}}"
+    vars:
+      PLATFORM: '{{.PLATFORM | default "all"}}'
+    env:
+      GOOS: '{{OS}}'
+      GOARCH: '{{ARCH}}'
+      CGO_ENABLED: '0'
 
   build:server:
     summary: Builds the application in server mode (no GUI, HTTP server only)

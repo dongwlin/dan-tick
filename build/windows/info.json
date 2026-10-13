@@ -1,15 +1,17 @@
 {
 	"fixed": {
-		"file_version": "0.1.0"
+		"file_version": "0.0.0.0",
+		"product_version": "0.0.0.0"
 	},
 	"info": {
 		"0000": {
-			"ProductVersion": "0.1.0",
-			"CompanyName": "My Company",
-			"FileDescription": "A dan-tick application",
-			"LegalCopyright": "© 2026, My Company",
-			"ProductName": "My Product",
-			"Comments": "This is a comment"
+			"Comments": "",
+			"CompanyName": "dongwlin",
+			"FileDescription": "Desktop App for Scheduled Sending of Bilibili Live Danmaku",
+			"FileVersion": "dev",
+			"LegalCopyright": "(c) 2026 dongwlin",
+			"ProductName": "Dan Tick",
+			"ProductVersion": "dev"
 		}
 	}
 }

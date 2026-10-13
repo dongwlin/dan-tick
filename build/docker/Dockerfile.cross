@@ -22,7 +22,7 @@ ARG GARBLE_VERSION=v0.16.0
 
 # Install base tools, GCC, and GTK/WebKit dev packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl xz-utils python3 pkg-config gcc libc6-dev \
+    curl xz-utils python3 pkg-config gcc libc6-dev git \
     libgtk-3-dev libwebkit2gtk-4.1-dev \
     libgtk-4-dev libwebkitgtk-6.0-dev \
     && pkg-config --atleast-version=4.14 gtk4 \
@@ -205,6 +205,12 @@ if [ "$GOOS" = "windows" ]; then
     EXT=".exe"
     LDFLAGS="-s -w -H windowsgui"
 fi
+
+# Run the helper for the container host, then compile the requested target.
+# The timestamp is computed here, immediately before the executable build.
+git config --global --add safe.directory /app
+BUILD_METADATA=$(GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) CGO_ENABLED=0 go run ./build/tools ldflags)
+LDFLAGS="$LDFLAGS $BUILD_METADATA"
 
 TAGS="production"
 if [ -n "$EXTRA_TAGS" ]; then

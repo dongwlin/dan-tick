@@ -3,7 +3,10 @@ bin
 frontend/dist
 frontend/bindings
 frontend/node_modules
+.pnpm-store
 build/linux/appimage/build
+build/linux/appimage/dan-tick
+build/linux/appimage/dan-tick.png
 build/linux/dan-tick.desktop
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 # Mobile generated (per-machine; overlays hold absolute paths)
