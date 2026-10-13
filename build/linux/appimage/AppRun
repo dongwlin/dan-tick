@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve the actual entrypoint, including when an extracted AppDir is invoked
+# from a different working directory or through a symbolic link.
+app_dir=$(dirname -- "$(readlink -f -- "$0")")
+binary="$app_dir/usr/bin/dan-tick"
+
+runtime_error() {
+  local message
+  message='dan-tick 无法启动：需要系统提供 GTK4（4.14 或更新）和 WebKitGTK 6.0 运行库。
+
+Ubuntu / Debian：
+  sudo apt install libgtk-4-1 libwebkitgtk-6.0-4
+
+Fedora：
+  sudo dnf install gtk4 webkitgtk6.0
+
+请优先使用当前发行版。旧系统或缺失 glibc 符号时，请升级系统。'
+  printf '%s\n\n%s\n' "$message" "$1" >&2
+  # A double-clicked AppImage often has no terminal; use the system dialog if
+  # available, without making it a new mandatory runtime dependency.
+  if command -v zenity >/dev/null 2>&1 && [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then
+    zenity --error --title='dan-tick 启动失败' --text="$message" 2>/dev/null || true
+  fi
+  exit 1
+}
+
+command -v ldd >/dev/null 2>&1 || runtime_error '找不到系统 ldd 命令。'
+if ! dependencies=$(LC_ALL=C ldd -r "$binary" 2>&1); then
+  runtime_error "$dependencies"
+fi
+if [[ $dependencies == *'not found'* || $dependencies == *'undefined symbol'* ]]; then
+  runtime_error "$dependencies"
+fi
+
+# Do not inject LD_LIBRARY_PATH, GTK hooks, helper paths, a display backend or
+# sandbox overrides. The system WebKit library must use its matching helpers.
+exec "$binary" "$@"
