@@ -61,12 +61,12 @@
 
 ## 5. 首版扫码登录与续期研究与实现
 
-2026-10-12 已核查社区资料和第三方作者实现，`internal/account/passport.go` 据此接入协议，并通过 `httptest` 使用假 Cookie / RT 验证异常分支。同日经用户明确授权，已用隔离、仅内存保存凭证的人工工具完成真实扫码、UID 核对、单次轮换及确认；未访问既有 Keyring / SQLite，也未发送弹幕。**这不替代 Windows / Linux 的 Keyring 和桌面 G3 验收；平台用途许可仍待核验。** 浏览器插件同步在首版发布后实施。两种目标认证模式见 [PRD FR-003](PRD.md#fr-003凭证安全)：
+2026-10-12 已核查社区资料和第三方作者实现，`internal/account/passport.go` 据此接入协议，并通过 `httptest` 使用假 Cookie / RT 验证异常分支。同日经用户明确授权，已用隔离、仅内存保存凭证的人工工具完成真实扫码、UID 核对、单次轮换及确认；未访问既有 Keyring / SQLite，也未发送弹幕。**这不替代 Windows / Linux 的桌面实机验收；平台用途许可仍待核验。** 浏览器插件同步未纳入近期版本，仅作为长期候选保留。两种目标认证模式见 [PRD FR-003](PRD.md#fr-003凭证安全)：
 
 | 模式 | 登录凭证 | 是否由 dan-tick 续期 |
 | --- | --- | --- |
 | 应用内扫码（首版必做） | 应用独立登录获得 `SESSDATA`、`bili_jct`、账号 UID 和该会话的 `refresh_token` | 是，受控检查和轮换；已核验应用自行取得并轮换会话；其它会话影响仍待验收 |
-| 浏览器插件同步（首版后，首期 Chrome） | 只同步浏览器会话最新的 `SESSDATA`、`bili_jct` | 否，`refresh_token`（网页端常见持久化键为 `ac_time_value`）由浏览器自行管理；扩展不读取或传给应用 |
+| 浏览器插件同步（未排期，首期 Chrome） | 只同步浏览器会话最新的 `SESSDATA`、`bili_jct` | 否，`refresh_token`（网页端常见持久化键为 `ac_time_value`）由浏览器自行管理；扩展不读取或传给应用 |
 
 旧版手动填写两个 Cookie 是过渡入口，H1 同步移除设置页和公开 Binding 的手动保存入口。迁移识别既存 Keyring 双字段数据，保留凭证和任务，要求用户明确扫码重新绑定。
 
@@ -107,11 +107,11 @@ Passport 路径以下均位于 `https://passport.bilibili.com/x/passport-login/w
 
 这些未完成项仍属于首版发布门槛；失败时不得恢复公开手动 Cookie 输入作为替代。
 
-### 5.4 首版后浏览器插件边界
+### 5.4 浏览器插件边界（未排期）
 
 Chrome 扩展研究参考 Chrome 官方 [Cookies API](https://developer.chrome.com/docs/extensions/reference/api/cookies) 和 [Native Messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging)：只在用户授权的 B 站站点与选定 Cookie Store 中读取两个 Cookie，用户授权并配对后通过本地原生消息连接交给 Go；Cookie 更新事件可能先报告移除再报告写入，不能把单个删除事件当作完整退出登录或直接覆盖 Keyring，需要重新读取整组并验证 UID。Chrome 未运行或通信失败时不保证持续同步。
 
-H2 实施前还须核对 Windows / Linux 扩展安装、Native Messaging 接入及 Cookie 事件顺序。自动测试继续仅使用替身，真实账号规则与上文一致。
+浏览器插件实施前还须核对 Windows / Linux 扩展安装、Native Messaging 接入及 Cookie 事件顺序。自动测试继续仅使用替身，真实账号规则与上文一致。
 
 ## 6. 上游出处
 
