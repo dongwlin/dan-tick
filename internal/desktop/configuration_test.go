@@ -45,7 +45,7 @@ func configurationTest(t *testing.T) (*ConfigurationService, *scheduler.Manager,
 	}, nil)
 	t.Cleanup(func() { <-manager.Stop().Done() })
 	require.NoError(t, manager.Start(context.Background()))
-	return NewConfigurationService(db, client, manager), manager, db
+	return NewConfigurationService(db, client, manager, nil), manager, db
 }
 
 func taskRequest(roomID int64) TaskInput {

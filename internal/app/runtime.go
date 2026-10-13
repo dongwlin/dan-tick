@@ -67,10 +67,12 @@ func newRuntimeWithStore(db *bun.DB, log *diagnostic.Logger, store *credential.S
 			log.Record(diagnostic.ScheduleSyncFailed)
 		}
 	})
-	runtime := &Runtime{
-		Sender: sender, Executor: runner, Scheduler: manager,
-		Config: desktop.NewConfigurationService(db, room.NewClient(&http.Client{}), manager),
-	}
+	runtime := &Runtime{Sender: sender, Executor: runner, Scheduler: manager}
+	runtime.Config = desktop.NewConfigurationService(db, room.NewClient(&http.Client{}), manager, func() {
+		if runtime.emit != nil {
+			runtime.emit(desktop.EventApplicationChanged)
+		}
+	})
 	runtime.Operations = desktop.NewOperationsService(db, store, account.NewService(store, &http.Client{}), runner, runner, func(event string) {
 		if runtime.emit != nil {
 			runtime.emit(event)
@@ -83,11 +85,6 @@ func newRuntimeWithStore(db *bun.DB, log *diagnostic.Logger, store *credential.S
 // no task content or credentials, and only request frontend cache refreshes.
 func (r *Runtime) BindEvents(emit func(string)) {
 	r.emit = emit
-	r.Config.SetOnChange(func() {
-		if r.emit != nil {
-			r.emit(desktop.EventApplicationChanged)
-		}
-	})
 	r.Executor.SetOnChange(func(_, _ int64) {
 		if r.emit != nil {
 			r.emit(desktop.EventExecutionChanged)

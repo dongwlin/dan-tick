@@ -22,18 +22,17 @@ type ConfigurationService struct {
 	changed func()
 }
 
-// SetOnChange installs a notification hook. It carries no business payload.
-func (s *ConfigurationService) SetOnChange(changed func()) { s.changed = changed }
-
 func (s *ConfigurationService) notifyAfter(err error) {
 	if (err == nil || errors.Is(err, scheduler.ErrScheduleSync)) && s.changed != nil {
 		s.changed()
 	}
 }
 
-func NewConfigurationService(db *bun.DB, client *room.Client, manager *scheduler.Manager) *ConfigurationService {
+// NewConfigurationService wires the notification hook called after committed
+// changes. It carries no business payload and is not part of the bindings.
+func NewConfigurationService(db *bun.DB, client *room.Client, manager *scheduler.Manager, changed func()) *ConfigurationService {
 	return &ConfigurationService{
-		rooms: room.NewService(db, client), tasks: task.NewService(db), manager: manager,
+		rooms: room.NewService(db, client), tasks: task.NewService(db), manager: manager, changed: changed,
 	}
 }
 
