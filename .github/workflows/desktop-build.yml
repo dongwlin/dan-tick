@@ -38,6 +38,7 @@ jobs:
       - name: Test version, resource generation and release handling
         run: |
           go test ./build/tools
+          bash build/linux/appimage/build.test.sh
           node --test .github/scripts/publish-release.test.mjs
 
       - name: Resolve version from the checked-out HEAD and event
@@ -84,7 +85,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev patchelf file desktop-file-utils
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev curl desktop-file-utils
 
       - name: Locate or install NSIS
         if: matrix.platform == 'windows'
@@ -167,9 +168,89 @@ jobs:
           retention-days: 14
           compression-level: 0
 
+  appimage-smoke:
+    name: AppImage smoke on ${{ matrix.distribution }}
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distribution: Ubuntu 24.04
+            image: ubuntu:24.04
+          - distribution: Ubuntu 26.04
+            image: ubuntu:26.04
+          - distribution: Debian 13
+            image: debian:13
+          - distribution: Fedora 44
+            image: fedora:44
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: dan-tick-${{ needs.version.outputs.version }}-linux-amd64
+          path: appimage-artifact
+
+      - name: Verify the final AppImage checksum
+        working-directory: appimage-artifact
+        run: sha256sum --check SHA256SUMS-linux-amd64.txt
+
+      - name: Prepare a minimal desktop test container
+        env:
+          SMOKE_BASE_IMAGE: ${{ matrix.image }}
+        run: |
+          docker build --tag dan-tick-appimage-smoke --build-arg BASE_IMAGE="$SMOKE_BASE_IMAGE" --file - . <<'DOCKERFILE'
+          ARG BASE_IMAGE=ubuntu:24.04
+          FROM ${BASE_IMAGE}
+          RUN if command -v apt-get >/dev/null; then \
+                apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+                  xvfb dbus-x11 xauth x11-utils imagemagick python3-pyatspi at-spi2-core \
+                  fonts-noto-cjk libgl1-mesa-dri libegl1 bubblewrap xdg-dbus-proxy procps passwd \
+                  libgtk-4-1 libwebkitgtk-6.0-4 \
+                && rm -rf /var/lib/apt/lists/*; \
+              else \
+                dnf install -y xorg-x11-server-Xvfb dbus-daemon xorg-x11-xauth xwininfo xdpyinfo \
+                  ImageMagick python3-pyatspi at-spi2-core gobject-introspection tzdata google-noto-sans-cjk-fonts \
+                  mesa-dri-drivers mesa-libEGL bubblewrap xdg-dbus-proxy procps-ng shadow-utils \
+                  gtk4 webkitgtk6.0 \
+                && dnf clean all; \
+              fi \
+              && useradd --create-home --uid 1001 smoke
+          USER 1001
+          DOCKERFILE
+
+      - name: Check the packaged WebView with its sandbox enabled
+        timeout-minutes: 3
+        run: |
+          mkdir -p appimage-smoke-results
+          chmod 0777 appimage-smoke-results
+          # Only this disposable test container relaxes outer namespace restrictions.
+          # The application retains the WebKit sandbox and has no network or user data.
+          docker run --rm --network none \
+            --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
+            --security-opt systempaths=unconfined \
+            --mount "type=bind,src=$PWD/.github/scripts,dst=/scripts,readonly" \
+            --mount "type=bind,src=$PWD/appimage-artifact,dst=/artifact,readonly" \
+            --mount "type=bind,src=$PWD/appimage-smoke-results,dst=/results" \
+            dan-tick-appimage-smoke \
+            bash /scripts/appimage-smoke.sh /artifact /results
+
+      - name: Upload AppImage smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: appimage-smoke-${{ matrix.distribution }}
+          path: appimage-smoke-results/*
+          if-no-files-found: warn
+          retention-days: 14
+
   release:
     name: Publish tagged release
-    needs: [version, build]
+    needs: [version, build, appimage-smoke]
     if: github.event_name == 'push' && github.ref_type == 'tag' && needs.version.outputs.release == 'true'
     runs-on: ubuntu-24.04
     permissions:

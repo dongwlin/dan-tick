@@ -37,6 +37,8 @@ wails3 build
 
 CI 自动构建 Linux amd64 AppImage、Windows amd64 EXE 和用户级 NSIS 安装包，普通构建上传 Actions artifacts，只有推送正式版本 Tag 才发布 Release。版本由 Git 自动生成，无需每次修改配置；命名、配置同步、下载和发布步骤见 [构建与发布](docs/构建与发布.md)。
 
+Linux AppImage 使用系统的 GTK4 4.14+ / WebKitGTK 6.0，首次运行需按[发行版安装运行依赖](docs/构建与发布.md#linux-appimage-运行依赖与兼容范围)。CI 检查 Ubuntu 24.04 / 26.04、Debian 13 和 Fedora 44 的实际页面加载；旧发行版仅尽力兼容。
+
 ## 仓库结构
 
 | 位置 | 用途 |

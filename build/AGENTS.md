@@ -25,6 +25,7 @@
 
 - Windows 当前默认 `CGO_ENABLED=0`，使用原生 Go 交叉编译；非 Windows 主机显式启用 CGO 时走 Docker。Linux 桌面构建需要 CGO，同平台 / 同架构且有 C 编译器时走原生，其余走 Docker；SQLite 驱动纯 Go 不代表 Wails WebView 无平台依赖。
 - 当前 Linux 默认栈为 GTK4 + WebKitGTK 6.0，nFPM 依赖与 Docker 编译环境应与所选栈一致；使用其他 Wails build tag 时同时核对打包依赖和目标环境，不能只改编译标志。
+- Linux AppImage 发布使用 Ubuntu 24.04 编译基线，目标系统提供 GTK4 4.14+ / WebKitGTK 6.0。`linux/appimage/build.sh` 用固定版本 `appimagetool` 直接封装应用、桌面入口、图标与 AppRun；不调用 Wails AppImage generator / linuxdeploy，不捆绑 GUI 动态库或 WebKit helper，不修改 WebKit 二进制路径或关闭沙箱。AppRun 检查缺失动态库并给出安装指引，保留系统的 X11 / Wayland 后端选择。兼容范围、FUSE 与提取运行方式见 [构建与发布](../docs/构建与发布.md#linux-appimage-运行依赖与兼容范围)。
 - 原生开发构建保留 `DEV=true` 的非 production 路径；生产构建使用 `production`、`-trimpath`、`-buildvcs=false` 与剥离符号，Windows 还使用 `-H windowsgui`。调整 flags 时同时检查原生、Docker 和 Binding 生成路径，不假定各路径传参相同；MCP 生产隔离遵守根文档。
 - 图标和 `.syso` 通过 Wails 生成；Windows 构建后的根 `.syso` 会清理，检查失败构建是否遗留生成文件。`config.yml` 的 `info` / 文件关联变更会自动同步到支持平台的目标资源；`common:update:build-assets` 可按 `PLATFORM` 同步 Windows / Linux。直接运行 Wails 原生 `wails3 update build-assets` 会覆盖多个平台模板资源，先核对已有定制，再检查生成差异。
 - Linux Task 生成 `linux/dan-tick.desktop`，nFPM 引用该路径与各尺寸图标；不要混淆保留的 `linux/desktop` 模板。Windows 资源路径、Manifest 与安装包元数据也应按实际任务核对，保留的占位值不能当作已确认的发行信息。
@@ -44,5 +45,6 @@ wails3 task package GOOS=linux              # Linux 打包任务
 ```
 
 - Taskfile、编译标志或资源路径变更验证受影响构建；触及打包配置时再验证对应安装包产物、资源和依赖。不为纯指令文档修改执行完整打包。
+- AppImage 兼容性检查使用 Ubuntu 24.04 构建的同一个最终包，在 Ubuntu 24.04 / 26.04、Debian 13、Fedora 44 环境中核对 AppRun、缺失依赖提示与真实 WebView 页面加载。现有 CI 容器通过 Xvfb / AT-SPI 验证，且纳入 Release 门禁；不得将该 X11 / 软件渲染检查写成 Wayland、GPU 或全桌面验收通过。新增捆绑依赖或改用其他打包工具前，先更新技术选型并验证各发行版的 helper、图形与沙箱行为。
 - 跨平台构建成功不代表目标平台运行通过；WebView、托盘、窗口、安装 / 卸载与 Keyring 的验收仍需对应平台人工验证。环境或工具缺失时如实记录未完成的检查。
 - 构建后按根文档检查工作树，特别核对 `go.mod` / `go.sum`、生成 Binding / 前端产物、图标、`.desktop`、`.syso` 和安装器辅助文件；只纳入本次明确需要的源码 / 配置 / 资源变更。
