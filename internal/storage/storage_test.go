@@ -81,6 +81,19 @@ func TestOpenReopenAndConstraints(t *testing.T) {
 		(task_id, trigger_kind, status, created_at, task_name_snapshot, platform_room_id_snapshot)
 		VALUES (1, 'manual', 'queued', 1001, 'daily task', '42')`)
 	require.Error(t, err)
+	// Test sends are room-scoped executions with no owning task.
+	_, err = db.ExecContext(ctx, `INSERT INTO executions
+		(task_id, trigger_kind, status, created_at, task_name_snapshot, platform_room_id_snapshot)
+		VALUES (NULL, 'test', 'queued', 1002, '测试发送', '42')`)
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO executions
+		(task_id, trigger_kind, status, created_at, task_name_snapshot, platform_room_id_snapshot)
+		VALUES (1, 'test', 'queued', 1003, '测试发送', '42')`)
+	require.Error(t, err, "a test send must not reference a task")
+	_, err = db.ExecContext(ctx, `INSERT INTO executions
+		(task_id, trigger_kind, status, created_at, task_name_snapshot, platform_room_id_snapshot)
+		VALUES (NULL, 'manual', 'queued', 1004, 'daily task', '42')`)
+	require.Error(t, err, "manual executions must reference a task")
 
 	_, err = db.ExecContext(ctx, "INSERT INTO app_settings (key, value) VALUES ('timezone', 'Asia/Shanghai')")
 	require.NoError(t, err)
@@ -91,7 +104,7 @@ func TestOpenReopenAndConstraints(t *testing.T) {
 	require.NoError(t, err)
 	var count int
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT count(*) FROM bun_migrations").Scan(&count))
-	require.Equal(t, 2, count)
+	require.Equal(t, 3, count)
 	var due int64
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT next_due_at FROM tasks WHERE id = 1").Scan(&due))
 	require.Equal(t, int64(1791710400000), due)
@@ -142,7 +155,7 @@ THIS IS NOT SQL;
 	require.NoError(t, err)
 	defer db.Close()
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT count(*) FROM bun_migrations").Scan(&count))
-	require.Equal(t, 2, count)
+	require.Equal(t, 3, count)
 }
 
 func TestUpgradeExistingRoomsKeepsUserDataAndMarksMetadataStale(t *testing.T) {
@@ -182,7 +195,7 @@ func TestUpgradeExistingRoomsKeepsUserDataAndMarksMetadataStale(t *testing.T) {
 	require.Zero(t, checked)
 	var count int
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT count(*) FROM bun_migrations").Scan(&count))
-	require.Equal(t, 2, count)
+	require.Equal(t, 3, count)
 }
 
 func TestOpenDoesNotOverwriteCorruptDatabase(t *testing.T) {
@@ -194,4 +207,61 @@ func TestOpenDoesNotOverwriteCorruptDatabase(t *testing.T) {
 	actual, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.Equal(t, contents, actual)
+}
+
+func TestUpgradeExecutionHistoryForTestSendsPreservesRowsAndAllowsNullTask(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "upgrade-test-sends.db")
+	uri := url.URL{Scheme: "file", Path: filepath.ToSlash(path)}
+	q := uri.Query()
+	q.Add("_pragma", "foreign_keys(1)")
+	q.Add("_pragma", "busy_timeout(5000)")
+	uri.RawQuery = q.Encode()
+	db, err := connectSQLite(ctx, uri.String())
+	require.NoError(t, err)
+
+	initial, err := migrationFiles.ReadFile("migrations/20261011000100_initial_schema.tx.up.sql")
+	require.NoError(t, err)
+	metadata, err := migrationFiles.ReadFile("migrations/20261012000100_room_metadata.tx.up.sql")
+	require.NoError(t, err)
+	legacy := fstest.MapFS{
+		"20261011000100_initial_schema.tx.up.sql": &fstest.MapFile{Data: initial},
+		"20261012000100_room_metadata.tx.up.sql":  &fstest.MapFile{Data: metadata},
+	}
+	require.NoError(t, runMigrations(ctx, db, legacy))
+	_, err = db.ExecContext(ctx, `INSERT INTO rooms (id, platform_room_id, created_at, updated_at)
+VALUES (1, '42', 1, 1)`)
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO tasks (id, room_id, name, kind, schedule_kind,
+local_time, created_at, updated_at) VALUES (1, 1, 'task', 'single', 'daily', '12:00:00', 1, 1)`)
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO executions (id, task_id, trigger_kind, status,
+created_at, finished_at, sent_count, failed_count, task_name_snapshot,
+platform_room_id_snapshot) VALUES (7, 1, 'manual', 'completed', 1, 2, 1, 0, 'task', '42')`)
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO send_attempts (id, execution_id, sequence, message_no,
+content_snapshot, attempted_at, result) VALUES (9, 7, 1, 1, 'old message', 1, 'accepted')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	db, err = Open(ctx, path)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, db.Close()) }()
+
+	var taskID int64
+	var status string
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT e.task_id, e.status
+FROM executions e JOIN send_attempts a ON a.execution_id = e.id
+WHERE e.id = 7 AND a.id = 9`).Scan(&taskID, &status))
+	require.EqualValues(t, 1, taskID)
+	require.Equal(t, "completed", status)
+
+	_, err = db.ExecContext(ctx, `INSERT INTO executions (task_id, trigger_kind, status,
+created_at, finished_at, error_code, task_name_snapshot, platform_room_id_snapshot)
+VALUES (NULL, 'test', 'completed', 3, 4, NULL, '测试发送', '42')`)
+	require.NoError(t, err, "upgraded schema must accept test sends without a task")
+
+	var fkViolations int
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_foreign_key_check`).Scan(&fkViolations))
+	require.Zero(t, fkViolations)
 }

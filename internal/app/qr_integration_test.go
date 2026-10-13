@@ -202,7 +202,12 @@ func TestQRRuntimeUsesPersistedSessionForAccountAndSharedSender(t *testing.T) {
 
 	var executionCount int
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT COUNT(*) FROM executions").Scan(&executionCount))
-	require.Zero(t, executionCount, "the shared test sender does not create task executions")
+	require.Equal(t, 2, executionCount, "both test sends must be recorded in history")
+	var testExecutions int
+	require.NoError(t, db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM executions WHERE trigger_kind = 'test' AND task_id IS NULL`).
+		Scan(&testExecutions))
+	require.Equal(t, 2, testExecutions)
 }
 
 func TestQRRuntimeKeyringFailuresNeverPublishCandidateOrSend(t *testing.T) {

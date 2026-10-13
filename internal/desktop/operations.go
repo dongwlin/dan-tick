@@ -10,6 +10,7 @@ import (
 	"github.com/dongwlin/dan-tick/internal/account"
 	"github.com/dongwlin/dan-tick/internal/credential"
 	"github.com/dongwlin/dan-tick/internal/danmaku"
+	"github.com/dongwlin/dan-tick/internal/executor"
 	"github.com/dongwlin/dan-tick/internal/room"
 	"github.com/uptrace/bun"
 )
@@ -31,8 +32,8 @@ type qrLoginService interface {
 type loginChecker interface {
 	Check(context.Context) (account.Status, error)
 }
-type testSender interface {
-	TestSend(context.Context, string, string) (danmaku.Result, error)
+type testRunner interface {
+	TestSend(context.Context, string, string) (executor.ManualResult, error)
 }
 type manualRunner interface {
 	StartManual(int64) (int64, error)
@@ -45,13 +46,13 @@ type OperationsService struct {
 	db      *bun.DB
 	store   credentialsStore
 	account loginChecker
-	sender  testSender
+	tester  testRunner
 	runner  manualRunner
 	emit    func(string)
 }
 
-func NewOperationsService(db *bun.DB, store credentialsStore, checker loginChecker, sender testSender, runner manualRunner, emit func(string)) *OperationsService {
-	return &OperationsService{db: db, store: store, account: checker, sender: sender, runner: runner, emit: emit}
+func NewOperationsService(db *bun.DB, store credentialsStore, checker loginChecker, tester testRunner, runner manualRunner, emit func(string)) *OperationsService {
+	return &OperationsService{db: db, store: store, account: checker, tester: tester, runner: runner, emit: emit}
 }
 
 func (s *OperationsService) changed(event string) {
@@ -123,9 +124,10 @@ type TestSendResult struct {
 	ErrorCode string          `json:"errorCode"`
 }
 
-// TestSend uses the same FIFO account limiter as scheduled and manual runs.
-// It never creates an execution history row; all expected send failures are
-// returned as safe result categories, not arbitrary upstream error strings.
+// TestSend uses the same FIFO account limiter and execution pipeline as
+// scheduled and manual runs. Every accepted test send creates an execution
+// row and a pending attempt; expected send failures are returned as safe
+// result categories, not arbitrary upstream error strings.
 func (s *OperationsService) TestSend(ctx context.Context, input TestSendInput) (TestSendResult, error) {
 	if input.RoomID <= 0 || strings.TrimSpace(input.Message) == "" {
 		return TestSendResult{}, protect(danmaku.ErrInvalidInput)
@@ -138,33 +140,11 @@ func (s *OperationsService) TestSend(ctx context.Context, input TestSendInput) (
 	if err != nil {
 		return TestSendResult{}, protect(err)
 	}
-	result, sendErr := s.sender.TestSend(ctx, platformID, input.Message)
-	return TestSendResult{Outcome: result.Outcome, ErrorCode: sendFailureCode(sendErr)}, nil
-}
-
-func sendFailureCode(err error) string {
-	switch {
-	case err == nil:
-		return ""
-	case errors.Is(err, credential.ErrNotConfigured):
-		return "credential_missing"
-	case errors.Is(err, credential.ErrUnavailable), errors.Is(err, credential.ErrCorrupt):
-		return "credential_unavailable"
-	case errors.Is(err, danmaku.ErrAuthentication):
-		return "authentication"
-	case errors.Is(err, danmaku.ErrRateLimited):
-		return "rate_limited"
-	case errors.Is(err, danmaku.ErrTooLong):
-		return "too_long"
-	case errors.Is(err, danmaku.ErrBadRequest), errors.Is(err, danmaku.ErrInvalidInput):
-		return "invalid_input"
-	case errors.Is(err, danmaku.ErrTimeout), errors.Is(err, context.DeadlineExceeded):
-		return "timeout"
-	case errors.Is(err, context.Canceled):
-		return "cancelled"
-	default:
-		return "send_failed"
+	result, err := s.tester.TestSend(ctx, platformID, input.Message)
+	if err != nil {
+		return TestSendResult{}, protect(err)
 	}
+	return TestSendResult{Outcome: result.Outcome, ErrorCode: result.ErrorCode}, nil
 }
 
 type StartManualResult struct {

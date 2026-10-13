@@ -39,7 +39,7 @@ func newRuntimeWithHTTP(db *bun.DB, log *diagnostic.Logger, store *credential.St
 	sessions := account.NewSession(store, account.NewPassportClient(httpClient), account.NewService(store, httpClient), nil)
 	runtime := newRuntimeWithStore(db, log, store, danmaku.NewClient(sessions, httpClient))
 	runtime.Sessions = sessions
-	runtime.Operations = desktop.NewOperationsService(db, sessions, sessions, runtime.Sender, runtime.Executor, func(event string) {
+	runtime.Operations = desktop.NewOperationsService(db, sessions, sessions, runtime.Executor, runtime.Executor, func(event string) {
 		if runtime.emit != nil {
 			runtime.emit(event)
 		}
@@ -71,7 +71,7 @@ func newRuntimeWithStore(db *bun.DB, log *diagnostic.Logger, store *credential.S
 		Sender: sender, Executor: runner, Scheduler: manager,
 		Config: desktop.NewConfigurationService(db, room.NewClient(&http.Client{}), manager),
 	}
-	runtime.Operations = desktop.NewOperationsService(db, store, account.NewService(store, &http.Client{}), sender, runner, func(event string) {
+	runtime.Operations = desktop.NewOperationsService(db, store, account.NewService(store, &http.Client{}), runner, runner, func(event string) {
 		if runtime.emit != nil {
 			runtime.emit(event)
 		}

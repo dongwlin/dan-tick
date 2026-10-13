@@ -19,11 +19,12 @@ var (
 const MaxPageSize = 100
 
 // Execution uses the snapshots stored at execution time, even if the task or
-// room has subsequently been renamed or logically deleted. Times are UTC Unix
-// milliseconds; nil means the corresponding lifecycle stage did not occur.
+// room has subsequently been renamed or logically deleted. TaskID is nil for
+// test sends, which have no owning task. Times are UTC Unix milliseconds; nil
+// means the corresponding lifecycle stage did not occur.
 type Execution struct {
 	ID                     int64   `json:"id"`
-	TaskID                 int64   `json:"task_id"`
+	TaskID                 *int64  `json:"task_id"`
 	TriggerKind            string  `json:"trigger_kind"`
 	ScheduledAt            *int64  `json:"scheduled_at"`
 	Status                 string  `json:"status"`

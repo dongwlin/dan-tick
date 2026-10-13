@@ -53,6 +53,9 @@ func NewService(db *bun.DB, sender *danmaku.Sender, log *diagnostic.Logger) *Ser
 type activeRun struct {
 	cancel  context.CancelFunc
 	stopped bool // Protected by Service.mu.
+	// Test sends are canceled during Shutdown but are not reported as
+	// user-stopped because the user did not request a stop.
+	testSend bool
 }
 
 type runPlan struct {
@@ -97,7 +100,9 @@ func (s *Service) Shutdown(ctx context.Context) error {
 	s.mu.Lock()
 	s.closed = true
 	for _, run := range s.active {
-		run.stopped = true
+		if !run.testSend {
+			run.stopped = true
+		}
 		run.cancel()
 	}
 	s.mu.Unlock()

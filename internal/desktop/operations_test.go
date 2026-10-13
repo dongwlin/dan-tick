@@ -43,13 +43,14 @@ func (c fakeChecker) Check(context.Context) (account.Status, error) { return c.s
 
 type fakeTestSender struct {
 	room, message string
-	result        danmaku.Result
+	outcome       danmaku.Outcome
+	errorCode     string
 	err           error
 }
 
-func (s *fakeTestSender) TestSend(_ context.Context, room, message string) (danmaku.Result, error) {
+func (s *fakeTestSender) TestSend(_ context.Context, room, message string) (executor.ManualResult, error) {
 	s.room, s.message = room, message
-	return s.result, s.err
+	return executor.ManualResult{Outcome: s.outcome, ErrorCode: s.errorCode}, s.err
 }
 
 type fakeOperationsRunner struct {
@@ -73,7 +74,7 @@ func TestOperationsServiceCredentialAndSendBoundary(t *testing.T) {
 	require.NoError(t, db.QueryRowContext(ctx, `INSERT INTO rooms (platform_room_id, created_at, updated_at)
 		VALUES ('98765', 1, 1) RETURNING id`).Scan(&roomID))
 	store := &fakeOperationsStore{}
-	sender := &fakeTestSender{result: danmaku.Result{Outcome: danmaku.Accepted}}
+	sender := &fakeTestSender{outcome: danmaku.Accepted}
 	runner := &fakeOperationsRunner{}
 	var events []string
 	s := NewOperationsService(db, store, fakeChecker{status: account.Status{State: account.LoggedIn}}, sender, runner, func(event string) { events = append(events, event) })
@@ -88,14 +89,20 @@ func TestOperationsServiceCredentialAndSendBoundary(t *testing.T) {
 	_, err = s.TestSend(ctx, TestSendInput{RoomID: roomID + 10, Message: "private test text"})
 	assertPublicError(t, err, "not_found", "private test text")
 
-	sender.err = errors.New("upstream includes test_session_secret")
-	sender.result = danmaku.Result{Outcome: danmaku.Unknown}
+	sender.outcome = danmaku.Unknown
+	sender.errorCode = "send_failed"
 	result, err = s.TestSend(ctx, TestSendInput{RoomID: roomID, Message: "private test text"})
 	require.NoError(t, err)
 	require.Equal(t, "send_failed", result.ErrorCode)
 	encoded, err := json.Marshal(result)
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), "secret")
+
+	sender.errorCode = ""
+	sender.err = errors.New("upstream includes test_session_secret")
+	_, err = s.TestSend(ctx, TestSendInput{RoomID: roomID, Message: "private test text"})
+	assertPublicError(t, err, "internal", "test_session_secret")
+	sender.err = nil
 
 	store.err = credential.ErrUnavailable
 	err = s.ClearAccount(ctx)

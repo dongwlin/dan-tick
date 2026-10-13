@@ -53,6 +53,23 @@ func insertExecution(t *testing.T, db *bun.DB, taskID, created int64, trigger, s
 	return id
 }
 
+func insertTestExecution(t *testing.T, db *bun.DB, created int64, status, code string) int64 {
+	t.Helper()
+	var finished any
+	if status != "queued" && status != "running" {
+		finished = created + 100
+	}
+	var id int64
+	err := db.QueryRowContext(context.Background(), `
+INSERT INTO executions (task_id, trigger_kind, status, created_at,
+finished_at, sent_count, failed_count, error_code,
+task_name_snapshot, platform_room_id_snapshot)
+VALUES (NULL, 'test', ?, ?, ?, 1, 0, ?, '测试发送', '13579')
+RETURNING id`, status, created, finished, nullString(code)).Scan(&id)
+	require.NoError(t, err)
+	return id
+}
+
 func nullString(s string) any {
 	if s == "" {
 		return nil
@@ -228,4 +245,36 @@ func TestHistoryPersistsAcrossReopen(t *testing.T) {
 	cancel()
 	_, err = NewService(reopened).List(cancelled, 0, 1)
 	require.True(t, errors.Is(err, context.Canceled))
+}
+
+func TestListAndGetExposeTestSendWithNullTaskID(t *testing.T) {
+	db, taskID := historyDB(t)
+	ctx := context.Background()
+	manualID := insertExecution(t, db, taskID, 1000, "manual", "completed", "")
+	testID := insertTestExecution(t, db, 2000, "failed", "rate_limited")
+	_, err := db.ExecContext(ctx, `
+INSERT INTO send_attempts (execution_id, sequence, message_no,
+content_snapshot, attempted_at, result, error_code)
+VALUES (?, 1, 1, '测试内容', 2001, 'failed', 'rate_limited')`, testID)
+	require.NoError(t, err)
+
+	page, err := NewService(db).List(ctx, 0, 10)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), page.Total)
+	require.Equal(t, testID, page.Items[0].ID)
+	require.Nil(t, page.Items[0].TaskID)
+	require.Equal(t, "test", page.Items[0].TriggerKind)
+	require.Equal(t, "测试发送", page.Items[0].TaskNameSnapshot)
+	require.Equal(t, manualID, page.Items[1].ID)
+	require.NotNil(t, page.Items[1].TaskID)
+	require.Equal(t, taskID, *page.Items[1].TaskID)
+
+	detail, err := NewService(db).Get(ctx, testID)
+	require.NoError(t, err)
+	require.Nil(t, detail.Execution.TaskID)
+	require.Equal(t, "test", detail.Execution.TriggerKind)
+	require.Equal(t, "rate_limited", *detail.Execution.ErrorCode)
+	require.Len(t, detail.Attempts, 1)
+	require.Equal(t, "测试内容", detail.Attempts[0].ContentSnapshot)
+	require.Equal(t, "failed", detail.Attempts[0].Result)
 }

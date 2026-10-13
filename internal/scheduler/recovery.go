@@ -134,10 +134,14 @@ func (s *RecoveryService) interruptAbandoned(ctx context.Context, tx bun.Tx, now
 	var active []recoveredExecution
 	for rows.Next() {
 		var run recoveredExecution
-		if err := rows.Scan(&run.id, &run.taskID); err != nil {
+		var taskID sql.NullInt64
+		if err := rows.Scan(&run.id, &taskID); err != nil {
 			rows.Close()
 			return fmt.Errorf("read abandoned execution: %w", err)
 		}
+		// Test executions have no owning task (task_id IS NULL); 0 is the
+		// diagnostic identifier used for them.
+		run.taskID = taskID.Int64
 		active = append(active, run)
 	}
 	err = rows.Err()

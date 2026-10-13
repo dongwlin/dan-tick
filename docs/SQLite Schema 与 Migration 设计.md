@@ -22,7 +22,7 @@
 
 所有业务表使用 SQLite `STRICT` 表，避免类型亲和性导致意外写入；当前选定的 `modernc.org/sqlite` 支持此语法，正式引入依赖时以实际版本验证。Go 写入时间统一转换 UTC 毫秒；Bun Model 使用明确的整数毫秒字段或显式转换，不依赖驱动自动解析 `time.Time`。精度不要求纳秒；不得将文本时间与整数时间混存。
 
-下列 SQL 对应**已落地的首个 Migration**；后续以版本化 SQL 文件为准。只在数据库层放稳定、低成本的约束；跨表的业务校验、内容长度限制、Cron 计算与状态迁移由 Go 负责。
+下列 SQL 是**当前已落地的目标结构**，由首个及后续版本化 Migration 共同形成（执行历史已加入测试发送）。只在数据库层放稳定、低成本的约束；跨表的业务校验、内容长度限制、Cron 计算与状态迁移由 Go 负责。
 
 ## 3. 目标建表 SQL
 
@@ -92,8 +92,8 @@ CREATE TABLE task_messages (
 ```sql
 CREATE TABLE executions (
     id                        INTEGER PRIMARY KEY,
-    task_id                   INTEGER NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
-    trigger_kind              TEXT NOT NULL CHECK (trigger_kind IN ('scheduled', 'manual')),
+    task_id                   INTEGER REFERENCES tasks(id) ON DELETE RESTRICT,
+    trigger_kind              TEXT NOT NULL CHECK (trigger_kind IN ('scheduled', 'manual', 'test')),
     scheduled_at              INTEGER,
     status                    TEXT NOT NULL CHECK (status IN (
         'waiting', 'queued', 'running', 'completed',
@@ -110,8 +110,12 @@ CREATE TABLE executions (
     task_name_snapshot        TEXT NOT NULL,
     platform_room_id_snapshot TEXT NOT NULL,
     CHECK (
+        (trigger_kind IN ('scheduled', 'manual') AND task_id IS NOT NULL)
+        OR (trigger_kind = 'test' AND task_id IS NULL)
+    ),
+    CHECK (
         (trigger_kind = 'scheduled' AND scheduled_at IS NOT NULL)
-        OR (trigger_kind = 'manual' AND scheduled_at IS NULL)
+        OR (trigger_kind IN ('manual', 'test') AND scheduled_at IS NULL)
     ),
     CHECK (status != 'missed' OR trigger_kind = 'scheduled')
 ) STRICT;
@@ -137,11 +141,11 @@ CREATE TABLE app_settings (
 - `waiting` 是已登记、待交给执行器的状态；`queued` 表示等待账号级发送能力；`running` 表示已开始本次执行。其余状态均为终态，`missed` 仅用于计划执行。队列不是独立的持久化表。
 - `queued_at`、`started_at`、`finished_at` 分别记录进入队列、开始实际执行、结束时刻；未发生的阶段保持 `NULL`。历史列表按 `created_at` 排序，不依赖可能为空的 `started_at`。
 - 每个终态执行都必须写入 `finished_at`，包括 `missed` 和 `interrupted`。30 天历史清理只删除 `finished_at` 早于截止时间的终态执行，不删除仍在运行的实例。
-- `task_name_snapshot` 和 `platform_room_id_snapshot` 保证任务改名或逻辑删除后历史可辨认；直播间筛选仍可沿 `executions → tasks → rooms` 关联，不复制整份任务配置。
+- `task_name_snapshot` 和 `platform_room_id_snapshot` 保证任务改名或逻辑删除后历史可辨认；普通任务执行仍可沿 `executions → tasks → rooms` 关联，不复制整份任务配置。测试发送没有任务归属，`task_id` 为 `NULL`，任务名快照固定为“测试发送”，直播间归属由 `platform_room_id_snapshot` 保留。
 - `sequence` 是一次执行内每次 HTTP 请求尝试的递增序号；`message_no` 是本次执行内逻辑消息序号，重试同一条消息时不变。因此可以辨认有限重试而无需额外的重试关系表。
 - 每次请求**发送前**先提交一条 `pending` 记录，收到确定答复后更新为 `accepted` 或 `failed`；超时或结果无法判定时标为 `unknown`。崩溃恢复时遗留 `pending` 一律视为结果未知，**不自动重新发送**。业务响应成功只代表接口接受请求。
 - `sent_count` 统计确认被服务端接受的逻辑消息数；`failed_count` 统计最终未确认成功的逻辑消息数（包括未知结果），不把一条消息的每次失败重试重复计数。具体错误类别写 `error_code`，可展示的 `error_message` 必须先脱敏，不能保存 Cookie 或完整请求头。
-- “立即执行任务”使用 `manual` 执行实例，不占用计划唯一键、不推进 `next_due_at`。独立输入的“测试发送”只返回本次结果，首版不创建任务执行记录，仍共享账号级限流。
+- “立即执行任务”使用 `manual` 执行实例，不占用计划唯一键、不推进 `next_due_at`。独立输入的“测试发送”使用 `test` 执行实例：`task_id` 为 `NULL`、`scheduled_at` 为 `NULL`，写入与任务执行相同的 `executions` / `send_attempts`，因此出现在执行历史、详情和 30 天清理中；它不占用任何任务身份或计划唯一键，但仍共享账号级限流。
 - `app_settings` 只存普通文本设置，可由 Go 按键解释其值；不存登录凭证，也不为每个设置创建一列。
 - E6 的设置键为 `default_timezone`（IANA 字符串，缺失时为 `Asia/Shanghai`）和 `scheduling_enabled`（严格使用文本 `true` / `false`，缺失时为 `true`），由 `internal/settings` 校验并写入，不修改既有 Schema。调度总开关与 `tasks.enabled` 独立；暂停不移除任务计划游标，启动 / 恢复会将暂停期间错过的计划按 E3 规则收尾，恢复时不补发，已交接执行不因此被停止。Cookie 和安全凭证仍只存在 Keyring。
 
@@ -167,8 +171,8 @@ CREATE INDEX idx_executions_active ON executions(status)
 
 两条执行部分唯一索引承担不同职责：
 
-1. `uq_executions_scheduled`：同一任务同一个 **UTC 计划时刻**最多登记一次计划实例；即便已完成、失败或错过也不能再次登记。手动执行不受约束。
-2. `uq_executions_active_task`：同一任务在任意时刻只允许一个活跃执行（包括手动）。新手动执行在冲突时返回“任务正在执行”；新的计划实例在冲突时登记为 `missed`，并记录原因、推进游标，而不是启动第二个循环。
+1. `uq_executions_scheduled`：同一任务同一个 **UTC 计划时刻**最多登记一次计划实例；即便已完成、失败或错过也不能再次登记。手动执行和测试发送不受约束。
+2. `uq_executions_active_task`：同一任务在任意时刻只允许一个活跃执行（包括手动）。新手动执行在冲突时返回“任务正在执行”；新的计划实例在冲突时登记为 `missed`，并记录原因、推进游标，而不是启动第二个循环。测试发送的 `task_id` 为空，不属于任一任务，因此不占用该索引；所有测试发送仍与任务执行共享账号级 Sender FIFO 与限流。
 
 数据库外键明确采用：`tasks → rooms` 和 `executions → tasks` 为 `RESTRICT`，保护被历史引用的实体；`task_messages → tasks` 与 `send_attempts → executions` 为 `CASCADE`，方便对应实体**最终物理清理**时移除子记录。正常用户删除只做逻辑删除：直播间删除时同步禁用并逻辑删除关联任务，停止 / 处理活跃执行，撤销未来调度；历史仍可查询。过期历史先物理删除 `executions`（带走 `send_attempts`）；确需清理已逻辑删除任务或直播间时，待其不再被历史引用后按子到父的顺序删除。
 
@@ -207,7 +211,7 @@ E3 已将实时 Cron 回调的迟到宽限确定为 30 秒：在 30 秒以内（
 2. SQL 迁移文件放在 `internal/storage/migrations/`，按时间戳和目的命名，例如 `20261010000100_initial_schema.tx.up.sql` / `20261010000100_initial_schema.tx.down.sql`。使用 Bun `migrate.NewMigrations`、`Discover`、`Migrator.Init` 和 `Migrator.Migrate`（或实际版本提供的等价 API），在编译期通过 `go:embed` 内嵌 SQL。多条 SQL 用 `--bun:split` 分隔；采用 `.tx.up.sql`，让一组 Schema DDL 在一个事务内执行。不要在应用运行时使用 `NewCreateTable` / 自动同步 Model 来代替版本迁移。
 3. 数据库连接打开后、开始事务前启用并验证 `PRAGMA foreign_keys = ON`；**每个物理连接都必须启用**，可通过 `modernc.org/sqlite` 的连接 DSN `_pragma=foreign_keys(1)` 设置。配置有界的 `busy_timeout`（当前 5 秒）和 `_txlock=immediate`，避免先读后写的事务升级过期 WAL 快照写锁失败；按本地文件数据库需要启用 WAL。不要在迁移事务内部切换 `journal_mode` 或 `foreign_keys`。不提前调整大量 SQLite 参数。
 4. 先迁移、再执行异常恢复与游标校对、最后启动 Cron / 执行器并注册 Wails Service。Bun 自己维护迁移版本元数据；不重复创建自定义 `schema_version` 表。
-5. 已发布迁移不可直接修改；后续 Schema 修改追加新迁移。遇到不兼容结构改动时先备份、再使用 SQLite 支持的表重建方式迁移，验证数据和 `PRAGMA foreign_key_check`，不能静默丢弃记录。回滚 SQL 优先服务开发环境；正式升级失败须报告并停止启动，不自动向下迁移或覆盖用户文件。运行中数据库备份必须采用 SQLite 一致性快照机制，不直接复制仍在写入的 WAL 主文件。
+5. 已发布迁移不可直接修改；后续 Schema 修改追加新迁移。遇到不兼容结构改动时先备份、再使用 SQLite 支持的表重建方式迁移，验证数据和 `PRAGMA foreign_key_check`，不能静默丢弃记录。`20261013000100_test_send_history` 即按此方式在同一事务内重建 `executions` / `send_attempts`，把 `executions.task_id` 放宽为可空并加入 `test`；回滚 SQL 会删除测试发送记录后恢复原约束。回滚 SQL 优先服务开发环境；正式升级失败须报告并停止启动，不自动向下迁移或覆盖用户文件。运行中数据库备份必须采用 SQLite 一致性快照机制，不直接复制仍在写入的 WAL 主文件。
 
 初始 `.tx.down.sql` 只需按外键依赖反序删除上述六张业务表及对应索引；不删除 Bun 自己的元数据表。正式版本不向普通用户暴露“回滚并清空数据”操作。
 

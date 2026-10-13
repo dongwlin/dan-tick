@@ -504,3 +504,38 @@ func TestResumeDoesNotInterruptStillRunningExecution(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, RecoverySummary{}, again)
 }
+
+func TestStartupRecoveryInterruptsAbandonedTestSendWithNullTaskID(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "recover-test-send.db")
+	db, err := storage.Open(ctx, path)
+	require.NoError(t, err)
+	var executionID int64
+	require.NoError(t, db.QueryRowContext(ctx, `
+INSERT INTO executions (task_id, trigger_kind, status, created_at,
+task_name_snapshot, platform_room_id_snapshot)
+VALUES (NULL, 'test', 'running', 1, '测试发送', '12345') RETURNING id`).Scan(&executionID))
+	seedAttempt(t, db, executionID, 1, 1, "pending")
+	require.NoError(t, db.Close())
+
+	reopened, err := storage.Open(ctx, path)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, reopened.Close()) }()
+	at := time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)
+	summary, err := testRecovery(reopened, at, nil).RecoverStartup(ctx)
+	require.NoError(t, err)
+	require.Equal(t, RecoverySummary{Interrupted: 1, Unknown: 1}, summary)
+
+	var taskID sql.NullInt64
+	var status, code, attempt string
+	var finished int64
+	require.NoError(t, reopened.QueryRowContext(ctx, `
+SELECT e.task_id, e.status, e.error_code, e.finished_at, a.result
+FROM executions e JOIN send_attempts a ON a.execution_id = e.id
+WHERE e.id = ?`, executionID).Scan(&taskID, &status, &code, &finished, &attempt))
+	require.False(t, taskID.Valid)
+	require.Equal(t, "interrupted", status)
+	require.Equal(t, "recovery_interrupted", code)
+	require.Equal(t, at.UnixMilli(), finished)
+	require.Equal(t, "unknown", attempt)
+}

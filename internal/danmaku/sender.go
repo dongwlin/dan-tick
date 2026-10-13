@@ -158,7 +158,8 @@ func (s *Sender) releaseLocked() {
 }
 
 // TestSend performs one real send through the very same account limiter. It
-// does not create an execution instance or a send-attempt history row.
+// only sends: execution and attempt persistence belongs to the executor, so
+// user-visible test sends must go through executor.Service.TestSend.
 func (s *Sender) TestSend(ctx context.Context, roomID, message string) (Result, error) {
 	return s.Send(ctx, roomID, message)
 }
