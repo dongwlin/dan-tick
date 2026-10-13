@@ -1,39 +1,77 @@
 #!/usr/bin/env bash
+# dan-tick AppRun: start the packaged application with the GTK 4 / WebKitGTK 6.0
+# runtime that ships inside this AppImage. No system GTK, WebKit, GIO module or
+# schema package is required; only the host C library, C++ runtime, fonts and
+# GPU drivers come from the machine that runs it.
 set -euo pipefail
 
-# Resolve the actual entrypoint, including when an extracted AppDir is invoked
-# from a different working directory or through a symbolic link.
+# Resolve the AppDir even when the entrypoint is a symbolic link or the extracted
+# AppDir is started from an unrelated working directory.
 app_dir=$(dirname -- "$(readlink -f -- "$0")")
 binary="$app_dir/usr/bin/dan-tick"
+lib_dir="$app_dir/usr/lib/x86_64-linux-gnu"
+runtime_dir="$lib_dir/webkitgtk-6.0"
+
+host_requirements='dan-tick 自带 GTK4、WebKitGTK 6.0、JavaScriptCore 与 GIO 模块，不会使用系统中安装的版本。
+需要宿主提供：glibc 2.39 或更新版本、C++ 运行库（libstdc++）、字体以及显卡驱动栈。
+Ubuntu 26.04、Debian 13、Fedora 44 及更新版本满足要求；更旧的系统请先升级。'
 
 runtime_error() {
-  local message
-  message='dan-tick 无法启动：需要系统提供 GTK4（4.14 或更新）和 WebKitGTK 6.0 运行库。
-
-Ubuntu / Debian：
-  sudo apt install libgtk-4-1 libwebkitgtk-6.0-4
-
-Fedora：
-  sudo dnf install gtk4 webkitgtk6.0
-
-请优先使用当前发行版。旧系统或缺失 glibc 符号时，请升级系统。'
-  printf '%s\n\n%s\n' "$message" "$1" >&2
-  # A double-clicked AppImage often has no terminal; use the system dialog if
-  # available, without making it a new mandatory runtime dependency.
+  local message=$1
+  printf '%s\n\n%s\n' "$host_requirements" "$message" >&2
+  # A double-clicked AppImage often has no terminal; use the system dialog when
+  # it is available, without making it a runtime dependency.
   if command -v zenity >/dev/null 2>&1 && [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then
-    zenity --error --title='dan-tick 启动失败' --text="$message" 2>/dev/null || true
+    zenity --error --title='dan-tick 启动失败' --text="$host_requirements
+
+$message" 2>/dev/null || true
   fi
   exit 1
 }
 
-command -v ldd >/dev/null 2>&1 || runtime_error '找不到系统 ldd 命令。'
-if ! dependencies=$(LC_ALL=C ldd -r "$binary" 2>&1); then
-  runtime_error "$dependencies"
-fi
-if [[ $dependencies == *'not found'* || $dependencies == *'undefined symbol'* ]]; then
-  runtime_error "$dependencies"
+for required in \
+  "$binary" \
+  "$runtime_dir/WebKitWebProcess" \
+  "$runtime_dir/WebKitNetworkProcess" \
+  "$runtime_dir/injected-bundle/libwebkitgtkinjectedbundle.so"; do
+  [[ -e $required ]] || runtime_error "安装包不完整：缺少 ${required#"$app_dir"/}。请重新下载 AppImage。"
+done
+
+# The WebKit sandbox needs its helper programs; the packaged copies are used when
+# the host does not provide them (Ubuntu attaches the user namespace policy to
+# /usr/bin/bwrap, so the system copy is preferred where it exists).
+for helper in bwrap xdg-dbus-proxy; do
+  [[ -x $runtime_dir/$helper ]] || [[ -x /usr/bin/$helper ]] \
+    || runtime_error "安装包不完整：缺少沙箱程序 $helper。"
+done
+
+if [[ ${DAN_TICK_SKIP_PREFLIGHT:-} != 1 ]]; then
+  command -v ldd >/dev/null 2>&1 || runtime_error '找不到系统 ldd 命令，无法检查运行环境。'
+  if ! dependencies=$(LC_ALL=C ldd -r "$binary" 2>&1); then
+    runtime_error "$dependencies"
+  fi
+  if [[ $dependencies == *'not found'* || $dependencies == *'undefined symbol'* ]]; then
+    runtime_error "$dependencies"
+  fi
 fi
 
-# Do not inject LD_LIBRARY_PATH, GTK hooks, helper paths, a display backend or
-# sandbox overrides. The system WebKit library must use its matching helpers.
+# Resources that ship inside this AppImage. GIO_EXTRA_MODULES adds the bundled TLS
+# and settings modules to the host's.
+export GIO_EXTRA_MODULES="$lib_dir/gio/modules"
+export XDG_DATA_DIRS="$app_dir/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+# gdk-pixbuf stores absolute loader paths, so the cache written at build time uses
+# a placeholder that is substituted with this mount point. Without a writable
+# cache directory the host's loader cache stays in use.
+cache_dir="${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/dan-tick"
+if mkdir -p "$cache_dir" 2>/dev/null && [[ -w $cache_dir ]]; then
+  sed "s|@APPDIR@|$app_dir|g" "$lib_dir/gdk-pixbuf-2.0/2.10.0/loaders.cache" \
+    >"$cache_dir/loaders.cache" 2>/dev/null \
+    && export GDK_PIXBUF_MODULE_FILE="$cache_dir/loaders.cache"
+fi
+
+# The WebKit sandbox stays enabled: no WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS,
+# no helper path overrides and no display backend override. The patched WebKit
+# library derives its helper, injected bundle, resource and sandbox paths from
+# its own location inside this AppImage.
 exec "$binary" "$@"

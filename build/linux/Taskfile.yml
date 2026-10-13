@@ -112,12 +112,25 @@ tasks:
       - task: create:aur
 
   create:appimage:
-    summary: Creates an AppImage using the system GTK4 and WebKitGTK runtime
-    deps:
-      - task: build
-      - task: generate:dotdesktop
+    summary: Creates the self-contained AppImage in the pinned Linux build environment
+    desc: |
+      Builds the application and the AppImage inside the pinned packaging image
+      (build/linux/runtime/Dockerfile): the binary is compiled against the same
+      GTK 4 / WebKitGTK 6.0 stack that is collected into the package, and the
+      patched WebKit runtime is the published artifact described by
+      build/linux/runtime/env.sh. Docker is required; the host needs no GTK or
+      WebKit package.
     cmds:
-      - bash build/linux/appimage/build.sh "{{.ROOT_DIR}}/{{.BIN_DIR}}/{{.APP_NAME}}" "{{.ROOT_DIR}}/build/appicon.png" "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop" "{{.ROOT_DIR}}/build/linux/appimage/build" "{{.ROOT_DIR}}/{{.BIN_DIR}}"
+      - bash build/linux/appimage/package.sh
+
+  create:webkit-runtime:
+    summary: Builds and exports the pinned WebKit runtime artifact
+    desc: |
+      Rebuilds the patched WebKitGTK runtime that AppImage builds consume. Only
+      needed when build/linux/runtime changes; the result is published as a
+      release asset and pinned by checksum in build/linux/runtime/env.sh.
+    cmds:
+      - bash build/linux/runtime/build-webkit-runtime.sh
 
   create:deb:
     summary: Creates a deb package
