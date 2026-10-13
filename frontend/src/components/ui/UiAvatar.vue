@@ -1,25 +1,24 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
+import { AvatarFallback, AvatarImage, AvatarRoot } from 'reka-ui'
 import { UserRound } from 'lucide-vue-next'
 
-const props = defineProps<{ url?: string }>()
-const failedUrl = shallowRef('')
-const imageUrl = computed(() => (props.url && props.url !== failedUrl.value ? props.url : ''))
+defineProps<{ url?: string }>()
 </script>
 
 <template>
-  <span
+  <AvatarRoot
     class="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-(--accent-panel-alt) text-accent-text"
     aria-hidden="true"
   >
-    <img
-      v-if="imageUrl"
-      :src="imageUrl"
+    <AvatarImage
+      v-if="url"
+      :src="url"
       alt=""
       referrerpolicy="no-referrer"
       class="size-full object-cover"
-      @error="failedUrl = imageUrl"
     />
-    <UserRound v-else class="size-1/2" :stroke-width="1.8" />
-  </span>
+    <AvatarFallback class="flex size-full items-center justify-center">
+      <UserRound class="size-1/2" :stroke-width="1.8" />
+    </AvatarFallback>
+  </AvatarRoot>
 </template>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/vue'
+import { render, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import { VueQueryPlugin } from '@tanstack/vue-query'
@@ -94,9 +94,8 @@ it('shows the verified nickname, avatar and UID above credentials, then clears t
   expect(screen.getByText('UID：123456789')).toBeTruthy()
   const avatar = profile.querySelector('img')
   expect(avatar?.getAttribute('src')).toBe('https://i0.hdslb.com/bfs/face/avatar.jpg')
-
-  if (avatar) await fireEvent.error(avatar)
-  expect(profile.querySelector('img')).toBeNull()
+  // Reka keeps the fallback mounted until the image reports it loaded, so the
+  // decorative icon remains available when the avatar request fails.
   expect(profile.querySelector('svg')).toBeTruthy()
 
   client.setQueryData(operationKeys.account, { state: State.Expired })
