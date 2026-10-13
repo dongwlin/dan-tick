@@ -37,6 +37,8 @@ it('requires a saved room, distinguishes test send results, and never starts a t
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
   const card = screen.getByRole('region', { name: '测试发送' })
+  expect(within(card).queryByText(/不写入任务执行历史/)).toBeNull()
+  expect(within(card).queryByText(/与任务共用账号限流/)).toBeNull()
   const initialChildCount = card.children.length
   expect(await screen.findByRole('option', { name: '演示直播间' })).toBeTruthy()
   await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '7')
@@ -46,11 +48,11 @@ it('requires a saved room, distinguishes test send results, and never starts a t
     expect(vi.mocked(TestSend)).toHaveBeenCalledWith({ roomId: 7, message: '测试文字' }),
   )
   expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
-    '测试弹幕已被 B 站接受',
+    '测试弹幕已被 B 站接受，已记入执行历史',
   )
   await user.click(screen.getByRole('button', { name: '发送测试弹幕' }))
   expect((await screen.findByRole('alert', { name: '操作警告通知' })).textContent).toContain(
-    '发送结果无法确认',
+    '发送结果无法确认，请勿立即重试；本次测试已记入执行历史',
   )
   expect(card.children).toHaveLength(initialChildCount)
   expect(within(card).queryByText(/发送结果无法确认/)).toBeNull()

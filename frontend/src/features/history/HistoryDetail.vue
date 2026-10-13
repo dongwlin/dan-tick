@@ -8,7 +8,14 @@ import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
 import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
 import UiPageHeader from '@/components/ui/UiPageHeader.vue'
-import { attemptResult, displayTime, errorText, statusClass, statusText } from './presentation'
+import {
+  attemptResult,
+  displayTime,
+  errorText,
+  statusClass,
+  statusText,
+  triggerKindText,
+} from './presentation'
 import { useExecutionHistoryDetail } from './queries'
 
 const props = defineProps<{ executionId: number }>()
@@ -47,7 +54,7 @@ const attempts = computed(() => detail.data.value?.attempts ?? [])
               </h2>
               <p class="mt-1 text-xs text-text-tertiary">
                 直播间 {{ execution.platform_room_id_snapshot }} ·
-                {{ execution.trigger_kind === 'manual' ? '手动执行' : '计划执行' }}
+                {{ triggerKindText(execution.trigger_kind) }}
               </p>
             </div>
             <span class="rounded-md px-2.5 py-1 text-xs" :class="statusClass(execution.status)">{{

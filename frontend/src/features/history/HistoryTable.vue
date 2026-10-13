@@ -66,7 +66,12 @@ withDefaults(defineProps<{ items: Execution[]; compact?: boolean }>(), { compact
       >
         <td class="px-4">
           <div class="truncate font-semibold text-text-primary" :title="item.task_name_snapshot">
-            {{ item.task_name_snapshot }}
+            <span
+              v-if="item.trigger_kind === 'test'"
+              class="inline-flex rounded-md bg-soft-accent-bg px-2 py-0.5 text-xs font-semibold text-accent-text"
+              >测试发送</span
+            >
+            <template v-else>{{ item.task_name_snapshot }}</template>
           </div>
           <div class="mt-1 text-xs text-text-tertiary">
             直播间 {{ item.platform_room_id_snapshot }}

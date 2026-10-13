@@ -109,3 +109,39 @@ it('handles empty history and safe binding errors with retry', async () => {
   expect(screen.getByLabelText('执行记录表格').classList.contains('flex')).toBe(true)
   expect(screen.queryByRole('navigation', { name: '执行记录分页' })).toBeNull()
 })
+
+it('marks a test send in the history list without treating it as a task run', async () => {
+  const testSend: Execution = {
+    id: 21,
+    task_id: null,
+    trigger_kind: 'test',
+    scheduled_at: null,
+    status: 'completed',
+    created_at: 1700000000000,
+    queued_at: 1700000000001,
+    started_at: 1700000000002,
+    finished_at: 1700000000003,
+    sent_count: 1,
+    failed_count: 0,
+    error_code: null,
+    task_name_snapshot: '测试发送',
+    platform_room_id_snapshot: '12345',
+  }
+  vi.mocked(ListExecutionHistory).mockResolvedValue({
+    page: 1,
+    pageSize: 6,
+    total: 1,
+    totalPages: 1,
+    items: [testSend],
+  })
+  render(HistoryManager, {
+    global: {
+      plugins: [createAppRouter(), [VueQueryPlugin, { queryClient: createAppQueryClient() }]],
+    },
+  })
+  expect(await screen.findByText('测试发送')).toBeTruthy()
+  expect(screen.getByText('直播间 12345')).toBeTruthy()
+  expect(screen.getByRole('link', { name: '查看 测试发送 的执行详情' }).getAttribute('href')).toBe(
+    '#/history/21',
+  )
+})

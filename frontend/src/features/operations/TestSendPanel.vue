@@ -23,9 +23,9 @@ async function submit() {
   try {
     const result = await send.mutateAsync({ roomId: roomID.value, message: message.value })
     if (result.outcome === Outcome.Accepted) {
-      notify('测试弹幕已被 B 站接受（不计入任务执行记录）。', 'success')
+      notify('测试弹幕已被 B 站接受，已记入执行历史。', 'success')
     } else if (result.outcome === Outcome.Unknown) {
-      notify('发送结果无法确认，请勿立即重试。', 'warning')
+      notify('发送结果无法确认，请勿立即重试；本次测试已记入执行历史。', 'warning')
     } else {
       notify(sendFailureText[result.errorCode] ?? '测试发送未成功，请检查账号及弹幕内容。', 'error')
     }
@@ -39,9 +39,6 @@ async function submit() {
   <UiPanel class="space-y-4" aria-labelledby="send-heading">
     <div>
       <h2 id="send-heading" class="text-base font-semibold">测试发送</h2>
-      <p class="mt-1 text-sm text-text-tertiary">
-        真实发送一条弹幕，与任务共用账号限流；不写入任务执行历史
-      </p>
     </div>
     <form class="space-y-3" @submit.prevent="submit">
       <UiField id="test-room-id" v-slot="{ id, ariaInvalid, describedBy }" label="目标直播间">

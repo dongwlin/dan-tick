@@ -93,3 +93,42 @@ it('shows a safe not-found message for deleted history without exposing database
   )
   expect(vi.mocked(GetExecutionHistory)).toHaveBeenCalledWith(99999)
 })
+
+it('renders a test send as a room-scoped execution without a task trigger', async () => {
+  vi.mocked(GetExecutionHistory).mockResolvedValue({
+    execution: {
+      id: 31,
+      task_id: null,
+      trigger_kind: 'test',
+      scheduled_at: null,
+      status: 'completed',
+      created_at: 1700000000000,
+      queued_at: 1700000000001,
+      started_at: 1700000000002,
+      finished_at: 1700000000003,
+      sent_count: 1,
+      failed_count: 0,
+      error_code: null,
+      task_name_snapshot: '测试发送',
+      platform_room_id_snapshot: '9988',
+    },
+    attempts: [
+      {
+        id: 9,
+        execution_id: 31,
+        sequence: 1,
+        message_no: 1,
+        content_snapshot: '测试弹幕内容',
+        attempted_at: 1700000000002,
+        result: 'accepted',
+        error_code: null,
+      },
+    ],
+  })
+  mount(31)
+  expect(await screen.findByRole('heading', { name: '测试发送' })).toBeTruthy()
+  expect(screen.getByText('直播间 9988 · 测试发送')).toBeTruthy()
+  expect(screen.getByText('测试弹幕内容')).toBeTruthy()
+  expect(screen.getByText('发送成功')).toBeTruthy()
+  expect(vi.mocked(GetExecutionHistory)).toHaveBeenCalledWith(31)
+})

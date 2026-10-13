@@ -8,6 +8,13 @@ export function statusText(status: string): string {
   return executionStatus[status] ?? '状态未知'
 }
 
+export function triggerKindText(triggerKind: string): string {
+  if (triggerKind === 'scheduled') return '计划执行'
+  if (triggerKind === 'manual') return '手动执行'
+  if (triggerKind === 'test') return '测试发送'
+  return '未知来源'
+}
+
 export function statusClass(status: string): string {
   if (status === 'completed') return 'bg-soft-success-bg text-soft-success-fg'
   if (['failed', 'interrupted'].includes(status)) return 'bg-soft-danger-bg text-soft-danger-fg'
