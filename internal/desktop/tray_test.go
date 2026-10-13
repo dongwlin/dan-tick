@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"runtime"
 	"testing"
 	"time"
 
@@ -171,6 +172,71 @@ func TestTrayWindowActionsRunOnUIAndDropAfterClose(t *testing.T) {
 		callback()
 	}
 	require.Equal(t, []string{"show", "show", "quit"}, windowActions)
+}
+
+func TestTrayClickAttributionClassifiesWailsTrayEntryPoints(t *testing.T) {
+	wails := "github.com/wailsapp/wails/v3/pkg/application."
+	tests := []struct {
+		name   string
+		frames []runtime.Frame
+		want   trayClick
+	}{
+		{"item activation", []runtime.Frame{{Function: wails + "(*linuxSystemTray).Activate"}}, trayClickActivate},
+		{"menu notification", []runtime.Frame{{Function: wails + "(*linuxSystemTray).Event"}}, trayClickMenuOpen},
+		{"menu event group", []runtime.Frame{{Function: wails + "(*linuxSystemTray).EventGroup"}}, trayClickOther},
+		{"renamed receiver", []runtime.Frame{{Function: wails + "(*linuxTray).Activate"}}, trayClickOther},
+		{"caller outside wails", []runtime.Frame{{Function: "github.com/dongwlin/dan-tick/internal/desktop.(*trayActions).openWindowOnActivate"}}, trayClickOther},
+		{"empty stack", nil, trayClickOther},
+		{"innermost caller wins", []runtime.Frame{
+			{Function: "github.com/dongwlin/dan-tick/internal/desktop.(*linuxSystemTray).Event"},
+			{Function: wails + "(*linuxSystemTray).Activate"},
+		}, trayClickMenuOpen},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, classifyTrayClick(test.frames))
+		})
+	}
+}
+
+// linuxSystemTray mirrors the receiver name in the Wails Linux tray type that
+// the click attribution matches, so these methods produce the same stack
+// frames as the dependency does.
+type linuxSystemTray struct {
+	actions *trayActions
+}
+
+func (s *linuxSystemTray) Activate() { s.actions.openWindowOnActivate() }
+
+func (s *linuxSystemTray) Event() { s.actions.openWindowOnActivate() }
+
+func TestTrayWindowRestoresOnActivationAndNotOnMenuOpening(t *testing.T) {
+	var pending []func()
+	var windowActions []string
+	actions := newTrayActions(nil, func(fn func()) { pending = append(pending, fn) },
+		func() { windowActions = append(windowActions, "show") },
+		func() { t.Error("tray activation quit the application") },
+		func(string, string, bool) { t.Error("tray activation displayed a dialog") })
+	t.Cleanup(actions.close)
+	tray := &linuxSystemTray{actions: actions}
+
+	// Hosts report the menu opening through the same Wails callback: a single
+	// or right click must leave the window alone.
+	tray.Event()
+	require.Empty(t, pending)
+	// Activation, the double click in the GNOME AppIndicator extension,
+	// restores the window.
+	tray.Activate()
+	require.Len(t, pending, 1)
+	// A caller this build cannot attribute fails closed instead of restoring
+	// the window on menu clicks.
+	actions.openWindowOnActivate()
+	require.Len(t, pending, 1)
+
+	for _, callback := range pending {
+		callback()
+	}
+	require.Equal(t, []string{"show"}, windowActions)
 }
 
 func TestTrayCloseCancelsBackgroundWorkAndRejectsNewActions(t *testing.T) {

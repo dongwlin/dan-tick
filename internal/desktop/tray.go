@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -49,8 +50,10 @@ func NewTray(app *application.App, window application.Window, service *Applicati
 		tray.OnClick(actions.openWindow)
 	} else {
 		// Linux's StatusNotifier implementation does not select icons by theme.
-		// Menu opening also fires OnClick, so restore only through the menu.
+		// Hosts report menu opening through the same callback as item
+		// activation, so only the activation gesture restores the window.
 		tray.SetIcon(trayLinuxIcon)
+		tray.OnClick(actions.openWindowOnActivate)
 	}
 	return &Tray{actions: actions}
 }
@@ -75,6 +78,65 @@ func RestoreWindow(window application.Window) {
 	window.Show()
 	window.UnMinimise()
 	window.Focus()
+}
+
+// trayClick names the Wails callback that reached the tray click handler.
+type trayClick int
+
+const (
+	// trayClickOther is a callback this build does not attribute: another
+	// Wails entry point, or a renamed Linux tray method after an upgrade.
+	trayClickOther trayClick = iota
+	// trayClickActivate is org.kde.StatusNotifierItem.Activate, which hosts
+	// send for the activation gesture: a double click in the GNOME
+	// AppIndicator extension, or a single click on KDE.
+	trayClickActivate
+	// trayClickMenuOpen is the com.canonical.dbusmenu "opened" notification,
+	// sent when the host opens our menu after a single or right click.
+	trayClickMenuOpen
+)
+
+// trayClickFrameLimit bounds the stack walk. Wails calls the click handler
+// directly from its Linux tray methods, so the caller is in the first frames.
+const trayClickFrameLimit = 32
+
+// trayClickSource attributes the click callback by its caller. Wails
+// v3.0.0-beta.25 serves both StatusNotifierItem.Activate and the dbusmenu
+// "opened" notification from (*linuxSystemTray) methods that call OnClick with
+// no argument, so the only way to keep the menu the sole response to menu
+// clicks is to identify which method is running. Renaming those methods in a
+// dependency upgrade yields trayClickOther, which never restores the window:
+// the attribution then fails closed instead of restoring on menu clicks.
+func trayClickSource() trayClick {
+	var callers [trayClickFrameLimit]uintptr
+	count := runtime.Callers(2, callers[:])
+	if count == 0 {
+		return trayClickOther
+	}
+	frames := make([]runtime.Frame, 0, count)
+	callersFrames := runtime.CallersFrames(callers[:count])
+	for {
+		frame, more := callersFrames.Next()
+		frames = append(frames, frame)
+		if !more {
+			break
+		}
+	}
+	return classifyTrayClick(frames)
+}
+
+// classifyTrayClick returns the innermost Wails tray entry point in frames, or
+// trayClickOther when the stack holds neither Linux tray method.
+func classifyTrayClick(frames []runtime.Frame) trayClick {
+	for _, frame := range frames {
+		switch {
+		case strings.HasSuffix(frame.Function, "(*linuxSystemTray).Activate"):
+			return trayClickActivate
+		case strings.HasSuffix(frame.Function, "(*linuxSystemTray).Event"):
+			return trayClickMenuOpen
+		}
+	}
+	return trayClickOther
 }
 
 // Close stops accepting tray work and waits only for background operations.
@@ -115,6 +177,15 @@ func (t *trayActions) openWindow() {
 				t.show()
 			}
 		})
+	}
+}
+
+// openWindowOnActivate is the Linux tray click handler: it restores the window
+// for the activation gesture only. Opening the menu must not raise the window,
+// because a single or right click would otherwise restore it as well.
+func (t *trayActions) openWindowOnActivate() {
+	if trayClickSource() == trayClickActivate {
+		t.openWindow()
 	}
 }
 
