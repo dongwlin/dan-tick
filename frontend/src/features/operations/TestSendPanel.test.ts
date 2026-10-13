@@ -1,5 +1,5 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import { render, screen, waitFor, within } from '@testing-library/vue'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import { Outcome } from '@bindings/github.com/dongwlin/dan-tick/internal/danmaku/models'
@@ -56,4 +56,98 @@ it('requires a saved room, distinguishes test send results, and never starts a t
   )
   expect(card.children).toHaveLength(initialChildCount)
   expect(within(card).queryByText(/发送结果无法确认/)).toBeNull()
+})
+
+it('validates programmatic submissions, focuses the invalid field, and sends only corrected input', async () => {
+  vi.mocked(ListRooms).mockResolvedValue([
+    {
+      id: 7,
+      title: '演示直播间',
+      platformRoomId: '98765',
+      anchorName: '',
+      remark: '',
+      coverUrl: '',
+      taskCount: 0,
+    },
+  ])
+  vi.mocked(TestSend).mockResolvedValue({ outcome: Outcome.Accepted, errorCode: '' })
+  const user = userEvent.setup()
+  mountToastHost()
+  render(TestSendPanel, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+  await screen.findByRole('option', { name: '演示直播间' })
+  const room = screen.getByRole('combobox', { name: '目标直播间' })
+  const message = screen.getByRole<HTMLTextAreaElement>('textbox', { name: '测试弹幕内容' })
+  const form = message.closest('form')
+  if (!form) throw new Error('Expected the test send form to be present')
+  expect(message.hasAttribute('maxlength')).toBe(false)
+  await fireEvent.submit(form)
+  expect(await screen.findByText('请选择直播间')).toBeTruthy()
+  await waitFor(() => expect(document.activeElement).toBe(room))
+  expect(vi.mocked(TestSend)).not.toHaveBeenCalled()
+
+  await user.selectOptions(room, '7')
+  for (const invalid of [
+    '',
+    '   ',
+    '中'.repeat(11),
+    'a'.repeat(21),
+    '😀'.repeat(6),
+    '文\u0000字',
+  ]) {
+    await fireEvent.update(message, invalid)
+    await fireEvent.submit(form)
+    await waitFor(() => expect(message.getAttribute('aria-invalid')).toBe('true'))
+    await waitFor(() => expect(document.activeElement).toBe(message))
+    expect(message.value).toBe(invalid)
+    expect(message.getAttribute('aria-describedby')).toBe(
+      'test-message-error test-message-description',
+    )
+    expect(vi.mocked(TestSend)).not.toHaveBeenCalled()
+  }
+  expect(screen.getByText('弹幕内容含有无效字符，请移除后重试')).toBeTruthy()
+
+  await fireEvent.update(message, '😀'.repeat(5))
+  await waitFor(() => expect(message.hasAttribute('aria-invalid')).toBe(false))
+  await user.click(screen.getByRole('button', { name: '发送测试弹幕' }))
+  await waitFor(() =>
+    expect(vi.mocked(TestSend)).toHaveBeenCalledExactlyOnceWith({
+      roomId: 7,
+      message: '😀'.repeat(5),
+    }),
+  )
+  expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
+    '测试弹幕已被 B 站接受',
+  )
+})
+
+it('keeps the original message after a backend failure', async () => {
+  vi.mocked(ListRooms).mockResolvedValue([
+    {
+      id: 7,
+      title: '演示直播间',
+      platformRoomId: '98765',
+      anchorName: '',
+      remark: '',
+      coverUrl: '',
+      taskCount: 0,
+    },
+  ])
+  vi.mocked(TestSend).mockRejectedValue(new Error('弹幕内容超过本应用的长度上限，请缩短后重试'))
+  const user = userEvent.setup()
+  mountToastHost()
+  render(TestSendPanel, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+  await screen.findByRole('option', { name: '演示直播间' })
+  await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '7')
+  const message = screen.getByRole<HTMLTextAreaElement>('textbox', { name: '测试弹幕内容' })
+  await user.type(message, '  原文保留  ')
+  await user.click(screen.getByRole('button', { name: '发送测试弹幕' }))
+  expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
+    '弹幕内容超过本应用的长度上限，请缩短后重试',
+  )
+  expect(vi.mocked(TestSend)).toHaveBeenCalledWith({ roomId: 7, message: '  原文保留  ' })
+  expect(message.value).toBe('  原文保留  ')
 })

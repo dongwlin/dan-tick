@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dongwlin/dan-tick/internal/danmaku"
 	"github.com/dongwlin/dan-tick/internal/room"
 	"github.com/dongwlin/dan-tick/internal/schedule"
 	"github.com/dongwlin/dan-tick/internal/scheduler"
@@ -281,6 +282,8 @@ func TestBindingSanitizesTopLevelErrorsAndJSONResponses(t *testing.T) {
 		{room.ErrUnavailable, "upstream_unavailable"},
 		{room.ErrRoomBusy, "conflict"},
 		{task.ErrTaskBusy, "conflict"},
+		{danmaku.ErrTooLong, "too_long"},
+		{fmt.Errorf("%w: %w: %s", task.ErrInvalidTask, danmaku.ErrTooLong, secret), "too_long"},
 		{scheduler.ErrSchedulerClosed, "unavailable"},
 		{fmt.Errorf("%w: db details: %s", scheduler.ErrScheduleSync, secret), "schedule_sync"},
 		{context.DeadlineExceeded, "cancelled"},

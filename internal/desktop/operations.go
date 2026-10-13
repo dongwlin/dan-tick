@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/dongwlin/dan-tick/internal/account"
 	"github.com/dongwlin/dan-tick/internal/credential"
@@ -129,8 +128,11 @@ type TestSendResult struct {
 // row and a pending attempt; expected send failures are returned as safe
 // result categories, not arbitrary upstream error strings.
 func (s *OperationsService) TestSend(ctx context.Context, input TestSendInput) (TestSendResult, error) {
-	if input.RoomID <= 0 || strings.TrimSpace(input.Message) == "" {
+	if input.RoomID <= 0 {
 		return TestSendResult{}, protect(danmaku.ErrInvalidInput)
+	}
+	if err := danmaku.ValidateMessage(input.Message); err != nil {
+		return TestSendResult{}, protect(err)
 	}
 	var platformID string
 	err := s.db.QueryRowContext(ctx, `SELECT platform_room_id FROM rooms WHERE id = ? AND deleted_at IS NULL`, input.RoomID).Scan(&platformID)

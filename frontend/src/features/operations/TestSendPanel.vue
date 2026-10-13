@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { shallowRef } from 'vue'
+import { computed, nextTick, shallowRef, useTemplateRef } from 'vue'
 import { Send } from 'lucide-vue-next'
 import { Outcome } from '@bindings/github.com/dongwlin/dan-tick/internal/danmaku/models'
 import UiButton from '@/components/ui/UiButton.vue'
@@ -9,16 +9,32 @@ import { fieldClass } from '@/components/ui/uiStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
+import { danmakuMessageLimitDescription, validateDanmakuMessage } from '@/lib/danmakuMessage'
 import { sendFailureText, useTestSend } from './queries'
 
 const rooms = useRoomOptions()
 const send = useTestSend()
 const roomID = shallowRef(0)
 const message = shallowRef('')
+const submitted = shallowRef(false)
+const roomError = computed(() => (submitted.value && !roomID.value ? '请选择直播间' : ''))
+const messageError = computed(() =>
+  submitted.value ? validateDanmakuMessage(message.value) : undefined,
+)
+const roomInput = useTemplateRef<HTMLSelectElement>('room-input')
+const messageInput = useTemplateRef<HTMLTextAreaElement>('message-input')
 const { notify, dismiss } = useToast()
 
 async function submit() {
+  if (send.isPending.value) return
   dismiss()
+  submitted.value = true
+  if (roomError.value || messageError.value) {
+    await nextTick()
+    if (roomError.value) roomInput.value?.focus()
+    else messageInput.value?.focus()
+    return
+  }
   send.reset()
   try {
     const result = await send.mutateAsync({ roomId: roomID.value, message: message.value })
@@ -40,10 +56,16 @@ async function submit() {
     <div>
       <h2 id="send-heading" class="text-base font-semibold">测试发送</h2>
     </div>
-    <form class="space-y-3" @submit.prevent="submit">
-      <UiField id="test-room-id" v-slot="{ id, ariaInvalid, describedBy }" label="目标直播间">
+    <form class="space-y-3" novalidate @submit.prevent="submit">
+      <UiField
+        id="test-room-id"
+        v-slot="{ id, ariaInvalid, describedBy }"
+        label="目标直播间"
+        :error="roomError"
+      >
         <select
           :id="id"
+          ref="room-input"
           v-model.number="roomID"
           :class="fieldClass"
           :aria-invalid="ariaInvalid"
@@ -56,9 +78,16 @@ async function submit() {
           </option>
         </select>
       </UiField>
-      <UiField id="test-message" v-slot="{ id, ariaInvalid, describedBy }" label="测试弹幕内容">
+      <UiField
+        id="test-message"
+        v-slot="{ id, ariaInvalid, describedBy }"
+        label="测试弹幕内容"
+        :error="messageError"
+        :description="`${danmakuMessageLimitDescription}实际发送仍受平台规则限制。`"
+      >
         <textarea
           :id="id"
+          ref="message-input"
           v-model="message"
           :class="fieldClass"
           :aria-invalid="ariaInvalid"

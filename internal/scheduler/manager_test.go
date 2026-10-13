@@ -26,7 +26,7 @@ func futureMinute() time.Time {
 func taskInput(roomID int64, due time.Time) task.CreateInput {
 	return task.CreateInput{
 		RoomID: roomID, Name: "a private task", Kind: task.Single,
-		Messages: []string{"do not log this message"}, Enabled: true,
+		Messages: []string{"do not log message"}, Enabled: true,
 		Schedule: schedule.Rule{Kind: schedule.Once, Timezone: "UTC",
 			LocalDate: due.Format(time.DateOnly), LocalTime: due.Format(time.TimeOnly)},
 	}
@@ -321,7 +321,7 @@ func TestManagerHandoffErrorDoesNotRetryOrRevealMessage(t *testing.T) {
 	logger.Close()
 	data, err := os.ReadFile(filepath.Join(logDir, "dan-tick.jsonl"))
 	require.NoError(t, err)
-	require.NotContains(t, string(data), "do not log this message")
+	require.NotContains(t, string(data), "do not log message")
 	require.NotContains(t, string(data), "executor unavailable")
 	require.NotContains(t, strings.ToLower(string(data)), "cookie")
 }

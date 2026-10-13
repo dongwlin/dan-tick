@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/dongwlin/dan-tick/internal/account"
@@ -112,6 +113,28 @@ func TestOperationsServiceCredentialAndSendBoundary(t *testing.T) {
 	require.NoError(t, s.ClearAccount(ctx))
 	require.True(t, store.cleared)
 	require.Equal(t, []string{EventAccountChanged}, events)
+}
+
+func TestOperationsServiceRejectsInvalidMessagesBeforeLookupAndSending(t *testing.T) {
+	sender := &fakeTestSender{}
+	service := NewOperationsService(nil, nil, nil, sender, nil, nil)
+	for _, tc := range []struct {
+		message string
+		code    string
+	}{
+		{"", "invalid_input"},
+		{"text\nline", "invalid_input"},
+		{string([]byte{0xff}), "invalid_input"},
+		{strings.Repeat("弹", 11), "too_long"},
+	} {
+		_, err := service.TestSend(context.Background(), TestSendInput{RoomID: 1, Message: tc.message})
+		assertPublicError(t, err, tc.code, "private")
+		if tc.code == "too_long" {
+			require.Equal(t, "弹幕内容超过本应用的长度上限，请缩短后重试", err.Error())
+		}
+	}
+	require.Empty(t, sender.room)
+	require.Empty(t, sender.message)
 }
 
 type fakeQRChecker struct {

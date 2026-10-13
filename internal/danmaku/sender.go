@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// accountInterval is a conservative P0 default, not a verified Bilibili
-// minimum. Revisit it after the platform's real sending rules are checked.
+// accountInterval is a conservative local policy, not a universal Bilibili
+// minimum or a guarantee against server-side rate limits. See docs/B 站 API 对接参考.md.
 const accountInterval = 15 * time.Second
 
 // sendingClient is the real HTTP side-effect boundary, replaced in tests.

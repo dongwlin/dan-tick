@@ -22,6 +22,11 @@ import UiAlert from '@/components/ui/UiAlert.vue'
 import UiPageHeader from '@/components/ui/UiPageHeader.vue'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
+import {
+  cleanDanmakuMessages,
+  danmakuMessageLimitDescription,
+  validateDanmakuMessage,
+} from '@/lib/danmakuMessage'
 
 const props = defineProps<{ task?: Task }>()
 const router = useRouter()
@@ -61,10 +66,16 @@ const schema = z
     enabled: z.boolean(),
   })
   .superRefine((data, ctx) => {
-    const messages = data.messages
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean)
+    const messages = cleanDanmakuMessages(data.messages)
+    messages.forEach((message, index) => {
+      const error = validateDanmakuMessage(message)
+      if (error)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['messages'],
+          message: `第 ${index + 1} 条：${error}`,
+        })
+    })
     if (data.kind === 'single' && messages.length !== 1)
       ctx.addIssue({ code: 'custom', path: ['messages'], message: '单次任务只能填写一条弹幕' })
     if (data.kind === 'loop') {
@@ -160,9 +171,7 @@ function focusErrorField(field: ErrorField) {
   document.getElementById(`task-${field}`)?.focus()
 }
 
-const messageCount = computed(
-  () => values.messages.split(/\r?\n/).filter((line) => line.trim()).length,
-)
+const messageCount = computed(() => cleanDanmakuMessages(values.messages).length)
 function updateWeekdays(next: unknown) {
   if (Array.isArray(next)) setFieldValue('weekdays', next as number[])
 }
@@ -199,10 +208,7 @@ const submit = handleSubmit(
       name: data.name.trim(),
       roomId: Number(data.roomId),
       kind: data.kind === 'loop' ? TaskKind.Loop : TaskKind.Single,
-      messages: data.messages
-        .split(/\r?\n/)
-        .map((s) => s.trim())
-        .filter(Boolean),
+      messages: cleanDanmakuMessages(data.messages),
       intervalSeconds: data.kind === 'loop' ? Number(data.interval) : null,
       maxCount: data.kind === 'loop' && data.maxCount ? Number(data.maxCount) : null,
       maxDurationSeconds:
@@ -368,7 +374,7 @@ const submit = handleSubmit(
             v-slot="{ id, ariaInvalid, describedBy }"
             label="发送队列"
             :error="errors.messages"
-            description="每行一条，空行自动忽略；实际发送仍受平台规则限制。"
+            :description="`每行一条，空行自动忽略；${danmakuMessageLimitDescription}实际发送仍受平台规则限制。`"
           >
             <textarea
               :id="id"

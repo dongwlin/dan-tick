@@ -48,6 +48,8 @@ func classify(err error) safeError {
 		reply = safeError{"unavailable", "应用正在关闭，暂时无法登录"}
 	case errors.Is(err, scheduler.ErrScheduleSync), errors.Is(err, scheduler.ErrRecoveryNeeded):
 		reply = safeError{"schedule_sync", "修改已保存，但定时调度同步失败，请重新启动应用后检查"}
+	case errors.Is(err, danmaku.ErrTooLong):
+		reply = safeError{"too_long", "弹幕内容超过本应用的长度上限，请缩短后重试"}
 	case errors.Is(err, room.ErrInvalidInput), errors.Is(err, room.ErrInvalidPage), errors.Is(err, history.ErrInvalidPage), errors.Is(err, task.ErrInvalidTask), errors.Is(err, settings.ErrInvalidCloseBehavior), errors.Is(err, settings.ErrInvalidTimezone):
 		reply = safeError{"invalid_input", "输入无效，请检查填写内容"}
 	case isUnsafeExport(err):

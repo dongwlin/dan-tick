@@ -78,7 +78,7 @@ func TestSendAcceptedUsesOnlyDocumentedParameters(t *testing.T) {
 		require.NoError(t, r.ParseForm())
 		require.Equal(t, url.Values{
 			"roomid":   {"12345"},
-			"msg":      {"  弹幕 & + emoji 🐱 "},
+			"msg":      {"  弹 &+ 🐱 "},
 			"rnd":      {"1760123456"},
 			"fontsize": {"25"},
 			"color":    {"16777215"},
@@ -89,7 +89,7 @@ func TestSendAcceptedUsesOnlyDocumentedParameters(t *testing.T) {
 	defer server.Close()
 
 	store := storedCredentials()
-	result, err := testClient(store, server).Send(context.Background(), "12345", "  弹幕 & + emoji 🐱 ")
+	result, err := testClient(store, server).Send(context.Background(), "12345", "  弹 &+ 🐱 ")
 	require.NoError(t, err)
 	require.Equal(t, Accepted, result.Outcome)
 	require.NotNil(t, result.Code)
@@ -177,6 +177,7 @@ func TestSendRejectsInvalidInputBeforeLoadingKeyring(t *testing.T) {
 		"space only":       {"42", " \t "},
 		"newlines":         {"42", "two\nlines"},
 		"control chars":    {"42", "text\x00"},
+		"invalid UTF8":     {"42", string([]byte{0xff})},
 	} {
 		t.Run(name, func(t *testing.T) {
 			store := storedCredentials()
@@ -187,6 +188,29 @@ func TestSendRejectsInvalidInputBeforeLoadingKeyring(t *testing.T) {
 			require.Zero(t, store.loads)
 		})
 	}
+}
+
+func TestSendRejectsOverlongMessagesBeforeCredentialsOrHTTP(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		_, _ = w.Write([]byte(`{"code":0}`))
+	}))
+	defer server.Close()
+	for _, tc := range []struct {
+		text  string
+		count int
+	}{{"a", 21}, {"弹", 11}, {"🐱", 6}} {
+		t.Run(tc.text, func(t *testing.T) {
+			store := storedCredentials()
+			client := testClient(store, server)
+			result, err := client.Send(context.Background(), "42", strings.Repeat(tc.text, tc.count))
+			require.ErrorIs(t, err, ErrTooLong)
+			require.Equal(t, NotSent, result.Outcome)
+			require.Zero(t, store.loads)
+		})
+	}
+	require.Zero(t, requests.Load())
 }
 
 func TestSendKeyringErrorsDoNotIssueRequests(t *testing.T) {

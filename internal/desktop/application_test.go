@@ -40,7 +40,7 @@ func TestApplicationSettingsAndOverviewUsePersistedState(t *testing.T) {
 	require.NoError(t, err)
 	request := taskRequest(room.ID)
 	request.Kind = "single"
-	request.Messages = []string{"sensitive business text"}
+	request.Messages = []string{"sensitive text"}
 	request.IntervalSeconds, request.MaxCount = nil, nil
 	request.Schedule.Kind = schedule.Once
 	task, err := config.CreateTask(ctx, request)

@@ -3,9 +3,11 @@ package task
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/dongwlin/dan-tick/internal/danmaku"
 	"github.com/dongwlin/dan-tick/internal/schedule"
 	"github.com/dongwlin/dan-tick/internal/settings"
 	"github.com/dongwlin/dan-tick/internal/storage"
@@ -261,6 +263,44 @@ func TestCreateChecksRoomInsideTransaction(t *testing.T) {
 	var count int
 	require.NoError(t, db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM tasks`).Scan(&count))
 	assert.Zero(t, count)
+}
+
+func TestMessageLengthLimitRejectsCreateAndUpdateAtomically(t *testing.T) {
+	for _, tc := range []struct {
+		text  string
+		count int
+	}{{"a", 20}, {"弹", 10}, {"🐱", 5}} {
+		t.Run(tc.text, func(t *testing.T) {
+			s, db := newTestService(t)
+			ctx := context.Background()
+			roomID := addRoom(t, db, "5440")
+			input := singleInput(roomID)
+			input.Messages = []string{" " + strings.Repeat(tc.text, tc.count+1) + " "}
+			_, err := s.Create(ctx, input)
+			require.ErrorIs(t, err, ErrInvalidTask)
+			require.ErrorIs(t, err, danmaku.ErrTooLong)
+			var tasks, messages int
+			require.NoError(t, db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks").Scan(&tasks))
+			require.NoError(t, db.QueryRowContext(ctx, "SELECT COUNT(*) FROM task_messages").Scan(&messages))
+			require.Zero(t, tasks)
+			require.Zero(t, messages)
+
+			input.Messages = []string{" ", " " + strings.Repeat(tc.text, tc.count) + " "}
+			created, err := s.Create(ctx, input)
+			require.NoError(t, err)
+			require.Len(t, created.Messages, 1)
+			require.Equal(t, strings.Repeat(tc.text, tc.count), created.Messages[0].Content)
+
+			input.Name = "must not be saved"
+			input.Messages = []string{strings.Repeat(tc.text, tc.count+1)}
+			_, err = s.Update(ctx, created.ID, input)
+			require.ErrorIs(t, err, ErrInvalidTask)
+			require.ErrorIs(t, err, danmaku.ErrTooLong)
+			unchanged, err := s.Get(ctx, created.ID)
+			require.NoError(t, err)
+			require.Equal(t, created, unchanged)
+		})
+	}
 }
 
 func TestCreateMessageWriteFailureRollsBackTask(t *testing.T) {

@@ -1,5 +1,5 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import { render, screen, waitFor, within } from '@testing-library/vue'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import {
@@ -108,9 +108,11 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   expect(messagesInput.getAttribute('aria-describedby')).toBe(
     'task-messages-error task-messages-description',
   )
-  expect(screen.getByText('每行一条，空行自动忽略；实际发送仍受平台规则限制。').id).toBe(
-    'task-messages-description',
-  )
+  expect(
+    screen.getByText(
+      '每行一条，空行自动忽略；本应用上限相当于 20 个英文字母、10 个普通汉字或 5 个 😀 表情；混合内容按比例计数，组合表情可能占更多长度。实际发送仍受平台规则限制。',
+    ).id,
+  ).toBe('task-messages-description')
   expect(messageCard.querySelector('p')).toBeNull()
   expect(screen.queryByText('执行计划使用明确时区，保存后由后端计算下次执行时间。')).toBeNull()
   await user.type(screen.getByRole('textbox', { name: '任务名称' }), '自动问候')
@@ -209,6 +211,89 @@ it('shows validation summary in a toast while keeping field errors and focusing 
   expect(document.getElementById('task-messages-error')).toBe(messageError)
   expect(vi.mocked(CreateTask)).not.toHaveBeenCalled()
 })
+
+it.each(['single', 'loop'])(
+  'validates each cleaned message of a %s task and preserves invalid drafts until corrected',
+  async (kind) => {
+    vi.mocked(ListRooms).mockResolvedValue([
+      {
+        id: 1,
+        platformRoomId: '98765',
+        title: '测试直播间',
+        anchorName: '',
+        remark: '',
+        coverUrl: '',
+        taskCount: 0,
+      },
+    ])
+    vi.mocked(CreateTask).mockResolvedValue({
+      id: 9,
+      roomId: 1,
+      name: '弹幕校验',
+      kind: kind === 'loop' ? TaskKind.Loop : TaskKind.Single,
+      messages: [],
+      intervalSeconds: kind === 'loop' ? 15 : null,
+      maxCount: kind === 'loop' ? 1 : null,
+      maxDurationSeconds: null,
+      schedule: {
+        kind: ScheduleKind.Daily,
+        timezone: 'Asia/Shanghai',
+        localDate: '',
+        localTime: '21:00:00',
+        weekdays: 0,
+      },
+      enabled: true,
+      nextDueAt: 12345,
+      createdAt: 12345,
+      updatedAt: 12345,
+    })
+    window.history.replaceState(null, '', '/#/tasks/new')
+    const user = userEvent.setup()
+    render(App, {
+      global: {
+        plugins: [createAppRouter(), [VueQueryPlugin, { queryClient: createAppQueryClient() }]],
+      },
+    })
+    await screen.findByRole('option', { name: '测试直播间 · 98765' })
+    await user.type(screen.getByRole('textbox', { name: '任务名称' }), '弹幕校验')
+    await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '1')
+    await user.selectOptions(screen.getByRole('combobox', { name: '任务类型' }), kind)
+    const messages = screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' })
+    const validFirst = kind === 'loop' ? `  ${'中'.repeat(10)}  \n\n` : ''
+    const invalidDraft = `${validFirst}  ${'a'.repeat(21)}  `
+    await fireEvent.update(messages, invalidDraft)
+    await user.click(screen.getByRole('button', { name: '创建任务' }))
+
+    expect(
+      await screen.findByText(
+        `第 ${kind === 'loop' ? 2 : 1} 条：弹幕内容超过本应用的长度上限，请缩短后重试`,
+      ),
+    ).toBeTruthy()
+    await waitFor(() => expect(document.activeElement).toBe(messages))
+    expect(messages.value).toBe(invalidDraft)
+    expect(messages.hasAttribute('maxlength')).toBe(false)
+    expect(vi.mocked(CreateTask)).not.toHaveBeenCalled()
+
+    await fireEvent.update(messages, `${validFirst}文\u0000字`)
+    await user.click(screen.getByRole('button', { name: '创建任务' }))
+    expect(
+      await screen.findByText(
+        `第 ${kind === 'loop' ? 2 : 1} 条：弹幕内容含有无效字符，请移除后重试`,
+      ),
+    ).toBeTruthy()
+    expect(vi.mocked(CreateTask)).not.toHaveBeenCalled()
+
+    await fireEvent.update(messages, `${validFirst}  ${'😀'.repeat(5)}  `)
+    await waitFor(() => expect(messages.hasAttribute('aria-invalid')).toBe(false))
+    await user.click(screen.getByRole('button', { name: '创建任务' }))
+    await waitFor(() => expect(window.location.hash).toBe('#/tasks'))
+    expect(vi.mocked(CreateTask)).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        messages: kind === 'loop' ? ['中'.repeat(10), '😀'.repeat(5)] : ['😀'.repeat(5)],
+      }),
+    )
+  },
+)
 
 it('reuses the room selector position for loading failures and empty-room recovery', async () => {
   vi.mocked(ListRooms).mockRejectedValueOnce(new Error('读取失败')).mockResolvedValueOnce([])

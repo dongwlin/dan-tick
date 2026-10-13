@@ -21,8 +21,11 @@ const TestSendTaskName = "测试发送"
 // ManualResult instead of an error, matching RunManual semantics; only
 // registration or persistence failures produce an error.
 func (s *Service) TestSend(ctx context.Context, roomID, message string) (ManualResult, error) {
-	if strings.TrimSpace(roomID) == "" || strings.TrimSpace(message) == "" {
+	if strings.TrimSpace(roomID) == "" {
 		return ManualResult{}, danmaku.ErrInvalidInput
+	}
+	if err := danmaku.ValidateMessage(message); err != nil {
+		return ManualResult{}, err
 	}
 	reg, err := s.registerTestSend(ctx, roomID, message)
 	if err != nil {

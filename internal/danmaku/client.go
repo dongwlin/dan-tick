@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/dongwlin/dan-tick/internal/credential"
 )
@@ -29,7 +28,7 @@ var (
 	ErrAuthentication  = errors.New("Bilibili authentication failed")
 	ErrRateLimited     = errors.New("Bilibili sending rate limit reached")
 	ErrBadRequest      = errors.New("Bilibili rejected sending parameters")
-	ErrTooLong         = errors.New("danmaku exceeds Bilibili length limit")
+	ErrTooLong         = errors.New("danmaku exceeds allowed length limit")
 	ErrRejected        = errors.New("Bilibili rejected danmaku")
 	ErrUncertain       = errors.New("danmaku send outcome uncertain")
 	ErrTransport       = errors.New("danmaku transport failure")
@@ -92,8 +91,11 @@ func NewClient(store credentialLoader, httpClient *http.Client) *Client {
 // attempts, or return raw HTTP failures. C4 will wrap it with a shared limiter.
 func (c *Client) Send(ctx context.Context, roomID, message string) (Result, error) {
 	notSent := Result{Outcome: NotSent}
-	if !validRoomID(roomID) || !validMessage(message) {
+	if !validRoomID(roomID) {
 		return notSent, ErrInvalidInput
+	}
+	if err := ValidateMessage(message); err != nil {
+		return notSent, err
 	}
 	if err := ctx.Err(); err != nil {
 		return notSent, err
@@ -227,16 +229,4 @@ func (c *Client) Send(ctx context.Context, roomID, message string) (Result, erro
 func validRoomID(id string) bool {
 	parsed, err := strconv.ParseInt(id, 10, 64)
 	return err == nil && parsed > 0 && strconv.FormatInt(parsed, 10) == id
-}
-
-func validMessage(message string) bool {
-	if strings.TrimSpace(message) == "" {
-		return false
-	}
-	for _, r := range message {
-		if unicode.IsControl(r) {
-			return false
-		}
-	}
-	return true
 }

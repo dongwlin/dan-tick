@@ -76,7 +76,7 @@ export const sendFailureText: Record<string, string> = {
   authentication: '登录已失效，请重新扫码登录',
   reauthentication_required: '登录需要重新扫码绑定，请在设置中扫码登录',
   rate_limited: '触发 B 站发送频率限制，请稍后再试',
-  too_long: '弹幕内容超出平台长度限制',
+  too_long: '弹幕内容超出允许的长度限制，请缩短后重试',
   invalid_input: '发送内容无效，请检查输入',
   bad_request: '平台拒绝了发送参数',
   rejected: '平台拒绝发送该弹幕',

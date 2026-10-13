@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/dongwlin/dan-tick/internal/danmaku"
 	"github.com/stretchr/testify/require"
@@ -137,11 +139,28 @@ WHERE e.id = ?`, result.ExecutionID).Scan(&status, &code, &attempt))
 func TestTestSendRejectsInvalidInputAndClosedExecutorWithoutHistory(t *testing.T) {
 	db := testDB(t)
 	ctx := context.Background()
-	svc := testExecutor(db, nil, nil)
+	calls := 0
+	svc := &Service{
+		db: db, now: func() time.Time { return fixedTime },
+		sender: &fakeGate{send: func(context.Context, string, string) (danmaku.Result, error) {
+			calls++
+			return danmaku.Result{Outcome: danmaku.Accepted}, nil
+		}},
+	}
 
-	_, err := svc.TestSend(ctx, "12345", "   ")
-	require.ErrorIs(t, err, danmaku.ErrInvalidInput)
-	_, err = svc.TestSend(ctx, "", testMessage)
+	for _, tc := range []struct {
+		message string
+		want    error
+	}{
+		{"   ", danmaku.ErrInvalidInput},
+		{"text\nline", danmaku.ErrInvalidInput},
+		{string([]byte{0xff}), danmaku.ErrInvalidInput},
+		{strings.Repeat("弹", 11), danmaku.ErrTooLong},
+	} {
+		_, err := svc.TestSend(ctx, "12345", tc.message)
+		require.ErrorIs(t, err, tc.want)
+	}
+	_, err := svc.TestSend(ctx, "", testMessage)
 	require.ErrorIs(t, err, danmaku.ErrInvalidInput)
 
 	svc.mu.Lock()
@@ -153,4 +172,7 @@ func TestTestSendRejectsInvalidInputAndClosedExecutorWithoutHistory(t *testing.T
 	var count int
 	require.NoError(t, db.QueryRowContext(ctx, `SELECT COUNT(*) FROM executions`).Scan(&count))
 	require.Zero(t, count)
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT COUNT(*) FROM send_attempts`).Scan(&count))
+	require.Zero(t, count)
+	require.Zero(t, calls)
 }

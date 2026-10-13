@@ -26,7 +26,7 @@ import (
 var fixedTime = time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
 
 const (
-	testMessage = "private example message"
+	testMessage = "private message"
 	testSession = "session_private_value"
 	testCSRF    = "csrf_private_value"
 )

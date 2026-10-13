@@ -13,6 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/dongwlin/dan-tick/internal/danmaku"
 	"github.com/dongwlin/dan-tick/internal/schedule"
 	"github.com/dongwlin/dan-tick/internal/settings"
 	"github.com/uptrace/bun"
@@ -495,8 +496,8 @@ func validate(input CreateInput, now time.Time) (CreateInput, error) {
 		return input, fmt.Errorf("%w: kind", ErrInvalidTask)
 	}
 	for _, message := range input.Messages {
-		if !printable(message) {
-			return input, fmt.Errorf("%w: message contains invalid text", ErrInvalidTask)
+		if err := danmaku.ValidateMessage(message); err != nil {
+			return input, fmt.Errorf("%w: %w", ErrInvalidTask, err)
 		}
 	}
 	// Validate all calendar fields even when the task is disabled or a plan
