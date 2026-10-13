@@ -2,11 +2,12 @@ import { VueQueryPlugin } from '@tanstack/vue-query'
 import { render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { Browser } from '@wailsio/runtime'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi, beforeEach } from 'vitest'
 import {
   AddRoom,
   DeleteRoom,
   ListRoomPage,
+  RefreshRoomMetadata,
   UpdateRoom,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice'
 import type { Room } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
@@ -21,6 +22,16 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationse
   RefreshRoomMetadata: vi.fn().mockResolvedValue(false),
 }))
 vi.mock('@wailsio/runtime', () => ({ Browser: { OpenURL: vi.fn() } }))
+
+// `vi.restoreAllMocks` only restores `vi.spyOn` spies, so module-level binding
+// mocks would otherwise keep calls and implementations across cases.
+beforeEach(() => {
+  vi.mocked(ListRoomPage).mockReset()
+  vi.mocked(AddRoom).mockReset()
+  vi.mocked(UpdateRoom).mockReset()
+  vi.mocked(DeleteRoom).mockReset()
+  vi.mocked(RefreshRoomMetadata).mockReset().mockResolvedValue(false)
+})
 
 function roomCover(title: string) {
   return screen.getByRole('heading', { name: title }).closest('article')?.firstElementChild
@@ -215,11 +226,16 @@ it('loads real binding pages, switches views, adds rooms and retains input on fa
   await user.type(input, '12345')
   await user.type(remarkInput, '晚间直播')
   await user.click(within(dialog).getByRole('button', { name: '添加直播间' }))
-  expect(await within(dialog).findByRole('alert')).toHaveProperty('textContent', '该直播间已添加')
+  const failure = await within(dialog).findByRole('alert')
+  expect(failure).toHaveProperty('textContent', '该直播间已添加')
+  expect(document.activeElement?.textContent).toContain('该直播间已添加')
   expect(input.value).toBe('12345')
+  // Editing the rejected input clears the message before the retry.
+  await user.type(input, '6')
+  await waitFor(() => expect(within(dialog).queryByRole('alert')).toBeNull())
   await user.click(within(dialog).getByRole('button', { name: '添加直播间' }))
   await waitFor(() => expect(vi.mocked(AddRoom)).toHaveBeenCalledTimes(2))
-  expect(vi.mocked(AddRoom)).toHaveBeenLastCalledWith({ value: '12345', remark: '晚间直播' })
+  expect(vi.mocked(AddRoom)).toHaveBeenLastCalledWith({ value: '123456', remark: '晚间直播' })
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(screen.queryByRole('textbox', { name: '直播间 ID 或链接' })).toBeNull()
 
@@ -245,7 +261,6 @@ it('discards an unfinished addition and returns focus to the trigger', async () 
     ],
     nextCursor: null,
   })
-  vi.mocked(AddRoom).mockClear()
 
   const user = userEvent.setup()
   render(RoomManager, {
@@ -281,6 +296,47 @@ it('discards an unfinished addition and returns focus to the trigger', async () 
   expect(within(reopened).getByRole<HTMLInputElement>('textbox', { name: '备注' }).value).toBe('')
 })
 
+it('moves focus to the room list after adding the first room from the empty state', async () => {
+  const saved: Room = {
+    id: 7,
+    platformRoomId: '700',
+    title: '直播七',
+    anchorName: '',
+    remark: '晚间直播',
+    coverUrl: '',
+    taskCount: 0,
+  }
+  let items: Room[] = []
+  // The query layer only awaits the binding promise; the Wails cancellation
+  // helpers are irrelevant here.
+  vi.mocked(ListRoomPage).mockImplementation(
+    () => Promise.resolve({ items, nextCursor: null }) as ReturnType<typeof ListRoomPage>,
+  )
+  vi.mocked(AddRoom).mockResolvedValue(saved)
+
+  const user = userEvent.setup()
+  render(RoomManager, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+  const emptyState = (await screen.findByText('还没有添加直播间')).parentElement
+  if (!emptyState) throw new Error('missing empty state')
+  await user.click(within(emptyState).getByRole('button', { name: '添加直播间' }))
+  const dialog = screen.getByRole('dialog', { name: '添加直播间' })
+  await user.type(
+    within(dialog).getByRole<HTMLInputElement>('textbox', { name: '直播间 ID 或链接' }),
+    '700',
+  )
+
+  // The refetch replaces the empty state, which was the captured Dialog
+  // trigger, before the Dialog closes.
+  items = [saved]
+  await user.click(within(dialog).getByRole('button', { name: '添加直播间' }))
+
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(screen.getByRole('heading', { name: '晚间直播' })).toBeTruthy()
+  expect(document.activeElement).toBe(document.querySelector('[aria-label="直播间内容"]'))
+})
+
 it('holds the modal open while the addition is running', async () => {
   const room: Room = {
     id: 3,
@@ -314,8 +370,12 @@ it('holds the modal open while the addition is running', async () => {
   )
   await user.click(within(dialog).getByRole('button', { name: '添加直播间' }))
 
-  // The running action states why the Dialog cannot be dismissed yet.
-  await within(dialog).findByRole('button', { name: '正在添加…' })
+  // The running action keeps its accessible name and says why the Dialog
+  // cannot be dismissed yet.
+  expect((await within(dialog).findByRole('status')).textContent?.trim()).toBe('正在添加，请稍候…')
+  const submit = within(dialog).getByRole<HTMLButtonElement>('button', { name: '添加直播间' })
+  expect(submit.disabled).toBe(true)
+  expect(submit.getAttribute('aria-busy')).toBe('true')
   expect(within(dialog).getByRole<HTMLButtonElement>('button', { name: '取消' }).disabled).toBe(
     true,
   )

@@ -3,6 +3,9 @@ import { nextTick } from 'vue'
 import { expect, it } from 'vitest'
 import UiDialog from './UiDialog.vue'
 
+// Reka registers its document-level pointerdown listener in a macrotask.
+const flushTimers = () => new Promise((resolve) => setTimeout(resolve, 0))
+
 function renderDialog(
   props: Record<string, unknown> = {},
   slots: Record<string, string> = {},
@@ -42,6 +45,16 @@ it('dismisses with Escape and reports the requested state', async () => {
   expect(view.emitted('update:open')).toEqual([[false]])
 })
 
+it('dismisses on an outside pointer press', async () => {
+  const view = renderDialog()
+  await nextTick()
+  await flushTimers()
+
+  await fireEvent.pointerDown(document.body)
+
+  expect(view.emitted('update:open')).toEqual([[false]])
+})
+
 it('keeps a busy dialog open and disables its close control', async () => {
   const view = renderDialog({ busy: true })
   await nextTick()
@@ -50,6 +63,17 @@ it('keeps a busy dialog open and disables its close control', async () => {
     true,
   )
   await fireEvent.keyDown(screen.getByRole('dialog', { name: '添加直播间' }), { key: 'Escape' })
+
+  expect(view.emitted('update:open')).toBeUndefined()
+  expect(screen.getByRole('dialog', { name: '添加直播间' })).toBeTruthy()
+})
+
+it('ignores an outside pointer press while busy', async () => {
+  const view = renderDialog({ busy: true })
+  await nextTick()
+  await flushTimers()
+
+  await fireEvent.pointerDown(document.body)
 
   expect(view.emitted('update:open')).toBeUndefined()
   expect(screen.getByRole('dialog', { name: '添加直播间' })).toBeTruthy()

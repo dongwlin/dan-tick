@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { shallowRef, useTemplateRef, watch } from 'vue'
+import { nextTick, shallowRef, useTemplateRef, watch } from 'vue'
 import { Plus } from 'lucide-vue-next'
 import UiAlert from '@/components/ui/UiAlert.vue'
 import UiButton from '@/components/ui/UiButton.vue'
@@ -17,11 +17,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   submit: [input: { value: string; remark: string }]
   'update:open': [open: boolean]
+  /** Empty message clears the binding error once the user edits a field again. */
+  'update:error': [message: string]
 }>()
 
 const value = shallowRef('')
 const remark = shallowRef('')
 const valueInput = useTemplateRef<HTMLInputElement>('valueInput')
+const errorBox = useTemplateRef<HTMLElement>('errorBox')
 
 // Closing discards the draft: a reopened Dialog starts from empty fields, and a
 // failed submission keeps them because the Dialog stays open.
@@ -33,6 +36,20 @@ watch(
     remark.value = ''
   },
 )
+
+// A rejection must be seen: move focus to the message, then drop it as soon as
+// the user edits the fields the attempt depends on (规范 5.3 / 8.3).
+watch(
+  () => props.error,
+  async (message) => {
+    if (!message) return
+    await nextTick()
+    errorBox.value?.focus()
+  },
+)
+watch([value, remark], () => {
+  if (props.error) emit('update:error', '')
+})
 
 function submit() {
   const room = value.value.trim()
@@ -80,11 +97,16 @@ function focusFirstField(event: Event) {
           placeholder="（可选）"
         />
       </UiField>
-      <UiAlert v-if="error" tone="danger">{{ error }}</UiAlert>
-      <div class="flex justify-end gap-2">
+      <div v-if="error" ref="errorBox" tabindex="-1" class="rounded-[10px]">
+        <UiAlert tone="danger" show-icon>{{ error }}</UiAlert>
+      </div>
+      <div class="flex items-center justify-end gap-2">
+        <p v-if="pending" role="status" class="mr-auto text-xs text-text-tertiary">
+          正在添加，请稍候…
+        </p>
         <UiButton :disabled="pending" @click="emit('update:open', false)">取消</UiButton>
         <UiButton type="submit" variant="primary" :loading="pending">
-          <Plus class="size-4" aria-hidden="true" />{{ pending ? '正在添加…' : '添加直播间' }}
+          <Plus class="size-4" aria-hidden="true" />添加直播间
         </UiButton>
       </div>
     </form>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
+import { computed, nextTick, shallowRef, useTemplateRef } from 'vue'
 import { Browser } from '@wailsio/runtime'
 import { ExternalLink, LayoutGrid, List, Pencil, Plus, Radio, Trash2 } from 'lucide-vue-next'
 import { ToggleGroupItem, ToggleGroupRoot } from 'reka-ui'
@@ -42,6 +42,7 @@ const editingID = shallowRef<number | null>(null)
 const remark = shallowRef('')
 const message = shallowRef('')
 const formError = shallowRef('')
+const roomContent = useTemplateRef<HTMLElement>('roomContent')
 const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
 const deleteDescription = computed(() => {
   const room = pendingDelete.value
@@ -91,6 +92,11 @@ async function addRoom(input: { value: string; remark: string }) {
   try {
     await add.mutateAsync(input)
     showForm.value = false
+    // Reka restores focus to the element captured when the Dialog opened, but
+    // adding the first room replaces that empty-state action. Name the
+    // successor explicitly so focus never falls back to <body> (规范 5.3).
+    await nextTick()
+    roomContent.value?.focus()
   } catch (error) {
     formError.value = bindingError(error)
   }
@@ -162,8 +168,8 @@ async function deleteRoom() {
     </UiPageHeader>
     <RoomForm
       v-model:open="showForm"
+      v-model:error="formError"
       :pending="add.isPending.value"
-      :error="formError"
       @submit="addRoom"
     />
     <UiAlert v-if="message" role="alert">
@@ -192,7 +198,13 @@ async function deleteRoom() {
         action-label="添加直播间"
         @action="openForm"
       />
-      <div v-else class="min-h-0 flex-1 overflow-y-auto pb-3" aria-label="直播间内容" tabindex="0">
+      <div
+        v-else
+        ref="roomContent"
+        class="min-h-0 flex-1 overflow-y-auto pb-3"
+        aria-label="直播间内容"
+        tabindex="0"
+      >
         <div
           :class="
             view === 'cards'
