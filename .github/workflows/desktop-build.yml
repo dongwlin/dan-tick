@@ -223,6 +223,19 @@ jobs:
           USER 1001
           DOCKERFILE
 
+      - name: Allow nested user namespaces in the smoke container
+        run: |
+          # Ubuntu 24.04 restricts capabilities in unconfined user namespaces.
+          # Grant userns only to this named test-container profile, keeping the
+          # runner's global policy and the application's WebKit sandbox intact.
+          cat > "$RUNNER_TEMP/dan-tick-appimage-smoke.apparmor" <<'PROFILE'
+          abi <abi/4.0>,
+          profile dan-tick-appimage-smoke flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+          sudo apparmor_parser --replace "$RUNNER_TEMP/dan-tick-appimage-smoke.apparmor"
+
       - name: Check the packaged WebView with its sandbox enabled
         timeout-minutes: 3
         run: |
@@ -231,7 +244,7 @@ jobs:
           # Only this disposable test container relaxes outer namespace restrictions.
           # The application retains the WebKit sandbox and has no network or user data.
           docker run --rm --network none \
-            --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
+            --security-opt seccomp=unconfined --security-opt apparmor=dan-tick-appimage-smoke \
             --security-opt systempaths=unconfined \
             --mount "type=bind,src=$PWD/.github/scripts,dst=/scripts,readonly" \
             --mount "type=bind,src=$PWD/appimage-artifact,dst=/artifact,readonly" \

@@ -48,6 +48,16 @@ fi
 artifact_dir=$(realpath "$1")
 results=$(realpath "$2")
 mkdir -p "$results"
+cat /proc/self/attr/current >"$results/security-label.txt" 2>&1 || true
+
+# Report an outer-container restriction before it turns into a WebKit crash.
+# This probes the same uid-map and proc-mount operations needed by its sandbox.
+if ! bwrap --unshare-user --uid 0 --gid 0 --ro-bind / / --proc /proc --dev-bind /dev /dev \
+  /usr/bin/true >"$results/namespace-probe.log" 2>&1; then
+  cat "$results/namespace-probe.log" >&2
+  echo 'The test container cannot create the user namespace required by WebKit.' >&2
+  exit 1
+fi
 shopt -s nullglob
 images=("$artifact_dir"/*.AppImage)
 [[ ${#images[@]} == 1 ]] || { echo 'Expected exactly one final AppImage.' >&2; exit 1; }
@@ -95,4 +105,10 @@ env -u WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS -u DBUS_SESSION_BUS_ADDRESS -u W
   XDG_RUNTIME_DIR="$task_root/runtime" TMPDIR="$task_root/tmp" \
   GDK_BACKEND=x11 GTK_A11Y=atspi LIBGL_ALWAYS_SOFTWARE=1 \
   dbus-run-session -- bash "$0" --session "$task_root/application.AppImage" "$results" \
-  >"$results/session.log" 2>&1
+  >"$results/session.log" 2>&1 || {
+    cat "$results/session.log" >&2
+    if [[ -f $results/application.log ]]; then
+      head -n 40 "$results/application.log" >&2
+    fi
+    exit 1
+  }
