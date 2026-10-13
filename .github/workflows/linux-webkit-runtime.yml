@@ -1,22 +1,23 @@
 name: Linux WebKit Runtime
 
-# Rebuilds the patched WebKitGTK runtime that every AppImage build consumes.
+# Builds the patched WebKitGTK runtime that every AppImage build consumes.
 #
-# This is the only expensive part of the Linux pipeline: a full WebKit compile
-# takes hours on a GitHub runner. It only has to run when build/linux/runtime
-# changes (WebKit version, relocation patch or build options), so the result is
-# published as a release asset and pinned by checksum in
-# build/linux/runtime/env.sh. Normal desktop builds download it instead.
+# This is the expensive part of the Linux pipeline, so it only runs when the
+# runtime inputs change: the WebKit version, the relocation patch or the build
+# options in build/linux/runtime. The result is published as a release asset and
+# pinned by checksum in build/linux/runtime/env.sh, and normal desktop builds
+# download it instead of recompiling WebKit.
 #
-# After a successful run:
-#   1. create the release from the uploaded artifact:
-#        gh release create <RUNTIME_RELEASE_TAG> --title <runtime id> --notes ... <asset>
-#   2. put the printed sha256 into RUNTIME_ASSET_SHA256 in env.sh
+# After a successful run, copy the printed sha256 into RUNTIME_ASSET_SHA256 in
+# build/linux/runtime/env.sh.
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'build/linux/runtime/**'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   runtime:
@@ -28,16 +29,37 @@ jobs:
         with:
           persist-credentials: false
 
+      # Fewer parallel compilers than cores keep the peak memory of the WebKit
+      # build inside what a standard GitHub runner provides.
       - name: Build and export the runtime artifact
         env:
-          BUILD_JOBS: 4
+          BUILD_JOBS: 3
         run: bash build/linux/runtime/build-webkit-runtime.sh
 
-      - name: Show what was built
+      - name: Publish the runtime artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           source build/linux/runtime/env.sh
-          ls -l "bin/runtime/$RUNTIME_ASSET"
-          sha256sum "bin/runtime/$RUNTIME_ASSET"
+          asset="bin/runtime/$RUNTIME_ASSET"
+          sha256sum "$asset"
+          if gh release view "$RUNTIME_RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RUNTIME_RELEASE_TAG" "$asset" --clobber
+          else
+            gh release create "$RUNTIME_RELEASE_TAG" \
+              --title "$RUNTIME_ID" \
+              --notes "Pinned WebKitGTK runtime for dan-tick AppImages, see build/linux/runtime/README.md." \
+              "$asset"
+          fi
+          {
+            echo '### Published runtime'
+            echo
+            echo "- release: \`$RUNTIME_RELEASE_TAG\`"
+            echo "- asset: \`$RUNTIME_ASSET\`"
+            echo "- sha256: \`$(sha256sum "$asset" | cut -d' ' -f1)\`"
+            echo
+            echo 'Set `RUNTIME_ASSET_SHA256` in `build/linux/runtime/env.sh` to that value.'
+          } >>"$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v7
         with:

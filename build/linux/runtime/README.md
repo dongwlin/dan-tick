@@ -31,14 +31,15 @@
 
 ## 重建、发布与固定
 
-```sh
-# 重建并导出运行时（需要 Docker；数十分钟）
-wails3 task linux:create:webkit-runtime
+推荐路径是 **Linux WebKit Runtime** workflow：它在本目录内容变化时自动运行，或由 `workflow_dispatch` 手动触发，构建成功后把产物以 `RUNTIME_RELEASE_TAG` 发布为 Release 资产，并在 job summary 打印需要固定的 SHA-256。工作流使用 3 个并行编译任务，避免标准 GitHub runner 的内存上限。
 
-# 或在 GitHub Actions 中触发 “Linux WebKit Runtime” workflow
+本地重建与导出同样受支持（需要 Docker，编译时间按核心数计算；受内存限制时用 `BUILD_JOBS=3`）：
+
+```sh
+wails3 task linux:create:webkit-runtime
 ```
 
-脚本会把结果打包为 `bin/runtime/dan-tick-webkit-runtime-<runtime-id>.tar.gz`，内部带 `runtime-info.txt`，并打印 SHA-256。发布与固定步骤：
+脚本会把结果打包为 `bin/runtime/dan-tick-webkit-runtime-<runtime-id>.tar.gz`，内部带 `runtime-info.txt`，并打印 SHA-256 与手动发布命令：
 
 ```sh
 gh release create "$RUNTIME_RELEASE_TAG" --title "$RUNTIME_ID" \
