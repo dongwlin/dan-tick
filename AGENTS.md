@@ -21,7 +21,7 @@
 | `frontend/src/main.ts`、`src/app/`、`src/pages/` | Vue 入口、应用装配（Hash Router、Events 与 Query）和路由页面；使用 `<script setup lang="ts">` 和 Composition API |
 | `frontend/src/features/` | 直播间 / 任务配置、账号与手动执行、分页执行历史及详情、总览与设置、日志操作的独立业务功能和测试 |
 | `frontend/src/style.css`、`src/app/theme.ts` | Tailwind v4 CSS-first 语义令牌、亚克力材质及深浅 / 跟随系统 UI 主题；仅保存 `dan-tick-theme` 偏好，存储故障提供可见反馈 |
-| `frontend/src/components/ui/` | 跨页面复用的无业务语义基础组件与共享样式（`UiButton.vue`、`UiIconButton.vue`、`UiPanel.vue`、`UiPageHeader.vue`、`UiAlert.vue`、`UiAsyncSection.vue`、`UiEmptyState.vue`、`UiField.vue`、`UiToastHost.vue`、`buttonStyles.ts`、`uiStyles.ts` 等）；按钮保留原生动作与 RouterLink 导航语义，Reka RadioGroup 当前直接用于设置页 |
+| `frontend/src/components/ui/` | 跨页面复用的无业务语义基础组件与共享样式（`UiButton.vue`、`UiIconButton.vue`、`UiPanel.vue`、`UiPageHeader.vue`、`UiAlert.vue`、`UiAsyncSection.vue`、`UiEmptyState.vue`、`UiField.vue`、`UiToastHost.vue`、`buttonStyles.ts`、`uiStyles.ts` 等）；按钮保留原生动作与 RouterLink 导航语义，侧栏 Tooltip、视图切换 ToggleGroup、任务编辑器 CheckboxGroup / Checkbox、自动执行 Switch 与账号头像 Avatar 直接使用 Reka UI 原语 |
 | `frontend/src/components/ui/UiAsyncSection.vue`、`UiEmptyState.vue` | 跨 Feature 的加载 / 失败重试状态与空状态基础组件；异步错误统一经 `lib/bindingError` 安全映射，空状态将图标、标题、说明和下一步动作收敛为同一公开契约 |
 | `frontend/src/components/ui/UiConfirmDialog.vue` | 危险操作与未保存离开的共享确认弹层；默认 Alert Dialog 语义（不响应 Escape/外部点击、初始焦点在取消/安全操作），`dismissible` 模式渲染普通 Dialog 用于“继续编辑/放弃更改”，Feature 不再使用 `window.confirm` |
 | `frontend/src/components/ui/UiToastHost.vue`、`src/composables/useToast.ts` | 全应用唯一的 Toast 视口与共享反馈状态；`App.vue` 根级挂载一次，Feature 通过 `useToast()` 上报，不再各自渲染 Provider，组件测试用 `src/test/toastHost.ts` 挂载同一宿主 |

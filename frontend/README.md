@@ -74,7 +74,7 @@ Binding 由固定的 Wails 3 CLI 版本（`v3.0.0-beta.25`）从 Go 根入口 `.
 
 ## 交互基础（FE5）
 
-`lucide-vue-next` 为正式侧栏、窗口标题栏与页面操作提供图标；已有可见文字的图标标记为 `aria-hidden`。设置页直接使用 Reka UI `RadioGroup` 实现带键盘焦点管理的主题选择，`src/components/ui/UiButton.vue` 供真正复用的按钮 / 导航链接使用，无业务语义的基础 UI 组件与共享样式统一放在 `src/components/ui/` 下。主题存储失败会显示提示，已选默认值时恢复按钮禁用。输入框、Select、Dialog 等仍随 F 阶段对应业务页面引入，不预建组件库。
+`lucide-vue-next` 为正式侧栏、窗口标题栏与页面操作提供图标；已有可见文字的图标标记为 `aria-hidden`。设置页直接使用 Reka UI `RadioGroup` 实现带键盘焦点管理的主题选择；侧栏 `Tooltip`、直播间视图 `ToggleGroup`、任务编辑器 `CheckboxGroup` / `Checkbox`、自动执行 `Switch` 与账号头像 `Avatar` 也直接使用 Reka UI 原语。`src/components/ui/UiButton.vue` 供真正复用的按钮 / 导航链接使用，无业务语义的基础 UI 组件与共享样式统一放在 `src/components/ui/` 下。主题存储失败会显示提示，已选默认值时恢复按钮禁用。原生 Select、输入与表格保持语义元素，仅在字段接线与共享样式层面包装；不预建组件库。
 
 pnpm 12 的依赖构建许可仅为 Reka 传递依赖 `vue-demi` 的 Vue 3 选择脚本开放；保留 `pnpm install --frozen-lockfile` 与供应链策略。`lucide-vue-next` 当前已有上游弃用提示，迁移到不同包名时须先更新技术选型。
 
