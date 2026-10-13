@@ -1,0 +1,47 @@
+name: Linux WebKit Runtime
+
+# Rebuilds the patched WebKitGTK runtime that every AppImage build consumes.
+#
+# This is the only expensive part of the Linux pipeline: a full WebKit compile
+# takes hours on a GitHub runner. It only has to run when build/linux/runtime
+# changes (WebKit version, relocation patch or build options), so the result is
+# published as a release asset and pinned by checksum in
+# build/linux/runtime/env.sh. Normal desktop builds download it instead.
+#
+# After a successful run:
+#   1. create the release from the uploaded artifact:
+#        gh release create <RUNTIME_RELEASE_TAG> --title <runtime id> --notes ... <asset>
+#   2. put the printed sha256 into RUNTIME_ASSET_SHA256 in env.sh
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    name: Build the pinned WebKit runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build and export the runtime artifact
+        env:
+          BUILD_JOBS: 4
+        run: bash build/linux/runtime/build-webkit-runtime.sh
+
+      - name: Show what was built
+        run: |
+          source build/linux/runtime/env.sh
+          ls -l "bin/runtime/$RUNTIME_ASSET"
+          sha256sum "bin/runtime/$RUNTIME_ASSET"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dan-tick-webkit-runtime
+          path: bin/runtime/*.tar.gz
+          if-no-files-found: error
+          retention-days: 30
