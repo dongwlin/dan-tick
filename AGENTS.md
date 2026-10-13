@@ -1,128 +1,91 @@
 # dan-tick 开发指南（AI / Coding Agent）
 
-## 1. 先了解项目和当前阶段
+本文件适用于整个仓库；子目录指令只补充其目录范围内的约定。
 
-- dan-tick 是面向 Windows、Linux 的 B 站直播弹幕定时发送桌面应用：本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
-- **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及对通用规范的例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。实现前按任务阅读 [`docs/specs/`](docs/specs/) 中的 [Vue SPA Pack](docs/specs/packs/Vue%20SPA%20Pack.md)、[亚克力设计 Pack](docs/specs/packs/亚克力设计%20Pack.md) 或 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md) 及其关联规范。
-- 开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它用于安排实施步骤，不覆盖 PRD 与技术选型的权威性；UI 原型可以独立继续迭代。
-- **F1～F7 的业务集成已完成。** Go 已负责 SQLite、凭证、共享发送器、Cron、启动恢复、执行记录与窗口后台生命周期；正式 Vue 已接入直播间 / 任务配置、账号与测试发送、手动执行 / 停止、执行记录列表和详情，使用 Vue Query 与 Wails Events 更新权威状态。总览、调度设置与安全诊断导出均已接入；H1 已接入应用内扫码和独立会话受控续期，并移除手动 Cookie 输入与保存 Binding。H0 已完成授权隔离扫码 / 单次续期协议核验；G1 / G3 Windows / Linux 人工验收、自然到期窗口及平台用途核验仍待完成。`prototype/` 是独立的 Vanilla TypeScript 模拟 UI。按功能渐进引入，不为未来需求创建空架构。
-- `docs/specs/` 是外部 specs 仓库的复制件，来源信息见 `docs/specs/spec-pack-manifest.json`。项目差异写入技术选型文档；不要直接编辑复制的规范。根目录 README 是项目入口，`frontend/README.md` 说明正式 Vue 前端的工具链与构建流程。
+## 1. Scoped Instructions（目录作用域）
 
-## 2. 现有结构与调用边界
+修改子目录中的文件前，先读取修改路径涉及的子目录 `AGENTS.md`，并同时遵守本文件。仅加载本次任务涉及的目录指令，不要求每次读取所有子目录文档；跨目录修改时分别读取对应指令。
 
-| 路径 | 目前职责 |
+| 指令文件 | 适用范围 |
 | --- | --- |
-| `main.go` | 启动时打开并迁移数据库、退出时关闭连接；Wails 应用、窗口、生命周期钩子及前端嵌入 |
-| `internal/app/` | Keyring、共享 Sender / Executor / Scheduler 及配置 Binding 的业务组合根与启动 / 退出收尾 |
-| `internal/desktop/` | 直播间 / 任务、账号操作、执行记录、调度 / 总览、诊断及窗口设置 Wails Service；安全 DTO / 错误，任务写入经 Scheduler Manager 同步 Cron |
-| `internal/account/`、`internal/credential/` | Passport 协议、扫码 / UID 绑定、续期 / 发送互斥及单项 Keyring 整组会话；旧双字段数据保留并要求重扫，未完成轮换拒绝发送 |
-| `internal/storage/` | 用户数据目录中的 SQLite 连接、Bun Migration、首版六张表及真实数据库测试 |
-| `internal/history/` | E4 执行历史的分页列表、详情及发送尝试查询；不读取当前任务定义重建历史 |
-| `frontend/src/main.ts`、`src/app/`、`src/pages/` | Vue 入口、应用装配（Hash Router、Events 与 Query）和路由页面；使用 `<script setup lang="ts">` 和 Composition API |
-| `frontend/src/features/` | 直播间 / 任务配置、账号与手动执行、分页执行历史及详情、总览与设置、日志操作的独立业务功能和测试 |
-| `frontend/src/style.css`、`src/app/theme.ts` | Tailwind v4 CSS-first 语义令牌、亚克力材质及深浅 / 跟随系统 UI 主题；仅保存 `dan-tick-theme` 偏好，存储故障提供可见反馈 |
-| `frontend/src/components/ui/` | 跨页面复用的无业务语义基础组件与共享样式（`UiButton.vue`、`UiIconButton.vue`、`UiPanel.vue`、`UiPageHeader.vue`、`UiAlert.vue`、`UiAsyncSection.vue`、`UiEmptyState.vue`、`UiField.vue`、`UiDialog.vue`、`UiToastHost.vue`、`buttonStyles.ts`、`uiStyles.ts` 等）；按钮保留原生动作与 RouterLink 导航语义，侧栏 Tooltip、视图切换 ToggleGroup、任务编辑器 CheckboxGroup / Checkbox、自动执行 Switch 与账号头像 Avatar 直接使用 Reka UI 原语 |
-| `frontend/src/components/ui/UiAsyncSection.vue`、`UiEmptyState.vue` | 跨 Feature 的加载 / 失败重试状态与空状态基础组件；异步错误统一经 `lib/bindingError` 安全映射，空状态将图标、标题、说明和下一步动作收敛为同一公开契约 |
-| `frontend/src/components/ui/UiDialog.vue` | 受控普通 Dialog 弹层：Portal、遮罩、可访问标题 / 描述与关闭按钮一次装配，Escape 与外部点击按普通 Dialog 关闭，`busy` 期间拦截关闭以免丢失进行中的提交；表单类弹层不再各自复制 Dialog 基础设施 |
-| `frontend/src/components/ui/UiConfirmDialog.vue` | 危险操作与未保存离开的共享确认弹层；默认 Alert Dialog 语义（不响应 Escape/外部点击、初始焦点在取消/安全操作），`dismissible` 模式渲染普通 Dialog 用于“继续编辑/放弃更改”，Feature 不再使用 `window.confirm` |
-| `frontend/src/components/ui/UiToastHost.vue`、`src/composables/useToast.ts` | 全应用唯一的 Toast 视口与共享反馈状态；`App.vue` 根级挂载一次，Feature 通过 `useToast()` 上报，不再各自渲染 Provider，组件测试用 `src/test/toastHost.ts` 挂载同一宿主 |
-| `frontend/public/`、`frontend/index.html` | 静态资源及 HTML 入口 |
-| `frontend/package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`.node-version` | 前端脚本、固定工具链、依赖锁文件及 pnpm 安装策略 |
-| `frontend/vite.config.ts`、`tsconfig.json`、`tsconfig.node.json` | Vite + Wails Binding 插件、源码与构建配置的 TypeScript 检查 |
-| `frontend/vitest.config.ts`、`src/test/setup.ts`、`*.test.ts` | 独立于 Wails 的 Vitest + happy-dom 测试配置、测试环境清理与用户可观察行为测试 |
-| `frontend/eslint.config.mjs`、`.prettierrc.json`、`.prettierignore` | 正式前端 ESLint Flat Config、格式约定与依赖 / 生成物忽略规则 |
-| `prototype/` | 独立 UI 原型；详细职责和运行命令见 `prototype/AGENTS.md`、`prototype/README.md` |
-| `Taskfile.yml`、`build/` | Wails 3 / Task 的开发、构建和各平台打包配置；`build/config.yml` 为 Wails 开发配置 |
-| `docs/PRD.md`、`docs/技术栈选型.md`、`docs/specs/` | 产品规则、项目决策与引入的工程规范 |
+| [`internal/AGENTS.md`](internal/AGENTS.md) | `internal/` 及其子目录：Go 后端的包职责、数据与 Binding 边界、生命周期和测试 |
+| [`build/AGENTS.md`](build/AGENTS.md) | `build/` 及其子目录：Wails / Task 构建链、平台资源与打包验证 |
+| [`frontend/AGENTS.md`](frontend/AGENTS.md) | `frontend/` 及其子目录：正式 Vue 前端的架构、UI、工具链与验证 |
+| [`prototype/AGENTS.md`](prototype/AGENTS.md) | `prototype/` 及其子目录：独立 Vanilla TypeScript 演示原型 |
 
-- Go 模块名为 `github.com/dongwlin/dan-tick`（见 `go.mod`）；正式 Wails 模板演示 Service / 时间事件已移除，配置 / 操作 / 历史 / 应用 / 诊断 / 窗口 Binding 已在 `internal/desktop/` 接入；构建任务使用 `./...` 扫描子包。不要手动编辑 `frontend/bindings/` 或 `frontend/dist/`；它们由 Wails / Vite 生成且当前未提交。
-- 业务落地后，**Go 是权威业务状态来源**：处理调度、数据库、HTTP 发送、频率限制、凭证、进程生命周期；前端只承担配置、展示与交互。前端调用使用 **Wails Service Binding**，Go 主动通知使用 **Wails Events**，不要为桌面业务另建 HTTP API。
-- 前端按 Feature 聚合业务，Page 负责组合及解析路由参数，共享组件不能反向依赖 Feature；保持小模块扁平，有实际复用需求再提取。
-- `build/` 中也保留了 macOS、iOS 和 Android 的模板打包文件，但 PRD 首版目标平台仅为 Windows、Linux；不要把模板存在等同于要求支持这些平台。
+各子目录指令只作用于表中范围，互不自动适用。未设局部指令的目录遵守根文档及任务相关规范；不要把原型的实现方式或工作流程套用到正式前端。根 `Taskfile.yml`、`go.mod` 和 `.github/workflows/` 不在 `build/` 的作用域内；修改构建链时按需参考构建指令及相关脚本，跨目录修改仍分别加载对应指令。
 
-## 3. 开发环境与可执行命令
+## 2. 项目与文档入口
 
-- `go.mod` 要求 **Go 1.25.0**；当前框架依赖是 `github.com/wailsapp/wails/v3 v3.0.0-beta.25`。前端由 **Vue 3 + TypeScript + Vite 8** 构成，仓库提供 Wails 3 CLI / Taskfile 流程。
-- 正式前端使用 **pnpm 12.6.0**，由 `frontend/package.json` 的 `packageManager` 固定；`frontend/.node-version` 指定 **Node.js 24.18.0**，`engines` 要求 `>=24.18.0 <25`。`Taskfile.yml` 的 `PACKAGE_MANAGER` 默认是 `pnpm`，安装使用已提交的 `frontend/pnpm-lock.yaml` 与 `pnpm install --frozen-lockfile`。`prototype/` 独立管理依赖，不合并 workspace。
-- `frontend/pnpm-workspace.yaml` 保存单包安装配置，启用 `minimumReleaseAge: 10080`（7 天）及 `engineStrict: true`；不再用旧 `.npmrc` 表达这些策略。Vite 开发服务器默认绑定 `127.0.0.1:9245`（可通过 `WAILS_VITE_PORT` 调整）。源码别名为 `@/*` → `src/*`、`@bindings/*` → `bindings/*`，TypeScript 与 Vite 保持一致。
+- dan-tick 是面向 **Windows、Linux** 的 B 站直播弹幕定时发送桌面应用，本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
+- **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及通用规范的项目例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。开发顺序和最小可提交单元见 [`docs/开发计划.md`](docs/开发计划.md)，它不覆盖前两者的权威性。
+- **F1～F7 业务集成及 H1 扫码 / 受控续期代码已完成**，手动 Cookie 输入与保存 Binding 已移除。H0 已完成授权隔离扫码 / 单次续期协议核验；Windows / Linux 人工验收、自然到期窗口及平台用途核验仍待完成，不能把代码完成视为正式发布验收通过。详细阶段记录查开发计划；`prototype/` 仍是独立模拟 UI，可独立迭代。
+- 按任务阅读 [`docs/specs/`](docs/specs/) 中相关 Pack 及关联规范；后端与正式前端的规范入口见各自子目录指令。修改根入口时使用 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md)。`docs/specs/` 是外部 specs 仓库复制件，来源见 [manifest](docs/specs/spec-pack-manifest.json)；项目差异写入技术选型文档，不直接编辑复制的规范。
+- 根 [README](README.md) 是项目入口，子目录 README 提供对应运行说明。实现状态以实际代码及开发计划核对，区分已实现行为与计划行为。
+
+## 3. 项目结构与全局架构边界
+
+| 路径 | 职责 |
+| --- | --- |
+| `main.go` | 嵌入 `frontend/dist`，将资源交给 `internal/app.Run`，并使用返回的退出码结束进程 |
+| `internal/` | Go 应用装配、桌面 Service 与业务实现；包职责和后端约定见局部指令 |
+| `frontend/` | 正式 Vue 界面；具体结构与实现约定见局部指令 |
+| `prototype/` | 独立演示原型，使用会话演示数据 |
+| `Taskfile.yml`、`build/` | Wails / Task 的开发、构建和各平台打包配置；`build/config.yml` 为开发配置 |
+| `docs/` | PRD、技术决策、开发计划、数据模型与引入的工程规范 |
+
+- 正式应用中，**Go 是权威业务状态来源**，负责调度、数据库、HTTP 发送、频率限制、凭证和进程生命周期；前端承担配置、展示与交互，不另行维护任务、调度等权威业务状态。调用使用 **Wails Service Binding**，后端主动通知使用 **Wails Events**，不要另建桌面业务 HTTP API。
+- Go 模块为 `github.com/dongwlin/dan-tick`，`go.mod` 要求 **Go 1.25.0**，当前 Wails 为 `v3.0.0-beta.25`；前后端 Runtime 与构建 CLI 的版本须与项目依赖匹配。
+- Go 应用源码根目录仅保留入口 `main.go`，包括 `frontend/dist` 的 `go:embed` 声明；嵌入路径相对 Go 包目录，资源由根入口通过 `fs.FS` 传入应用组合根。其余后端代码按职责放在 `internal/`，`build/` 的平台模板 Go 文件不受入口限制。
+- 调度器只触发计划；执行防重、持久化、漏发判定与恢复由业务逻辑和 SQLite 事务承担。任务使用明确时区（PRD 默认 `Asia/Shanghai`）；错过计划默认不补发，手动执行不改变定时计划。同一账号的多个任务共享发送频率限制。
+- B 站接口成功不能只看 HTTP 200，需校验业务响应；发送结果不确定时默认不自动重试。HTTP 请求必须有超时与取消能力，避免停任务或退出后继续发送。
+- 凭证只进入系统安全存储；不可用时明确失败，不回退明文配置。不要记录 Cookie，或将其放入普通前端 Store / Query 缓存、持久化 Web 存储及路由；B 站鉴权与请求统一由 Go 完成。旧双字段 Keyring 数据保留并要求重扫，未完成轮换的会话拒绝发送。
+- `frontend/` 与 `prototype/` 分别管理依赖与锁文件，不合并 workspace。不要手动编辑或提交 `frontend/bindings/`、`frontend/dist/`；它们由 Wails / Vite 生成，后端 Service 或构建流程变更也须遵守此约束。
+- `build/` 中的 macOS、iOS、Android 模板不代表首版支持这些平台；目标平台仍以 PRD 的 Windows、Linux 为准。
+
+## 4. 构建与真实桌面调试
+
+运行桌面应用需 Go、Node / pnpm、Wails 3 CLI 及目标平台构建依赖；正式前端安装与工具链见 [前端指令](frontend/AGENTS.md)。
+
+在仓库根目录执行：
 
 ```sh
-# 仓库根目录；需先安装 Go、Node/pnpm、Wails 3 CLI 及目标平台所需的 Wails 构建依赖
-cd frontend && pnpm install --frozen-lockfile
-cd ..
 wails3 dev                 # 桌面开发，前端热更新
-WAILS_MCP=1 wails3 dev     # 桌面开发 + Wails MCP service；调试真实窗口见下文
 wails3 build               # 构建当前平台桌面应用
-
-# 前端检查 / 构建（类型检查和构建需要已生成 Wails bindings）
-cd frontend
-pnpm run test              # Vitest + Testing Library 行为测试，不需要运行 Wails
-pnpm run typecheck         # 独立检查 Vue 源码和 Vite 配置的类型
-pnpm run lint              # ESLint 检查；不允许 warning
-pnpm run format:check      # Prettier 格式检查
-pnpm run lint:fix          # 修复 ESLint 可自动修复的问题
-pnpm run format            # 按统一约定格式化正式前端
-pnpm run build             # Vue 源码和 Vite 配置类型检查 + production build
-pnpm run build:dev         # 同上类型检查 + 非压缩的 development build
+WAILS_MCP=1 wails3 dev     # 开发版启用 Wails 应用 MCP service
 ```
 
-- Wails 构建任务会通过 `build/Taskfile.yml` 安装前端依赖、生成 Binding、构建前端，并可能运行 `go mod tidy`；构建后检查有无意外的 `go.mod` / `go.sum` 变化。
-- Go 变更：对修改的 Go 文件执行 `gofmt`，并按需运行 `go test ./...`、`go vet ./...`；并发敏感代码还需运行 `go test -race ./...`（环境支持时）。**独立运行 Go 命令前须有 `frontend/dist/`**，否则 `main.go` 的 `go:embed` 会报错。可以先通过 Wails 构建生成前端产物。
-- **已有 Go 集成测试、前端 `pnpm run test`、ESLint / Prettier、独立 `typecheck` 和 FE9 GitHub Actions 前端 CI。** Vitest 通过 `frontend/vitest.config.ts` 使用 Vue 插件与 happy-dom，行为测试位于 `src/app/`、`src/pages/` 和 `src/features/configuration/`；不启动 Wails 桌面插件。`typecheck` 通过 `vue-tsc` 检查 Vue 源码与生成 Binding、通过 `tsc` 检查 `vite.config.ts` 和 `vitest.config.ts`；`build` 和 `build:dev` 均先执行 `typecheck`。`.github/workflows/frontend-ci.yml` 在 Push / PR 上冻结安装，执行 Lint / 格式 / 测试，生成 Wails Binding 后执行类型检查和生产构建；桌面实机验收独立进行。
-- ESLint 采用 Flat Config，启用 JavaScript、TypeScript 类型感知、Vue 与 Vue 可访问性推荐规则，以及重复导入、类型导入和非空断言检查；`lint` / `lint:fix` 使用 `--max-warnings 0`。Prettier 独立执行，`eslint-config-prettier` 最后关闭冲突规则，不通过 ESLint 执行格式化。检查限定 `frontend/`，忽略依赖、生成 Binding、构建与覆盖率产物；Prettier 另外忽略锁文件、第三方 SVG 和许可证。
+- Wails 构建通过 `build/Taskfile.yml` 安装前端依赖、生成 Binding 并构建前端；共享构建链必须继续扫描 `./...`，不能因 Service 位于 `internal/desktop/` 而仅扫描根包。流程可能运行 `go mod tidy`，构建后检查 `go.mod` / `go.sum` 有无意外变化；平台任务、标志与资源约定见 [构建指令](build/AGENTS.md)。
+- **运行全仓 Go 检查或扫描应用入口前须有 `frontend/dist/`**，否则 `main.go` 的 `go:embed` 会报错；可先通过 Wails 构建准备前端产物。干净检出的 Binding 生成前置处理见前端指令及现有 CI。
 
 ### 调试真实桌面窗口
 
-涉及 Wails binding、原生窗口行为，或需要在真实 WebView 中复现的交互时，使用运行中 dan-tick 开发版提供的 [Wails 应用 MCP service](https://v3.wails.io/zh-cn/guides/mcp-service/)，不要用 `frontend/` 下 `pnpm dev` 打开的普通浏览器页面替代桌面验证：普通页面没有 Wails bridge。`wails3 mcp` 是管理 Wails 项目生命周期的另一个命令，不检查运行中的 WebView。
+涉及 Binding、Events、原生窗口行为或真实 WebView 交互时，使用运行中开发版的 [Wails 应用 MCP service](https://v3.wails.io/zh-cn/guides/mcp-service/)。普通 Vite 浏览器页面没有 Wails bridge，不能替代桌面验证；`wails3 mcp` 管理项目生命周期，不检查运行中的 WebView。
 
-从仓库根目录启动，`WAILS_MCP=1` 会让 Wails CLI 通过 `EXTRA_TAGS` 为开发构建加上 `mcp` build tag：
+- `WAILS_MCP=1 wails3 dev` 通过 `EXTRA_TAGS` 加入 `mcp` build tag。Windows PowerShell 先设置 `$env:WAILS_MCP = "1"`（`WAILS_MCP_PORT` 同理）。
+- 启动日志打印 Streamable HTTP MCP endpoint，通常为 `http://127.0.0.1:9099/mcp`，以实际日志为准；端口被占用时使用 `WAILS_MCP=1 WAILS_MCP_PORT=0 wails3 dev` 选择空闲端口。MCP 端口与 `wails3 dev -port <vite-port>` 的 Vite 端口独立。
+- 先用 `app_info` / `windows_list` 确认窗口，再用 `dom_query`、`dom_html`、`screenshot_dom` 检查结构；用 `mouse_click`、`keyboard_type`、`keyboard_press` 复现交互，通过 `selector: "#id"` 或视口 `x` / `y` 定位。鼠标工具显示动画光标，可用 `WAILS_MCP_HIDE_CURSOR=1` 关闭。
+- Binding / Events 可用 `call_bound_method`、`emit_event`、`wait_for_event` 验证；`js_eval` 会执行任意代码并可能改变状态，仅在必要时使用。`screenshot_dom` 是含视口、滚动位置与元素轮廓的结构化快照；视觉外观仍需真实窗口观察或系统截图。
+- MCP service 是实验性本地开发工具，可读取 DOM、执行 JavaScript、点击与调用 Go 方法。保持默认 loopback 绑定；未设置 `WAILS_MCP_TOKEN` 时本机进程与环回浏览器来源会被信任，需要更强隔离时设置高熵令牌，非 loopback 绑定必须设置令牌。不要把 `mcp` tag 加入生产构建；默认 `wails3 build` 不含服务器代码，显式设置 `WAILS_MCP=1` 才会加入。
+- 调试结束后停止开发版。开发版与打包版共用单实例 ID `io.github.dongwlin.dan-tick` 和用户数据目录；遗留实例会使后续启动只唤醒旧实例并退出。
 
-```sh
-WAILS_MCP=1 wails3 dev
-```
+## 5. 通用工作流与验证
 
-Windows PowerShell 需先设置 `$env:WAILS_MCP = "1"`（`WAILS_MCP_PORT` 同理）。应用启动日志会打印 Streamable HTTP MCP endpoint，默认通常是 `http://127.0.0.1:9099/mcp`，以日志实际打印的地址为准。如果 9099 已占用，可使用：
+1. 读取对应 PRD 条目、技术选型及任务相关 Pack，确认修改路径的局部指令、Go / Binding / 界面边界和平台影响。
+2. 用最小可维护实现满足场景，按功能渐进引入；不为未来需求提前拆层、创建空架构或添加无关防御分支。命名与组织遵循相关规范及相邻模块，不从模板偶然风格推导硬性规则，不借功能变更全面重排无关代码。
+3. 为新增或修改的**关键行为**补测试，不机械追求覆盖率。自动测试不得访问真实 B 站生产接口或使用实际账号凭证。
+4. 影响托盘、窗口隐藏、单实例、自启动、Keyring、睡眠恢复或后台运行时，记录对应平台的人工验证；Go 单元测试及普通浏览器测试不能替代桌面验收。
 
-```sh
-WAILS_MCP=1 WAILS_MCP_PORT=0 wails3 dev
-```
+按改动类型验证：
 
-让 Wails 选择空闲端口；该端口与 `wails3 dev -port <vite-port>` 的 Vite 端口彼此独立。
-
-调试时先用 `app_info` 或 `windows_list` 确认当前窗口，再用 `dom_query`、`dom_html` 或 `screenshot_dom` 检查 WebView 结构，用 `mouse_click`、`keyboard_type`、`keyboard_press` 复现交互；鼠标和键盘工具用 `selector: "#id"` 或 `x` / `y` 视口坐标定位元素，鼠标工具还会在窗口内显示动画光标（`WAILS_MCP_HIDE_CURSOR=1` 可关闭）。需要直接验证 Go binding / event 时使用 `call_bound_method`、`emit_event`、`wait_for_event`。`js_eval` 在 WebView 中执行任意代码并可能改变应用状态，只在必要时使用。`screenshot_dom` 返回结构化 DOM snapshot（视口、滚动位置、可见元素轮廓），不是像素截图；判断视觉外观时仍要在真实窗口中观察或使用系统截图。
-
-该 MCP service 是实验性的，仅用于本地开发：保持默认 loopback 绑定，不要把 `mcp` build tag 加入生产构建（`wails3 build` 默认不含服务器代码，只有显式设置 `WAILS_MCP=1` 才添加该 tag）。它能通过程序读取 DOM、执行 JavaScript、点击按钮并调用 Go 方法；未设置 `WAILS_MCP_TOKEN` 时同机本地进程与环回浏览器来源都会被信任，需要更强隔离时设置高熵令牌，非 loopback 绑定则必须设置令牌。调试结束后停止开发版应用；开发版与打包版共用单实例 ID（`io.github.dongwlin.dan-tick`）和用户数据目录，遗留实例会让后续启动只唤醒它并立即退出，而不是启动新进程。
-
-## 4. 新代码的架构与风格约束
-
-- Go 后端已采用 **Bun + `modernc.org/sqlite` + Bun Migrations** 与 testify，已按业务需求接入 zerolog、`robfig/cron/v3`、`go-keyring` 和 `net/http`；F1 已完成调度 / 执行装配及直播间 / 任务 Binding，正式业务页面仍待 F4。优先具体类型与清晰的 Service / 业务边界，不引入 Gin、本地 REST Server、分布式调度或没有实际需求的 Repository 接口。
-- Go 应用源码根目录仅保留 `main.go`，模板 `greetservice.go` 已在 F1-a 移除。新后端业务代码按职责放在 `internal/`，不预建空包。模型复用、Binding Input、事务和依赖方向以 [Go 桌面应用架构约定](docs/specs/profiles/backend/wails-desktop/Go%20桌面应用架构约定.md) 为准；数据库初稿见 [后端数据模型设计](docs/后端数据模型设计.md)。`build/` 的平台模板 Go 文件不属于根目录限制。
-- 调度器只负责触发计划；执行防重、持久化、漏发判定和恢复由业务逻辑与 SQLite 事务承担。任务使用明确时区（PRD 默认 `Asia/Shanghai`）；错过计划默认不补发，手动执行不改变定时计划。同一账号的多个任务共享发送频率限制。
-- B 站接口成功不能只看 HTTP 200，需校验业务响应；发送结果不确定时默认不自动重试。HTTP 请求要有超时、取消能力，避免在停任务或退出后继续发送。
-- 凭证只进入系统安全存储；不可用时明确失败，不回退到明文配置。不要记录 Cookie、将其放入普通前端 Store / Query 缓存、持久化 Web 存储或路由；B 站鉴权与请求统一在 Go 后端完成。
-- 前端目标选型：**Vue Router 4 Hash History**、Tailwind CSS v4、Reka UI、`lucide-vue-next` 与亚克力设计系统；Pinia 只管理必要的客户端共享状态，TanStack Query 缓存从 Binding 获取的业务数据，Events 触发相关查询失效，不复制 Go 业务状态。简单表单用本地 Vue 状态，任务编辑使用 vee-validate + Zod；后端仍负责最终校验。
-- 样式兼顾 Windows / Linux WebView 可用性；原生毛玻璃不可用时提供可读的实色回退。交互优先复用 Reka UI 并遵循 `docs/specs/` 的可访问性规范。
-- 写 Reka UI 交互前查官方 LLM 文档索引 [llms.txt](https://reka-ui.com/llms.txt)：它按概览 / 指南 / 组件 / 工具列出全部文档页，任意页面 URL 末尾加 `.md` 即可取到含 props、events、slots 与 API 表的原始 Markdown（例如 `https://reka-ui.com/docs/components/dialog.md`），无需抓取渲染后的 HTML。站点跟随最新版本，与 `frontend/package.json` 锁定的 `reka-ui` 版本不一致时以仓库内实际类型与行为为准。
-- **现有命名证据有限**：Vue 组件文件是 `App.vue`、`HelloWorld.vue` 这样的 PascalCase，Go 文件遵循 Go 命名与 `gofmt`。正式前端的 Prettier 约定为单引号、无分号、2 空格缩进、100 字符行宽、LF 和 `trailingComma: all`；其他命名与组织按引入的规范及相邻模块，不要把模板偶然风格提升为项目硬性规则，也不要借功能变更全面重排无关代码。
-
-## 5. 变更工作流与测试策略
-
-1. 读对应 PRD 条目、技术选型和相关 Pack，区分已有行为与计划行为；确认需要修改的 Go、Binding、前端边界及平台影响。
-2. 先用最小可维护实现满足场景；不要为了“未来扩展”提前拆层、重复维护业务状态或加与任务无关的防御分支。
-3. 为新增或修改的**关键行为**补测试，而不是机械追求覆盖率：Go 侧用 `testing` / testify、可控时钟、真实临时 SQLite（包括重新打开后的恢复）及 `httptest` 验证调度防重、时区、状态变更、停止条件、限流和异常响应。测试不得访问真实 B 站生产接口或使用实际账号凭证。
-4. 前端默认用 Vitest + Vue Testing Library + user-event 验证用户可见行为；对 Binding / Events 外部边界做替换，不断言内部实现。真实焦点、键盘或 WebView 差异按需做浏览器和 Windows / Linux 实机验证；需要复现 Wails binding、Events 或原生窗口行为时按[调试真实桌面窗口](#调试真实桌面窗口)启动应用，不要用普通浏览器页面替代桌面验证；不要为纯文档或简单模板调整搭建完整测试框架。
-5. 影响托盘、窗口隐藏、单实例、自启动、Keyring、睡眠恢复或后台运行的变更，记录对应平台的人工验证；Go 单元测试和普通浏览器测试不能替代桌面验收。
-
-提交改动前至少检查：
-
-- `git diff --check`、`git status --short`：确认无空白错误、生成文件、凭证或无关改动。
-- Go 代码改动：`gofmt` 后执行受影响测试；准备好前端构建产物后运行 `go test ./...`、`go vet ./...`，并发敏感场景酌情加 `-race`。
-- 前端代码改动：在 `frontend/` 运行 `pnpm run test`、`pnpm run lint`、`pnpm run format:check`；生成 / 更新 Binding 后运行 `pnpm run build`，可用 `pnpm run typecheck` 独立检查类型，构建仍包含该检查。影响 Wails 集成或桌面行为时再执行 `wails3 build` 和相关平台手动检查。
-- 纯文档改动：核对 Markdown 链接、路径与命令的真实性即可。无法运行的检查需说明原因，不得报告为通过。保留用户未提交改动；未经要求不自行提交、重置或清理。
+- **Go 代码**：修改文件执行 `gofmt`，先跑受影响测试；准备好前端产物后运行 `go test ./...`、`go vet ./...`，并发敏感代码在环境支持时运行 `go test -race ./...`。后端测试边界和重点场景见 `internal/` 局部指令；根入口或平台模板的变更也执行适用的 Go 检查。
+- **正式前端代码**：按 [`frontend/AGENTS.md`](frontend/AGENTS.md) 执行前端检查；影响 Wails 集成或桌面行为时，再执行 `wails3 build` 和相关平台手动检查。纯 Go 或其他目录任务不必加载前端实现细节，但仍需满足上述跨目录构建前置条件。
+- **纯文档**：核对 Markdown 链接、路径与命令真实性；不为纯文档或简单模板调整搭建完整测试框架。
+- **所有改动**：完成前运行 `git diff --check`、`git status --short`，排查空白错误、生成文件、凭证与无关改动。无法运行的检查如实说明，不得报告为通过；保留用户未提交改动，未经要求不自行提交、重置或清理。
 
 ## 6. Git 分支与提交
 
-- **Commit message 必须使用英文，且符合 Conventional Commits**：`<type>[optional scope]: <description>`，例如 `docs: refine agent development guide`。每个 Commit 只覆盖一个明确的变更目的，不混入无关重构。
-- **Branch 名称必须符合 `<type>/<kebab-case-description>`**，`type` 与主要修改类型一致；例如 `test/agent-server-callback-test`。禁止使用 Agent、模型或工具名称作为 branch prefix。
-- **优先采用项目 Development Guide 定义的 change type vocabulary**。当前仓库没有 Development Guide 或已定义的类型词表，因此不要声称已有专属类型清单；在补充该指南前，分支 `type` 与对应的 Conventional Commits 类型保持一致。若后续新增 Development Guide，以其中的词表为准。
-- 不要从少量现有提交推导固定的 Commit scope、合并策略或分支流程；分支操作与提交应遵守用户当前任务要求。
+- **Commit message 使用英文并符合 Conventional Commits**：`<type>[optional scope]: <description>`，如 `docs: refine agent development guide`。每个 Commit 只覆盖一个明确目的，不混入无关重构。
+- **Branch 名称符合 `<type>/<kebab-case-description>`**，type 与主要修改类型一致，如 `test/agent-server-callback-test`；禁止使用 Agent、模型或工具名称作为 prefix。
+- 优先采用项目 Development Guide 定义的 change type vocabulary。目前没有该指南或专属类型词表，在补充前，分支 type 与对应的 Conventional Commits 类型保持一致；若后续新增指南，以其词表为准。
+- 不从少量提交推导固定 scope、合并策略或分支流程；分支操作与提交遵守用户当前任务要求。
