@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { Clock3, ListTodo, Pencil, Plus, Search, Trash2 } from 'lucide-vue-next'
+import { ListTodo, Pencil, Plus, Search, Trash2 } from 'lucide-vue-next'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
 import { useDeleteTask, useRoomOptions, useSetTaskEnabled, useTaskPages } from './queries'
 import { fieldClass } from '@/components/ui/uiStyles'
@@ -157,7 +157,7 @@ async function deleteTask() {
               class="border-b border-border-hairline px-5 py-4"
             >
               <div
-                class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-5 gap-y-3 max-[850px]:grid-cols-1"
+                class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-3 max-[850px]:grid-cols-1"
               >
                 <div class="flex min-w-0 items-center gap-4">
                   <SwitchRoot
@@ -183,14 +183,10 @@ async function deleteTask() {
                       {{ roomText(task.roomId, rooms.data.value) }}
                       <span class="mx-1 text-text-disabled" aria-hidden="true">·</span>
                       {{ scheduleText(task) }}
+                      <span class="mx-1 text-text-disabled" aria-hidden="true">·</span>
+                      <span>{{ kindText(task) }}</span>
                     </p>
                   </div>
-                </div>
-                <div
-                  class="flex min-w-0 items-center justify-center gap-1.5 text-xs text-text-tertiary max-[850px]:justify-start"
-                >
-                  <Clock3 class="size-3.5 shrink-0" aria-hidden="true" />
-                  <span>{{ kindText(task) }}</span>
                 </div>
                 <div
                   class="flex min-w-0 flex-wrap items-center justify-end gap-x-5 gap-y-2 max-[850px]:justify-start"
