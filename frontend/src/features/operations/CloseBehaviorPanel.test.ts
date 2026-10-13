@@ -30,6 +30,8 @@ it('reads native close behavior, updates it and reports persistence failures', a
   expect(section.tagName).toBe('SECTION')
   expect(section.querySelector('h2')?.textContent).toBe('窗口与后台运行')
   expect(section.querySelector('legend')).toBeNull()
+  expect(within(section).queryByText(/无系统托盘时/)).toBeNull()
+  expect(within(section).queryByText(/标题栏的「退出应用」/)).toBeNull()
   const hide = await screen.findByRole('radio', { name: /关闭时隐藏窗口/ })
   const quit = screen.getByRole('radio', { name: /关闭时退出应用/ })
   await waitFor(() => expect(hide.getAttribute('aria-checked')).toBe('true'))
