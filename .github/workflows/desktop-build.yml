@@ -89,6 +89,10 @@ jobs:
         run: |
           docker version --format '{{.Server.Version}}'
           docker buildx version
+          # The packaging image and the AppDir need several GB; record what the
+          # runner actually offers so a disk failure is diagnosable from the log.
+          df -h / /var/lib/docker
+          free -h
 
       - name: Locate or install NSIS
         if: matrix.platform == 'windows'
@@ -255,6 +259,19 @@ jobs:
               && chmod 0644 /opt/dan-tick-smoke-tls/*
           USER 1001
           DOCKERFILE
+
+      - name: Allow nested user namespaces in the smoke container
+        run: |
+          # Ubuntu 24.04 restricts capabilities in unconfined user namespaces.
+          # Grant userns only to this named test-container profile, keeping the
+          # runner's global policy and the application's WebKit sandbox intact.
+          cat > "$RUNNER_TEMP/dan-tick-appimage-smoke.apparmor" <<'PROFILE'
+          abi <abi/4.0>,
+          profile dan-tick-appimage-smoke flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+          sudo apparmor_parser --replace "$RUNNER_TEMP/dan-tick-appimage-smoke.apparmor"
 
       - name: Check the packaged WebView with its sandbox enabled
         timeout-minutes: 20
