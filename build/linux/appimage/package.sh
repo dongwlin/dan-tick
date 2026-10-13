@@ -38,13 +38,35 @@ verify_archive() {
     || die "checksum mismatch for $archive"
 }
 
+download_archive() {
+  local url=$1 status
+  status=$(curl --location --retry 3 --connect-timeout 20 --silent --show-error \
+    --write-out '%{http_code}' --output "$runtime_archive.part" "$url") || {
+    rm -f -- "$runtime_archive.part"
+    die "could not download $url"
+  }
+  if [[ $status != 200 ]]; then
+    rm -f -- "$runtime_archive.part"
+    if [[ $status == 404 ]]; then
+      cat >&2 <<EOF
+error: $url is not published yet.
+       Run the 'Linux WebKit Runtime' workflow to build and publish it, then pin
+       the printed sha256 in build/linux/runtime/env.sh. To package a runtime
+       built elsewhere, set DAN_TICK_RUNTIME_ARCHIVE to that archive and
+       RUNTIME_ASSET_SHA256 to its checksum.
+EOF
+      exit 1
+    fi
+    die "downloading $url returned HTTP $status"
+  fi
+  mv -- "$runtime_archive.part" "$runtime_archive"
+}
+
 if [[ ! -d $runtime_tree/usr/lib ]]; then
   mkdir -p "$runtime_cache"
   if [[ ! -f $runtime_archive ]]; then
     log "downloading $RUNTIME_ASSET"
-    curl --fail --location --retry 3 --connect-timeout 20 \
-      "https://github.com/$RUNTIME_RELEASE_REPO/releases/download/$RUNTIME_RELEASE_TAG/$RUNTIME_ASSET" \
-      --output "$runtime_archive"
+    download_archive "https://github.com/$RUNTIME_RELEASE_REPO/releases/download/$RUNTIME_RELEASE_TAG/$RUNTIME_ASSET"
   fi
   verify_archive "$runtime_archive"
   log "unpacking the WebKit runtime $RUNTIME_ID"
