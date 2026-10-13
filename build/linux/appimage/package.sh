@@ -12,7 +12,7 @@
 #   DAN_TICK_RUNTIME_CACHE    where the runtime artifact is unpacked (bin/runtime)
 #   DAN_TICK_RUNTIME_ARCHIVE  use a local runtime archive instead of downloading
 #   DAN_TICK_REBUILD_IMAGE    set to 1 to rebuild the packaging image
-#   DAN_TICK_BUILD_CACHE      persistent container cache (bin/build-cache)
+#   DAN_TICK_BUILD_CACHE      container HOME, holding the Go and pnpm caches
 set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -24,7 +24,11 @@ runtime_cache=${DAN_TICK_RUNTIME_CACHE:-"$root_dir/bin/runtime"}
 runtime_tree="$runtime_cache/$RUNTIME_ID"
 runtime_archive=${DAN_TICK_RUNTIME_ARCHIVE:-"$runtime_cache/$RUNTIME_ASSET"}
 image=${DAN_TICK_PACKAGER_IMAGE:-"dan-tick-linux-packager:$RUNTIME_ID"}
-cache_dir=${DAN_TICK_BUILD_CACHE:-"$root_dir/bin/build-cache"}
+# The container keeps its Go module cache in HOME. That cache must stay outside
+# the repository: the repository is mounted into the container as it is, and a
+# module cache below it makes every later `go mod tidy ./...` scan the extracted
+# modules and fail on their `@version` directories.
+cache_dir=${DAN_TICK_BUILD_CACHE:-"${XDG_CACHE_HOME:-$HOME/.cache}/dan-tick/linux-packaging"}
 
 log() { printf '==> %s\n' "$*" >&2; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
