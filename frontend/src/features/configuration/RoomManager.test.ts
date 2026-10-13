@@ -189,7 +189,7 @@ it('loads real binding pages, switches views, adds rooms and retains input on fa
   expect(vi.mocked(ListRoomPage)).toHaveBeenCalledWith({ cursor: 2, limit: 12 })
   await user.click(screen.getByRole('button', { name: '列表' }))
   expect(screen.getByRole('button', { name: '列表' }).getAttribute('aria-pressed')).toBe('true')
-  expect(screen.getByText('主播：主播 · 300')).toBeTruthy()
+  expect(screen.getByText('主播 · 300')).toBeTruthy()
   expect(grid?.classList.contains('flex')).toBe(true)
   expect(screen.getAllByText('直播二')).toHaveLength(1)
   const listActions = screen.getByRole('button', { name: '修改 300 的备注' }).parentElement
@@ -272,7 +272,7 @@ it('edits a remark in a modal dialog, trims it, and returns focus to the trigger
   await user.click(trigger)
   // The Dialog replaces the inline form: the card itself no longer takes input.
   const dialog = screen.getByRole('dialog', { name: '修改备注' })
-  expect(within(dialog).getByText('直播间 300')).toBeTruthy()
+  expect(within(dialog).getByText('主播 · 300')).toBeTruthy()
   const input = within(dialog).getByRole<HTMLInputElement>('textbox', { name: '备注' })
   expect(input.value).toBe('晚间直播')
   expect(document.activeElement).toBe(input)
@@ -303,7 +303,7 @@ it('keeps the remark dialog open with the draft when saving fails', async () => 
     id: 3,
     platformRoomId: '300',
     title: '直播三',
-    anchorName: '主播',
+    anchorName: '',
     remark: '晚间直播',
     coverUrl: '',
     taskCount: 0,
@@ -319,6 +319,8 @@ it('keeps the remark dialog open with the draft when saving fails', async () => 
 
   await user.click(screen.getByRole('button', { name: '修改 300 的备注' }))
   const dialog = screen.getByRole('dialog', { name: '修改备注' })
+  // Without an anchor name the Dialog still names the platform room ID.
+  expect(within(dialog).getByText('未知 · 300')).toBeTruthy()
   const input = within(dialog).getByRole<HTMLInputElement>('textbox', { name: '备注' })
   await user.clear(input)
   await user.type(input, '午间直播')

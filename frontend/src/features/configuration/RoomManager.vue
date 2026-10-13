@@ -74,6 +74,11 @@ function secondaryTitle(room: Room): string {
   return room.title.trim() === roomDisplayName(room).trim() ? '' : room.title
 }
 
+/** Shared identity line: anchor name plus platform room ID. */
+function roomAnchorLine(room: Room): string {
+  return `${room.anchorName?.trim() || '未知'} · ${room.platformRoomId}`
+}
+
 function roomURL(room: Room): string {
   return `https://live.bilibili.com/${encodeURIComponent(room.platformRoomId)}`
 }
@@ -195,7 +200,7 @@ async function deleteRoom() {
       v-model:error="remarkError"
       :open="pendingRemark !== null"
       :room-id="pendingRemark?.id ?? null"
-      :room-label="pendingRemark ? `直播间 ${pendingRemark.platformRoomId}` : ''"
+      :room-label="pendingRemark ? roomAnchorLine(pendingRemark) : ''"
       :pending="update.isPending.value"
       @update:open="closeRemarkDialog"
       @submit="saveRemark"
@@ -275,8 +280,7 @@ async function deleteRoom() {
                     class="text-xs text-text-tertiary"
                     :class="view === 'list' ? 'min-w-0 max-w-full' : 'mt-2'"
                   >
-                    {{ view === 'list' ? '主播：' : '' }}{{ room.anchorName || '未知' }} ·
-                    {{ room.platformRoomId }}
+                    {{ roomAnchorLine(room) }}
                   </p>
                 </div>
               </div>
