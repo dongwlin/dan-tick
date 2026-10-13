@@ -69,6 +69,21 @@ is_excluded() {
   return 1
 }
 
+# Excluded libraries must not sit in the package either: the $ORIGIN run path is
+# searched for every dependency, so a bundled C library or C++ runtime would be
+# loaded in place of the host's and fail against its dynamic linker. The runtime
+# artifact only contains WebKit files, but a wrong or extended artifact must not
+# be able to produce a package that cannot start.
+drop_excluded_libraries() {
+  local name file
+  for name in "${excluded_libraries[@]}"; do
+    file="$lib_dir/$name"
+    [[ -e $file ]] || continue
+    log "dropping $name: the host provides it"
+    rm -f -- "$file"
+  done
+}
+
 is_elf() {
   [[ -f $1 && ! -L $1 ]] && [[ $(head -c 4 -- "$1" | od --address-radix=n --format=x1 | tr -d ' \n') == 7f454c46 ]]
 }
@@ -121,6 +136,7 @@ cp --archive "$runtime/usr/." "$app_dir/usr/"
 # The auxiliary processes are executed by the WebKit library, so their execute
 # permission is part of the contract (the generator this replaces shipped 0644).
 chmod 0755 "$runtime_dir"/WebKit*Process
+drop_excluded_libraries
 
 log "adding the sandbox helpers"
 install -m0755 "$(command -v bwrap)" "$runtime_dir/bwrap"
@@ -182,6 +198,7 @@ while ((${#queue[@]})); do
   done < <(dependencies_of "$elf")
 done
 
+drop_excluded_libraries
 log "bundled $(find "$lib_dir" -maxdepth 1 -type f | wc -l) shared libraries"
 
 # ---------------------------------------------------------------------------
@@ -244,6 +261,11 @@ done
 if find "$app_dir" -type f -print0 | xargs -0 -r patchelf --print-rpath 2>/dev/null | grep -qE '(^|:)/'; then
   die 'at least one file still has an absolute load path.'
 fi
+
+# Nothing may shadow the host C library, loader or C++ runtime.
+for name in "${excluded_libraries[@]}"; do
+  [[ -e $lib_dir/$name ]] && die "$name must stay on the host but is inside the package."
+done
 
 log "recording the packaged runtime manifest"
 manifest="$app_dir/usr/share/$app_name"
