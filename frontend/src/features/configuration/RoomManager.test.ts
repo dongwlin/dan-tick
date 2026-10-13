@@ -222,7 +222,7 @@ it('loads real binding pages, switches views, adds rooms and retains input on fa
   expect(within(dialog).queryByText('支持直播间 ID 或完整链接。')).toBeNull()
   expect(within(dialog).queryByText('可选，留空时列表显示直播标题。')).toBeNull()
   const remarkInput = within(dialog).getByRole<HTMLInputElement>('textbox', { name: '备注' })
-  expect(remarkInput.placeholder).toBe('（可选）')
+  expect(remarkInput.placeholder).toBe('可选')
   await user.type(input, '12345')
   await user.type(remarkInput, '晚间直播')
   await user.click(within(dialog).getByRole('button', { name: '添加直播间' }))

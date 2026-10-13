@@ -94,7 +94,7 @@ function focusFirstField(event: Event) {
           :aria-describedby="describedBy"
           maxlength="100"
           autocomplete="off"
-          placeholder="（可选）"
+          placeholder="可选"
         />
       </UiField>
       <div v-if="error" ref="errorBox" tabindex="-1" class="rounded-[10px]">

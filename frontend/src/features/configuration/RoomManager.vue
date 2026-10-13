@@ -264,7 +264,7 @@ async function deleteRoom() {
                     :class="fieldClass"
                     class="min-w-30 flex-1"
                     maxlength="100"
-                    placeholder="备注（可选）"
+                    placeholder="可选"
                   />
                   <button
                     type="submit"
