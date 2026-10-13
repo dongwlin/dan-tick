@@ -5,7 +5,6 @@ import { ExternalLink, LayoutGrid, List, Pencil, Plus, Radio, Trash2 } from 'luc
 import { ToggleGroupItem, ToggleGroupRoot } from 'reka-ui'
 import type { Room } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import { useAddRoom, useDeleteRoom, useRoomPages, useUpdateRoom } from './queries'
-import { fieldClass } from '@/components/ui/uiStyles'
 import { bindingError } from '@/lib/bindingError'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
@@ -17,6 +16,7 @@ import { primaryButton, secondaryButton } from '@/components/ui/buttonStyles'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import RoomCover from './RoomCover.vue'
 import RoomForm from './RoomForm.vue'
+import RoomRemarkDialog from './RoomRemarkDialog.vue'
 import { useRoomMetadataRefresh } from './useRoomMetadataRefresh'
 
 type RoomView = 'cards' | 'list'
@@ -38,8 +38,9 @@ const remove = useDeleteRoom()
 const view = shallowRef<RoomView>(readRoomView())
 const showForm = shallowRef(false)
 const pendingDelete = shallowRef<Room | null>(null)
-const editingID = shallowRef<number | null>(null)
-const remark = shallowRef('')
+const pendingRemark = shallowRef<Room | null>(null)
+const remarkDraft = shallowRef('')
+const remarkError = shallowRef('')
 const message = shallowRef('')
 const formError = shallowRef('')
 const roomContent = useTemplateRef<HTMLElement>('roomContent')
@@ -47,7 +48,7 @@ const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? [
 const deleteDescription = computed(() => {
   const room = pendingDelete.value
   if (!room) return ''
-  return `删除直播间“${room.remark || room.title || room.platformRoomId}”后，关联任务会同时删除且无法恢复。`
+  return `删除直播间“${roomDisplayName(room)}”后，关联任务会同时删除且无法恢复。`
 })
 useRoomMetadataRefresh(rooms)
 function setRoomView(next: RoomView) {
@@ -63,9 +64,14 @@ function updateRoomView(next: unknown) {
   if (next === 'cards' || next === 'list') setRoomView(next)
 }
 
+/** Primary card label: the local remark wins over the remote live-room title. */
+function roomDisplayName(room: Room): string {
+  return room.remark || room.title || `房间 ${room.platformRoomId}`
+}
+
 function secondaryTitle(room: Room): string {
   if (!room.title) return '未获取到直播标题'
-  return room.title.trim() === (room.remark || room.title).trim() ? '' : room.title
+  return room.title.trim() === roomDisplayName(room).trim() ? '' : room.title
 }
 
 function roomURL(room: Room): string {
@@ -101,18 +107,30 @@ async function addRoom(input: { value: string; remark: string }) {
     formError.value = bindingError(error)
   }
 }
-function beginEdit(room: Room) {
-  editingID.value = room.id
-  remark.value = room.remark
+function openRemarkDialog(room: Room) {
   message.value = ''
+  remarkError.value = ''
+  remarkDraft.value = room.remark
+  pendingRemark.value = room
 }
-async function saveRemark(id: number) {
+
+function closeRemarkDialog() {
+  pendingRemark.value = null
+  remarkDraft.value = ''
+  remarkError.value = ''
+}
+
+async function saveRemark(remark: string) {
+  const room = pendingRemark.value
+  if (!room) return
+  remarkError.value = ''
   try {
-    await update.mutateAsync({ id, remark: remark.value })
-    editingID.value = null
+    await update.mutateAsync({ id: room.id, remark })
+    closeRemarkDialog()
     message.value = ''
   } catch (error) {
-    message.value = bindingError(error)
+    // The Dialog stays open with the draft, so the user can retry (规范 5.3).
+    remarkError.value = bindingError(error)
   }
 }
 function requestDelete(room: Room) {
@@ -172,6 +190,16 @@ async function deleteRoom() {
       :pending="add.isPending.value"
       @submit="addRoom"
     />
+    <RoomRemarkDialog
+      v-model:remark="remarkDraft"
+      v-model:error="remarkError"
+      :open="pendingRemark !== null"
+      :room-id="pendingRemark?.id ?? null"
+      :room-label="pendingRemark ? `直播间 ${pendingRemark.platformRoomId}` : ''"
+      :pending="update.isPending.value"
+      @update:open="closeRemarkDialog"
+      @submit="saveRemark"
+    />
     <UiAlert v-if="message" role="alert">
       {{ message }}
     </UiAlert>
@@ -228,7 +256,7 @@ async function deleteRoom() {
                 <div :class="view === 'list' ? 'flex flex-wrap items-center gap-x-7 gap-y-2' : ''">
                   <div class="flex min-w-0 flex-wrap items-center gap-2">
                     <h2 class="min-w-0 truncate text-base font-semibold">
-                      {{ room.remark || room.title || `房间 ${room.platformRoomId}` }}
+                      {{ roomDisplayName(room) }}
                     </h2>
                     <span
                       v-if="room.remark"
@@ -251,33 +279,6 @@ async function deleteRoom() {
                     {{ room.platformRoomId }}
                   </p>
                 </div>
-                <form
-                  v-if="editingID === room.id"
-                  class="mt-3 flex flex-wrap gap-2"
-                  @submit.prevent="saveRemark(room.id)"
-                >
-                  <span class="sr-only">备注</span>
-                  <input
-                    :id="`remark-${room.id}`"
-                    v-model="remark"
-                    aria-label="备注"
-                    :class="fieldClass"
-                    class="min-w-30 flex-1"
-                    maxlength="100"
-                    placeholder="可选"
-                  />
-                  <button
-                    type="submit"
-                    :disabled="update.isPending.value"
-                    :aria-busy="update.isPending.value"
-                    :class="primaryButton"
-                  >
-                    保存备注
-                  </button>
-                  <button type="button" :class="secondaryButton" @click="editingID = null">
-                    取消
-                  </button>
-                </form>
               </div>
               <div
                 class="flex items-center justify-between"
@@ -304,7 +305,8 @@ async function deleteRoom() {
                   <UiIconButton
                     :label="`修改 ${room.platformRoomId} 的备注`"
                     title="修改备注"
-                    @click="beginEdit(room)"
+                    :disabled="update.isPending.value"
+                    @click="openRemarkDialog(room)"
                   >
                     <Pencil class="size-4" aria-hidden="true" />
                   </UiIconButton>

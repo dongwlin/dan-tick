@@ -240,10 +240,100 @@ it('loads real binding pages, switches views, adds rooms and retains input on fa
   expect(screen.queryByRole('textbox', { name: '直播间 ID 或链接' })).toBeNull()
 
   await user.click(screen.getByRole('button', { name: '修改 300 的备注' }))
-  const form = screen.getByRole<HTMLInputElement>('textbox', { name: '备注' })
-  await user.type(form, '备注')
-  await user.click(screen.getByRole('button', { name: '保存备注' }))
+  const remarkDialog = screen.getByRole('dialog', { name: '修改备注' })
+  await user.type(
+    within(remarkDialog).getByRole<HTMLInputElement>('textbox', { name: '备注' }),
+    '备注',
+  )
+  await user.click(within(remarkDialog).getByRole('button', { name: '保存备注' }))
   await waitFor(() => expect(vi.mocked(UpdateRoom)).toHaveBeenCalledWith(3, { remark: '备注' }))
+})
+
+it('edits a remark in a modal dialog, trims it, and returns focus to the trigger', async () => {
+  const room: Room = {
+    id: 3,
+    platformRoomId: '300',
+    title: '直播三',
+    anchorName: '主播',
+    remark: '晚间直播',
+    coverUrl: '',
+    taskCount: 1,
+  }
+  vi.mocked(ListRoomPage).mockResolvedValue({ items: [room], nextCursor: null })
+  vi.mocked(UpdateRoom).mockResolvedValue({ ...room, remark: '午间直播' })
+
+  const user = userEvent.setup()
+  render(RoomManager, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+  await screen.findByRole('heading', { name: '晚间直播' })
+
+  const trigger = screen.getByRole('button', { name: '修改 300 的备注' })
+  await user.click(trigger)
+  // The Dialog replaces the inline form: the card itself no longer takes input.
+  const dialog = screen.getByRole('dialog', { name: '修改备注' })
+  expect(within(dialog).getByText('直播间 300')).toBeTruthy()
+  const input = within(dialog).getByRole<HTMLInputElement>('textbox', { name: '备注' })
+  expect(input.value).toBe('晚间直播')
+  expect(document.activeElement).toBe(input)
+
+  // Dismissing discards the draft without writing anything.
+  await user.clear(input)
+  await user.type(input, '草稿')
+  await user.keyboard('{Escape}')
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(vi.mocked(UpdateRoom)).not.toHaveBeenCalled()
+
+  await user.click(trigger)
+  const reopened = screen.getByRole('dialog', { name: '修改备注' })
+  const reopenedInput = within(reopened).getByRole<HTMLInputElement>('textbox', { name: '备注' })
+  expect(reopenedInput.value).toBe('晚间直播')
+  await user.clear(reopenedInput)
+  await user.type(reopenedInput, '  午间直播  ')
+  await user.click(within(reopened).getByRole('button', { name: '保存备注' }))
+  await waitFor(() => expect(vi.mocked(UpdateRoom)).toHaveBeenCalledWith(3, { remark: '午间直播' }))
+
+  // Saving closes the overlay and puts focus back on the trigger that opened it.
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(document.activeElement).toBe(trigger)
+})
+
+it('keeps the remark dialog open with the draft when saving fails', async () => {
+  const room: Room = {
+    id: 3,
+    platformRoomId: '300',
+    title: '直播三',
+    anchorName: '主播',
+    remark: '晚间直播',
+    coverUrl: '',
+    taskCount: 0,
+  }
+  vi.mocked(ListRoomPage).mockResolvedValue({ items: [room], nextCursor: null })
+  vi.mocked(UpdateRoom).mockRejectedValueOnce(new Error('备注保存被拒绝'))
+
+  const user = userEvent.setup()
+  render(RoomManager, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+  await screen.findByRole('heading', { name: '晚间直播' })
+
+  await user.click(screen.getByRole('button', { name: '修改 300 的备注' }))
+  const dialog = screen.getByRole('dialog', { name: '修改备注' })
+  const input = within(dialog).getByRole<HTMLInputElement>('textbox', { name: '备注' })
+  await user.clear(input)
+  await user.type(input, '午间直播')
+  await user.click(within(dialog).getByRole('button', { name: '保存备注' }))
+
+  // The rejection is announced, keeps the draft for a retry, and the card's
+  // page-level alert stays empty instead of duplicating the message.
+  const failure = await within(dialog).findByRole('alert')
+  expect(failure.textContent).toBe('保存失败：操作失败，请重试或查看诊断日志')
+  expect(input.value).toBe('午间直播')
+  expect(screen.getAllByRole('alert')).toHaveLength(1)
+
+  // Editing the rejected value clears the message before the retry.
+  await user.type(input, '！')
+  await waitFor(() => expect(within(dialog).queryByRole('alert')).toBeNull())
 })
 
 it('discards an unfinished addition and returns focus to the trigger', async () => {
