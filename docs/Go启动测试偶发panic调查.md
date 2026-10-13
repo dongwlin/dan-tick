@@ -64,11 +64,11 @@
 
 它是合理但有限的规避措施：只提前处理目录创建失败，不验证文件访问、SQLite 初始化或迁移；检查成功后目录仍可能变化。前述第二实例通知边界是实际语义变化，本次保留并明确记录。不能为了覆盖其他数据库错误而把 SQLite 移到单实例所有权之前。
 
-Wails `New()` 已拥有 goroutine 和 Linux D-Bus 连接；公开 `Quit()` 在尚未 `Run()` 时无效，内部 cleanup 也未公开。正式入口立即 `os.Exit(start())`，进程退出会回收这些资源；测试进程中反复初始化则会保留全局 App 和其他状态。这是已有依赖限制，预检查没有新增它。真实 Wails 测试使用独立子进程，不以添加无效的 `defer Quit()` 假装解决资源清理。
+Wails `New()` 已拥有 goroutine 和 Linux D-Bus 连接；公开 `Quit()` 在尚未 `Run()` 时无效，内部 cleanup 也未公开。调查时正式入口立即 `os.Exit(start())`；后续入口重构改为 `os.Exit(app.Run(assets))`，仍在入口返回后退出进程。进程退出会回收这些资源；测试进程中反复初始化则会保留全局 App 和其他状态。这是已有依赖限制，预检查没有新增它。真实 Wails 测试使用独立子进程，不以添加无效的 `defer Quit()` 假装解决资源清理。
 
 ## 本次修复
 
-[main.go](../main.go) 为真实 Wails 边界安装安全错误与 panic handler：
+调查时在 `main.go` 为真实 Wails 边界安装安全错误与 panic handler；后续入口重构将这些处理迁至 [internal/app/desktop.go](../internal/app/desktop.go)，启动日志与退出码处理迁至 [startup.go](../internal/app/startup.go)：
 
 | 情况 | 事件与处理 |
 | --- | --- |
@@ -81,7 +81,16 @@ Wails `New()` 已拥有 goroutine 和 Linux D-Bus 连接；公开 `Quit()` 在�
 
 阶段标志使用原子访问；日志同步写入，覆盖 Wails `os.Exit()` 不执行应用 defer 的路径。原始错误、panic 值和堆栈不进入日志或终端，新事件纳入诊断导出白名单。没有修改单实例配置、SQLite 打开顺序或第三方代码。
 
-[main_test.go](../main_test.go) 新增普通错误与同步 panic 分类测试，以及独立子进程中的真实 D-Bus 初始化失败、Wails Fatal、Wails 异步事件监听器 panic 测试。测试验证准确事件序列、退出码、未提前打开 SQLite 及日志 / 终端脱敏。导出测试覆盖新增安全事件。
+调查时在 `main_test.go` 新增普通错误与同步 panic 分类测试，以及独立子进程中的真实 D-Bus 初始化失败、Wails Fatal、Wails 异步事件监听器 panic 测试；现已迁至 [internal/app/startup_test.go](../internal/app/startup_test.go)，使用测试文件系统提供前端资源。测试验证准确事件序列、退出码、未提前打开 SQLite 及日志 / 终端脱敏。导出测试覆盖新增安全事件。
+
+### 后续入口迁移验证（2026-10-13）
+
+启动和桌面装配迁入 `internal/app` 后，原诊断与生命周期函数体保持原行为，仅改为接收根入口的 `fs.FS`。启动测试另覆盖成功返回时的 `app.starting → app.stopped` 日志与退出码 0；未为测试导出内部辅助函数。
+
+- 使用本机 Go 1.26.8 验证 `go test ./...`、`go vet ./...` 和 `go test -race ./...`，均通过；这不改变 `go.mod` 的 Go 1.25.0 最低要求。`httptest` 需要本地监听端口，受限沙箱首次运行失败后，在允许本地测试端口的环境中重跑通过。
+- 重新生成 Binding，仍为 6 个 Service、37 个方法，20 个生成文件逐字节不变；前端 122 个行为测试、Lint、格式检查及 Linux `wails3 build`（含类型检查和生产前端构建）通过，模块文件与锁文件无变化。
+- Linux 真实 WebView 冒烟使用临时 XDG 数据目录、独立 D-Bus 会话和仅用于开发的 MCP 构建；该会话不配置服务自动激活目录，无法访问用户的 Secret Service。验证嵌入资源渲染总览、`ApplicationService.GetPreferences` 与 `WindowService.GetCloseBehavior` 的只读 Binding，以及 `WindowService.Quit` 正常退出；测试实例已停止，未读取实际账号或运行用户任务。
+- Windows 实机、完整托盘交互、睡眠恢复和 Keyring 验收未在本次迁移中执行，仍按原开发计划验收；此处冒烟不代表 G1～G3 全链路通过。
 
 ## 尚存风险与验证范围
 

@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -18,6 +19,23 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
+
+var startupAssets = fstest.MapFS{
+	"index.html": {Data: []byte("<!doctype html><title>dan-tick test</title>")},
+}
+
+func TestStartupSuccessIsPersisted(t *testing.T) {
+	oldState := xdg.StateHome
+	t.Cleanup(func() { xdg.StateHome = oldState })
+	xdg.StateHome = t.TempDir()
+
+	stderr := captureStartupStderr(t, func() {
+		require.Equal(t, 0, startWithRun(func(*diagnostic.Logger) error { return nil }))
+	})
+	events, _ := readStartupLog(t, xdg.StateHome)
+	require.Equal(t, []string{"app.starting", "app.stopped"}, events)
+	require.Empty(t, stderr)
+}
 
 func TestDatabaseStartupFailureIsPersisted(t *testing.T) {
 	oldData, oldState := xdg.DataHome, xdg.StateHome
@@ -29,7 +47,7 @@ func TestDatabaseStartupFailureIsPersisted(t *testing.T) {
 	xdg.DataHome = badDataDir
 	xdg.StateHome = filepath.Join(root, "state")
 
-	require.Equal(t, 1, start())
+	require.Equal(t, 1, Run(startupAssets))
 	require.Nil(t, application.Get(), "database directory failure must not initialize Wails")
 	events, log := readStartupLog(t, xdg.StateHome)
 	require.Equal(t, []string{"app.starting", "database.open_failed", "app.failed"}, events)
@@ -82,7 +100,7 @@ func TestDesktopInitializationFailureIsPersisted(t *testing.T) {
 	if os.Getenv("DAN_TICK_TEST_DESKTOP_FAILURE") == "1" {
 		xdg.DataHome = os.Getenv("DAN_TICK_TEST_DATA_HOME")
 		xdg.StateHome = os.Getenv("DAN_TICK_TEST_STATE_HOME")
-		os.Exit(start())
+		os.Exit(Run(startupAssets))
 	}
 
 	root := t.TempDir()
@@ -117,7 +135,7 @@ func TestWailsFatalAndManagedPanicArePersisted(t *testing.T) {
 		xdg.StateHome = os.Getenv("DAN_TICK_TEST_STATE_HOME")
 		os.Exit(startWithRun(func(logger *diagnostic.Logger) error {
 			desktopApp := newDesktopApplication(logger, application.Options{
-				Assets: application.AssetOptions{Handler: application.AssetFileServerFS(assets)},
+				Assets: application.AssetOptions{Handler: application.AssetFileServerFS(startupAssets)},
 			})
 			switch mode {
 			case "runtime_fatal":
@@ -155,7 +173,7 @@ func TestWailsFatalAndManagedPanicArePersisted(t *testing.T) {
 			require.Equal(t, 1, exitError.ExitCode())
 			events, log := readStartupLog(t, stateHome)
 			require.Equal(t, test.events, events)
-			for _, privateValue := range []string{privateDetail, stateHome, "goroutine", "main_test.go", "Error Details"} {
+			for _, privateValue := range []string{privateDetail, stateHome, "goroutine", "startup_test.go", "desktop.go", "Error Details"} {
 				require.NotContains(t, string(log), privateValue)
 				require.NotContains(t, string(output), privateValue)
 			}
