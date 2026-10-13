@@ -53,6 +53,13 @@ def main():
     # copies the test harness was installed with.
     os.environ["LD_LIBRARY_PATH"] = f"{libdir}:{os.environ.get('LD_LIBRARY_PATH', '')}".rstrip(":")
     os.environ["GIO_EXTRA_MODULES"] = str(libdir / "gio/modules")
+    # The packaged GLib reads its settings schemas from XDG_DATA_DIRS, so this has
+    # to point at the package like AppRun does. Otherwise distributions that keep
+    # their schemas elsewhere fail before the TLS handshake is even attempted.
+    os.environ["XDG_DATA_DIRS"] = (
+        f"{appdir}/usr/share:{os.environ.get('XDG_DATA_DIRS', '/usr/local/share:/usr/share')}"
+    )
+    os.environ["GSETTINGS_SCHEMA_DIR"] = str(appdir / "usr/share/glib-2.0/schemas")
 
     import gi
     gi.require_version("Gio", "2.0")
