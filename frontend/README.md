@@ -1,6 +1,6 @@
 # dan-tick 正式前端
 
-这里是 Wails 3 应用的 Vue 3 + TypeScript 前端，已建立 Vue Router 4（Hash History）的应用装配与占位页面、Tailwind v4 主题视觉基础、Reka UI / Lucide 控件及按定稿原型实现的正式侧栏和自绘标题栏；正式业务页面尚未迁移。业务页面按 [开发计划](../docs/开发计划.md) 逐步接入；已定稿的 Vanilla TypeScript 原型位于独立的 [`prototype/`](../prototype/README.md)，两者分别管理依赖和锁文件。
+这里是 Wails 3 应用的 Vue 3 + TypeScript 前端。
 
 ## 工具链与安装
 

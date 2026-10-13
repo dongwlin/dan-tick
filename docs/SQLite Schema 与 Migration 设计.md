@@ -205,7 +205,7 @@ E3 已将实时 Cron 回调的迟到宽限确定为 30 秒：在 30 秒以内（
 
 ## 6. Migration 与数据库初始化
 
-数据库初始化、恢复与 Cron 内核已按以下方案落地；正式桌面应用装配等后续阶段仍按开发计划实现：
+数据库初始化、恢复与 Cron 内核已按以下方案落地；后续实施单元见 [待办](待办.md)：
 
 1. `internal/storage` 负责打开数据库、配置连接、运行迁移和关闭资源。数据库位于系统用户数据目录；失败时停止依赖数据库的调度和 Wails Service 初始化，不自动删除或重建用户数据库。
 2. SQL 迁移文件放在 `internal/storage/migrations/`，按时间戳和目的命名，例如 `20261010000100_initial_schema.tx.up.sql` / `20261010000100_initial_schema.tx.down.sql`。使用 Bun `migrate.NewMigrations`、`Discover`、`Migrator.Init` 和 `Migrator.Migrate`（或实际版本提供的等价 API），在编译期通过 `go:embed` 内嵌 SQL。多条 SQL 用 `--bun:split` 分隔；采用 `.tx.up.sql`，让一组 Schema DDL 在一个事务内执行。不要在应用运行时使用 `NewCreateTable` / 自动同步 Model 来代替版本迁移。

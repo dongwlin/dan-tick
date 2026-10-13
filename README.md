@@ -35,7 +35,7 @@ Linux 采用**薄 AppImage + 系统 WebKit**：包内仅包含应用二进制、
 | `frontend/` | 正式 Wails 应用的 Vue 3 + TypeScript 前端 |
 | `prototype/` | 独立 UI 演示原型，Vanilla TypeScript + Vite |
 | `build/`、`Taskfile.yml` | Wails 开发、构建和平台打包配置 |
-| `docs/` | 产品需求、技术决策、开发计划和数据库设计文档 |
+| `docs/` | 产品需求、技术决策、待办与发布验收、数据库设计文档 |
 
 ## 诊断日志
 
@@ -49,7 +49,7 @@ Linux 采用**薄 AppImage + 系统 WebKit**：包内仅包含应用二进制、
 ## 文档入口
 
 - [产品需求（PRD）](docs/PRD.md)：功能范围、优先级和验收标准。
-- [开发计划](docs/开发计划.md)：开发顺序、最小可提交单元及各阶段完成条件。
+- [待办](docs/待办.md)：后续版本的 P1 待办清单。
 - [Roadmap](docs/ROADMAP.md)：以 v0.0.1 为首个 MVP 发布版本的版本规划与长期方向。
 - [技术栈选型](docs/技术栈选型.md)：已确定的技术决策、前后端职责和规范例外。
 - [构建与发布](docs/构建与发布.md)：CI 产物、Tag 自动版本、平台打包和 Release 流程。
