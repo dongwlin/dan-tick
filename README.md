@@ -51,7 +51,7 @@ Linux 采用**薄 AppImage + 系统 WebKit**：包内仅包含应用二进制、
 - [产品需求（PRD）](docs/PRD.md)：功能范围、优先级和验收标准。
 - [待办](docs/待办.md)：后续版本的 P1 待办清单。
 - [Roadmap](docs/ROADMAP.md)：以 v0.0.1 为首个 MVP 发布版本的版本规划与长期方向。
-- [技术栈选型](docs/技术栈选型.md)：已确定的技术决策、前后端职责和规范例外。
+- [技术栈选型](docs/技术栈选型.md)：技术选型、版本与配置约定，以及项目对通用规范的例外。
 - [构建与发布](docs/构建与发布.md)：CI 产物、Tag 自动版本、平台打包和 Release 流程。
 - [后端数据模型设计](docs/后端数据模型设计.md)及 [SQLite Schema 与 Migration 设计](docs/SQLite%20Schema%20与%20Migration%20设计.md)：业务实体、已落地的首版表结构与后续事务设计。
 - [B 站 API 对接参考](docs/B%20站%20API%20对接参考.md)：待实际接入时验证的第三方接口信息。
