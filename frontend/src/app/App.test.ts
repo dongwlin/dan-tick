@@ -68,6 +68,11 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/diagnosticsserv
   ExportDiagnostics: vi.fn(),
 }))
 
+function requiredElement<T extends Element>(element: T | null): T {
+  if (!element) throw new Error('Expected an element to be present')
+  return element
+}
+
 function renderAtHash(path: string) {
   window.history.replaceState(null, '', `/#${path}`)
   const router = createAppRouter()
@@ -102,6 +107,20 @@ describe('application navigation', () => {
     await user.click(screen.getByRole('link', { name: '设置' }))
     expect(await screen.findByText('测试用户')).toBeTruthy()
     expect(screen.getByText('UID：123456789')).toBeTruthy()
+  })
+
+  it('describes the icon-only navigation links with an accessible tooltip', async () => {
+    const user = renderAtHash('/')
+    const overview = await screen.findByRole('link', { name: '总览' })
+
+    overview.focus()
+    await waitFor(() => expect(overview.getAttribute('aria-describedby')).toBeTruthy())
+    const tooltipId = overview.getAttribute('aria-describedby')
+    if (!tooltipId) throw new Error('Expected a tooltip relationship')
+    expect(document.getElementById(tooltipId)?.textContent).toContain('总览')
+
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(overview.hasAttribute('aria-describedby')).toBe(false))
   })
 
   it('navigates from a deep link using the real Hash Router', async () => {
