@@ -2,6 +2,7 @@
 import { History, LayoutDashboard, ListTodo, Radio, Settings2 } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { TooltipContent, TooltipPortal, TooltipRoot, TooltipTrigger } from 'reka-ui'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
 import UiAvatar from '@/components/ui/UiAvatar.vue'
 import { useAccountStatus } from '@/features/operations/queries'
@@ -29,27 +30,37 @@ const navigation = [
     aria-label="主导航"
   >
     <nav class="flex flex-col gap-[9px] px-[11px] py-[22px] max-[600px]:px-[5px]" aria-label="页面">
-      <RouterLink
-        v-for="item in navigation"
-        :key="item.name"
-        :to="item.to"
-        :aria-label="item.label"
-        :aria-current="currentSection === item.name ? 'page' : undefined"
-        class="group relative flex min-h-[46px] items-center justify-center rounded-[10px] border border-transparent text-text-tertiary transition-colors hover:bg-surface-muted hover:text-text-primary"
-        :class="
-          currentSection === item.name
-            ? 'border-border-hairline bg-surface-muted text-accent-text'
-            : ''
-        "
-      >
-        <component :is="item.icon" class="size-[18px]" :stroke-width="1.8" aria-hidden="true" />
-        <span
-          class="pointer-events-none absolute top-1/2 left-[calc(100%+14px)] z-20 hidden -translate-y-1/2 whitespace-nowrap rounded-[7px] bg-surface-solid-hover px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-(--shadow-overlay) group-hover:block group-focus-visible:block"
-          aria-hidden="true"
-        >
-          {{ item.label }}
-        </span>
-      </RouterLink>
+      <TooltipRoot v-for="item in navigation" :key="item.name">
+        <TooltipTrigger as-child>
+          <RouterLink
+            :to="item.to"
+            :aria-label="item.label"
+            :aria-current="currentSection === item.name ? 'page' : undefined"
+            class="flex min-h-[46px] items-center justify-center rounded-[10px] border border-transparent text-text-tertiary transition-colors hover:bg-surface-muted hover:text-text-primary"
+            :class="
+              currentSection === item.name
+                ? 'border-border-hairline bg-surface-muted text-accent-text'
+                : ''
+            "
+          >
+            <component
+              :is="item.icon"
+              class="size-[18px]"
+              :stroke-width="1.8"
+              aria-hidden="true"
+            />
+          </RouterLink>
+        </TooltipTrigger>
+        <TooltipPortal>
+          <TooltipContent
+            side="right"
+            :side-offset="14"
+            class="z-50 whitespace-nowrap rounded-[7px] bg-surface-solid-hover px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-(--shadow-overlay)"
+          >
+            {{ item.label }}
+          </TooltipContent>
+        </TooltipPortal>
+      </TooltipRoot>
     </nav>
     <div class="mt-auto px-[11px] pt-3 pb-[22px] max-[600px]:px-[5px]">
       <div
