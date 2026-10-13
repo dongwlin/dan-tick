@@ -20,16 +20,12 @@ if (!files) throw new Error('Expected linux or windows')
 
 const output = path.join('bin', 'artifacts')
 await mkdir(output, { recursive: true })
-const checksums = []
 for (const [source, name] of files) {
   const destination = path.join(output, name)
   await copyFile(path.join('bin', source), destination)
   const hash = createHash('sha256')
   for await (const chunk of createReadStream(destination)) hash.update(chunk)
-  const checksum = `${hash.digest('hex')}  ${name}`
-  checksums.push(checksum)
-  if (platform === 'windows') {
-    await writeFile(`${destination}.sha256`, `${checksum}\n`)
-  }
+  // Each artifact ships exactly one sidecar checksum named after it, in the
+  // format `sha256sum --check` reads, so no aggregate manifest is needed.
+  await writeFile(`${destination}.sha256`, `${hash.digest('hex')}  ${name}\n`)
 }
-await writeFile(path.join(output, `SHA256SUMS-${platform}-amd64.txt`), `${checksums.join('\n')}\n`)

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, writeFile, chmod, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, readdir, writeFile, chmod, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -79,7 +79,37 @@ test('staged checksums allow a complete draft to be uploaded before publication'
   assert.match(commands[1], /^release create v1\.2\.3 --verify-tag --draft /)
   assert.match(commands[2], /^release upload v1\.2\.3 /)
   assert.match(commands[2], /windows-amd64-installer\.exe/)
+  for (const name of [
+    'linux-amd64.AppImage.sha256',
+    'windows-amd64.exe.sha256',
+    'windows-amd64-installer.exe.sha256',
+  ]) {
+    assert.match(commands[2], new RegExp(name.replaceAll('.', '\\.')))
+  }
+  assert.doesNotMatch(commands[2], /SHA256SUMS/)
   assert.equal(commands[3], 'release edit v1.2.3 --draft=false')
+})
+
+test('each artifact is staged with exactly one sidecar checksum named after it', async (t) => {
+  const f = await fixture(t)
+  const artifacts = [
+    `dan-tick-${version}-linux-amd64.AppImage`,
+    `dan-tick-${version}-windows-amd64.exe`,
+    `dan-tick-${version}-windows-amd64-installer.exe`,
+  ]
+  const staged = (await readdir(f.assets)).sort()
+  assert.deepEqual(staged, [...artifacts, ...artifacts.map((name) => `${name}.sha256`)].sort())
+  for (const name of artifacts) {
+    const sidecar = await readFile(path.join(f.assets, `${name}.sha256`), 'utf8')
+    // The sidecar names the artifact it covers, so sha256sum finds it by itself.
+    assert.match(sidecar, /^[0-9a-f]{64} {2}\S+\n$/)
+    assert.equal(sidecar.split('\n')[0].slice(66), name)
+    const check = spawnSync('sha256sum', ['--check', `${name}.sha256`], {
+      cwd: f.assets,
+      encoding: 'utf8',
+    })
+    assert.equal(check.status, 0, check.stderr)
+  }
 })
 
 test('an upload failure leaves the draft unpublished', async (t) => {
@@ -117,6 +147,14 @@ test('a corrupted artifact stops the process before contacting GitHub', async (t
 test('a missing installer stops the process before contacting GitHub', async (t) => {
   const f = await fixture(t)
   await rm(path.join(f.assets, `dan-tick-${version}-windows-amd64-installer.exe`))
+  await f.prepare()
+  assert.notEqual(f.run().status, 0)
+  await assert.rejects(f.commands(), { code: 'ENOENT' })
+})
+
+test('a missing sidecar checksum stops the process before contacting GitHub', async (t) => {
+  const f = await fixture(t)
+  await rm(path.join(f.assets, `dan-tick-${version}-linux-amd64.AppImage.sha256`))
   await f.prepare()
   assert.notEqual(f.run().status, 0)
   await assert.rejects(f.commands(), { code: 'ENOENT' })

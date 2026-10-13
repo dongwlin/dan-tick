@@ -165,7 +165,6 @@ jobs:
           path: |
             bin/artifacts/dan-tick-${{ needs.version.outputs.version }}-windows-amd64-installer.exe
             bin/artifacts/dan-tick-${{ needs.version.outputs.version }}-windows-amd64-installer.exe.sha256
-            bin/artifacts/SHA256SUMS-windows-amd64.txt
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -197,7 +196,7 @@ jobs:
 
       - name: Verify the final AppImage checksum
         working-directory: appimage-artifact
-        run: sha256sum --check SHA256SUMS-linux-amd64.txt
+        run: sha256sum --check dan-tick-${{ needs.version.outputs.version }}-linux-amd64.AppImage.sha256
 
       - name: Prepare a desktop test container with system WebKit
         env:

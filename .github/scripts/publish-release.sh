@@ -7,11 +7,11 @@ cd release-assets
 test -s "dan-tick-${RELEASE_TAG}-linux-amd64.AppImage"
 test -s "dan-tick-${RELEASE_TAG}-windows-amd64.exe"
 test -s "dan-tick-${RELEASE_TAG}-windows-amd64-installer.exe"
-sha256sum --check SHA256SUMS-linux-amd64.txt SHA256SUMS-windows-amd64.txt
+# Every artifact ships exactly one sidecar checksum named after it, and that
+# sidecar also names the artifact it covers, so a mismatch stops the release
+# here. No aggregate manifest is published.
 sha256sum --check \
-  "dan-tick-${RELEASE_TAG}-windows-amd64.exe.sha256" \
-  "dan-tick-${RELEASE_TAG}-windows-amd64-installer.exe.sha256"
-rm -- \
+  "dan-tick-${RELEASE_TAG}-linux-amd64.AppImage.sha256" \
   "dan-tick-${RELEASE_TAG}-windows-amd64.exe.sha256" \
   "dan-tick-${RELEASE_TAG}-windows-amd64-installer.exe.sha256"
 
