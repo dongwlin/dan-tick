@@ -2,6 +2,7 @@
 import { computed, nextTick, shallowRef, watch } from 'vue'
 import { RouterLink, onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ArrowLeft, Check } from 'lucide-vue-next'
+import { CheckboxGroupRoot, CheckboxIndicator, CheckboxRoot, Label } from 'reka-ui'
 import { useForm } from 'vee-validate'
 import { z } from 'zod'
 import type {
@@ -162,11 +163,11 @@ function focusErrorField(field: ErrorField) {
 const messageCount = computed(
   () => values.messages.split(/\r?\n/).filter((line) => line.trim()).length,
 )
-function toggleWeekday(bit: number, selected: boolean) {
-  setFieldValue(
-    'weekdays',
-    selected ? [...values.weekdays, bit] : values.weekdays.filter((d) => d !== bit),
-  )
+function updateWeekdays(next: unknown) {
+  if (Array.isArray(next)) setFieldValue('weekdays', next as number[])
+}
+function updateEnabled(checked: boolean | 'indeterminate') {
+  setFieldValue('enabled', checked === true)
 }
 function askToLeave(): Promise<boolean> {
   leaveDialogOpen.value = true
@@ -347,8 +348,17 @@ const submit = handleSubmit(
             </UiField>
           </div>
           <div class="mt-4 flex items-center gap-2 text-sm">
-            <input id="task-enabled" v-model="enabled" type="checkbox" />
-            <label for="task-enabled">启用这个任务的自动执行</label>
+            <CheckboxRoot
+              id="task-enabled"
+              :model-value="enabled"
+              class="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded border border-border-strong bg-surface-solid text-on-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring data-[state=checked]:border-accent-solid data-[state=checked]:bg-accent-solid"
+              @update:model-value="updateEnabled"
+            >
+              <CheckboxIndicator class="flex items-center justify-center">
+                <Check class="size-3" :stroke-width="2.5" aria-hidden="true" />
+              </CheckboxIndicator>
+            </CheckboxRoot>
+            <Label for="task-enabled" class="cursor-pointer">启用这个任务的自动执行</Label>
           </div>
         </UiPanel>
         <UiPanel>
@@ -503,30 +513,38 @@ const submit = handleSubmit(
           <UiField
             v-if="scheduleKind === 'weekly'"
             id="task-weekdays"
-            v-slot="{ describedBy }"
+            v-slot="{ id, describedBy }"
             group
             class="mt-4"
             label="选择星期"
             :error="errors.weekdays"
           >
-            <div class="flex flex-wrap gap-2">
-              <div
+            <CheckboxGroupRoot
+              :id="id"
+              :model-value="values.weekdays"
+              orientation="horizontal"
+              :aria-invalid="errors.weekdays ? true : undefined"
+              :aria-describedby="describedBy"
+              class="flex flex-wrap gap-2"
+              @update:model-value="updateWeekdays"
+            >
+              <CheckboxRoot
                 v-for="day in weekdays"
                 :key="day.bit"
-                class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border-strong px-3 py-2 text-sm"
+                :value="day.bit"
+                class="group flex cursor-pointer items-center gap-1.5 rounded-lg border border-border-strong bg-surface-solid px-3 py-2 text-sm text-text-primary hover:bg-surface-solid-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring data-[state=checked]:border-soft-accent-border data-[state=checked]:bg-soft-accent-bg"
               >
-                <input
-                  :id="day.bit === 0 ? 'task-weekdays' : undefined"
-                  type="checkbox"
-                  :aria-label="day.name"
-                  :aria-invalid="errors.weekdays ? true : undefined"
-                  :aria-describedby="describedBy"
-                  :checked="values.weekdays.includes(day.bit)"
-                  @change="toggleWeekday(day.bit, ($event.target as HTMLInputElement).checked)"
-                />
+                <span
+                  class="flex size-4 items-center justify-center rounded border border-border-strong bg-surface-solid text-on-accent group-data-[state=checked]:border-accent-solid group-data-[state=checked]:bg-accent-solid"
+                  aria-hidden="true"
+                >
+                  <CheckboxIndicator class="flex items-center justify-center">
+                    <Check class="size-3" :stroke-width="2.5" aria-hidden="true" />
+                  </CheckboxIndicator>
+                </span>
                 {{ day.name }}
-              </div>
-            </div>
+              </CheckboxRoot>
+            </CheckboxGroupRoot>
           </UiField>
         </UiPanel>
       </div>

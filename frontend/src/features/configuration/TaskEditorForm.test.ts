@@ -280,8 +280,15 @@ it('loads and edits a weekly loop task without losing message order', async () =
   expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' }).value).toBe(
     '第一条\n第二条',
   )
-  expect(screen.getByRole<HTMLInputElement>('checkbox', { name: '周一' }).checked).toBe(true)
-  expect(screen.getByRole<HTMLInputElement>('checkbox', { name: '周三' }).checked).toBe(true)
+  const monday = screen.getByRole('checkbox', { name: '周一' })
+  const tuesday = screen.getByRole('checkbox', { name: '周二' })
+  expect(monday.getAttribute('aria-checked')).toBe('true')
+  expect(screen.getByRole('checkbox', { name: '周三' }).getAttribute('aria-checked')).toBe('true')
+  expect(tuesday.getAttribute('aria-checked')).toBe('false')
+  await user.click(tuesday)
+  expect(tuesday.getAttribute('aria-checked')).toBe('true')
+  await user.click(tuesday)
+  expect(tuesday.getAttribute('aria-checked')).toBe('false')
   await user.clear(name)
   await user.type(name, '新任务')
   const saveButton = screen.getByRole('button', { name: '保存修改' })
