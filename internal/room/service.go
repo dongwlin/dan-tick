@@ -137,14 +137,24 @@ func (s *Service) RefreshMetadata(ctx context.Context, id int64) (bool, error) {
 	return affected > 0 && changed, nil
 }
 
-// Add validates the input with Bilibili and persists its canonical room ID.
-// Already-active IDs are rejected without overwriting user data. Readding a
-// deleted room restores its original row and remark, but NOT its deleted tasks.
-func (s *Service) Add(ctx context.Context, input string) (Room, error) {
-	info, err := s.client.Resolve(ctx, input)
+// AddInput carries one room addition. Value accepts a Bilibili room ID or
+// live.bilibili.com URL; Remark is the optional user-controlled display name.
+type AddInput struct {
+	Value  string
+	Remark string
+}
+
+// Add validates the input with Bilibili and persists its canonical room ID and
+// remark. Already-active IDs are rejected without overwriting user data.
+// Readding a deleted room restores its original row, remark and history, but
+// NOT its deleted tasks; a non-empty remark in the input replaces the stored
+// one, an empty remark keeps it.
+func (s *Service) Add(ctx context.Context, input AddInput) (Room, error) {
+	info, err := s.client.Resolve(ctx, input.Value)
 	if err != nil {
 		return Room{}, err
 	}
+	remark := strings.TrimSpace(input.Remark)
 	now := s.now().UTC().UnixMilli()
 	var saved Room
 	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
@@ -152,17 +162,18 @@ func (s *Service) Add(ctx context.Context, input string) (Room, error) {
 		// SQLite's unique constraint serializes simultaneous additions; only a
 		// previously deleted row can be changed by the conflict handler.
 		err := tx.QueryRowContext(ctx, `
-			INSERT INTO rooms (platform_room_id, title, anchor_name, cover_url, metadata_checked_at, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO rooms (platform_room_id, title, anchor_name, cover_url, remark, metadata_checked_at, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (platform_room_id) DO UPDATE SET
 				title = CASE WHEN excluded.title != '' THEN excluded.title ELSE rooms.title END,
 				anchor_name = CASE WHEN excluded.anchor_name != '' THEN excluded.anchor_name ELSE rooms.anchor_name END,
 				cover_url = excluded.cover_url,
+				remark = CASE WHEN excluded.remark != '' THEN excluded.remark ELSE rooms.remark END,
 				metadata_checked_at = excluded.metadata_checked_at,
 				updated_at = excluded.updated_at,
 				deleted_at = NULL
 			WHERE rooms.deleted_at IS NOT NULL
-			RETURNING id`, info.RoomID, info.Title, info.AnchorName, info.CoverURL, now, now, now).Scan(&id)
+			RETURNING id`, info.RoomID, info.Title, info.AnchorName, info.CoverURL, remark, now, now, now).Scan(&id)
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrAlreadyAdded
 		}

@@ -75,7 +75,7 @@ func TestRoomCRUDAndPersistence(t *testing.T) {
 	assert.NotNil(t, empty)
 	assert.Empty(t, empty)
 
-	first, err := s.Add(ctx, "https://live.bilibili.com/1")
+	first, err := s.Add(ctx, AddInput{Value: "https://live.bilibili.com/1"})
 	require.NoError(t, err)
 	assert.Positive(t, first.ID)
 	assert.Equal(t, "5440", first.PlatformRoomID)
@@ -86,13 +86,13 @@ func TestRoomCRUDAndPersistence(t *testing.T) {
 	assert.Nil(t, first.DeletedAt)
 	assert.Zero(t, first.TaskCount)
 
-	_, err = s.Add(ctx, "5440")
+	_, err = s.Add(ctx, AddInput{Value: "5440"})
 	require.ErrorIs(t, err, ErrAlreadyAdded)
 	updated, err := s.UpdateRemark(ctx, first.ID, "  New remark  ")
 	require.NoError(t, err)
 	assert.Equal(t, "New remark", updated.Remark)
 	taskID := createTask(t, db, first.ID, "daily")
-	second, err := s.Add(ctx, "9")
+	second, err := s.Add(ctx, AddInput{Value: "9"})
 	require.NoError(t, err)
 	rooms, err := s.List(ctx)
 	require.NoError(t, err)
@@ -108,7 +108,7 @@ func TestRoomCRUDAndPersistence(t *testing.T) {
 	require.NoError(t, err)
 	ps := NewService(persistDB, s.client)
 	ps.now = s.now
-	persisted, err := ps.Add(ctx, "1")
+	persisted, err := ps.Add(ctx, AddInput{Value: "1"})
 	require.NoError(t, err)
 	require.NoError(t, persistDB.Close())
 	persistDB, err = storage.Open(ctx, path)
@@ -130,6 +130,41 @@ func TestRoomCRUDAndPersistence(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rooms, 1)
 	assert.Equal(t, second.ID, rooms[0].ID)
+}
+
+func TestAddStoresTrimmedRemarkAndKeepsItWhenRestoring(t *testing.T) {
+	s, _ := setupRoomService(t, validRoomResponse)
+	ctx := context.Background()
+
+	saved, err := s.Add(ctx, AddInput{Value: "1", Remark: "  My favorite  "})
+	require.NoError(t, err)
+	assert.Equal(t, "My favorite", saved.Remark)
+
+	// A duplicate addition is rejected without touching the saved remark.
+	_, err = s.Add(ctx, AddInput{Value: "5440", Remark: "replacement"})
+	require.ErrorIs(t, err, ErrAlreadyAdded)
+	rooms, err := s.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, rooms, 1)
+	assert.Equal(t, "My favorite", rooms[0].Remark)
+
+	// Readding a deleted room keeps the remark unless the input provides one.
+	require.NoError(t, s.Delete(ctx, saved.ID))
+	restored, err := s.Add(ctx, AddInput{Value: "1"})
+	require.NoError(t, err)
+	assert.Equal(t, saved.ID, restored.ID)
+	assert.Equal(t, "My favorite", restored.Remark)
+
+	require.NoError(t, s.Delete(ctx, saved.ID))
+	replaced, err := s.Add(ctx, AddInput{Value: "1", Remark: "New note"})
+	require.NoError(t, err)
+	assert.Equal(t, saved.ID, replaced.ID)
+	assert.Equal(t, "New note", replaced.Remark)
+
+	// A blank remark is optional and stored as empty text.
+	fresh, err := s.Add(ctx, AddInput{Value: "9", Remark: "   "})
+	require.NoError(t, err)
+	assert.Empty(t, fresh.Remark)
 }
 
 func TestRefreshMetadataPersistsChangesPreservesRemarkAndThrottles(t *testing.T) {
@@ -157,7 +192,7 @@ func TestRefreshMetadataPersistsChangesPreservesRemarkAndThrottles(t *testing.T)
 		require.ErrorIs(t, err, ErrNotSaved)
 	}
 	assert.Zero(t, lookups)
-	saved, err := s.Add(ctx, "1")
+	saved, err := s.Add(ctx, AddInput{Value: "1"})
 	require.NoError(t, err)
 	assert.Equal(t, cover, saved.CoverURL)
 	assert.Equal(t, testNow, saved.MetadataCheckedAt)
@@ -238,7 +273,7 @@ func TestRefreshMetadataPersistsChangesPreservesRemarkAndThrottles(t *testing.T)
 func TestRestoreRoomKeepsIdentityRemarkAndHistoryButNotTasks(t *testing.T) {
 	s, db := setupRoomService(t, validRoomResponse)
 	ctx := context.Background()
-	original, err := s.Add(ctx, "1")
+	original, err := s.Add(ctx, AddInput{Value: "1"})
 	require.NoError(t, err)
 	_, err = s.UpdateRemark(ctx, original.ID, "My favorite")
 	require.NoError(t, err)
@@ -250,7 +285,7 @@ func TestRestoreRoomKeepsIdentityRemarkAndHistoryButNotTasks(t *testing.T) {
 	require.NoError(t, s.Delete(ctx, original.ID))
 
 	// A fresh short/long room lookup revives the room, not its deleted tasks.
-	restored, err := s.Add(ctx, "https://live.bilibili.com/5440")
+	restored, err := s.Add(ctx, AddInput{Value: "https://live.bilibili.com/5440"})
 	require.NoError(t, err)
 	assert.Equal(t, original.ID, restored.ID)
 	assert.Equal(t, original.CreatedAt, restored.CreatedAt)
@@ -290,11 +325,11 @@ func TestRestorePreservesCachedDisplayInfoWhenOptionalFieldsMissing(t *testing.T
 		http.Error(w, "unavailable", http.StatusBadGateway)
 	})
 	ctx := context.Background()
-	before, err := s.Add(ctx, "1")
+	before, err := s.Add(ctx, AddInput{Value: "1"})
 	require.NoError(t, err)
 	require.NoError(t, s.Delete(ctx, before.ID))
 	missing = true
-	after, err := s.Add(ctx, "1")
+	after, err := s.Add(ctx, AddInput{Value: "1"})
 	require.NoError(t, err)
 	assert.Equal(t, before.ID, after.ID)
 	assert.Equal(t, "Room title", after.Title)
@@ -310,7 +345,7 @@ func TestConcurrentAddUsesUniqueCanonicalRoomID(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, err := s.Add(context.Background(), input)
+			_, err := s.Add(context.Background(), AddInput{Value: input})
 			results <- err
 		}()
 	}
@@ -342,7 +377,7 @@ func TestRoomOperationsRejectDeletedOrUnknownIDs(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotSaved)
 		require.ErrorIs(t, s.Delete(ctx, id), ErrNotSaved)
 	}
-	room, err := s.Add(ctx, "1")
+	room, err := s.Add(ctx, AddInput{Value: "1"})
 	require.NoError(t, err)
 	require.NoError(t, s.Delete(ctx, room.ID))
 	_, err = s.UpdateRemark(ctx, room.ID, "not allowed")
@@ -353,7 +388,7 @@ func TestRoomOperationsRejectDeletedOrUnknownIDs(t *testing.T) {
 func TestDeleteRoomWithActiveExecutionRollsBack(t *testing.T) {
 	s, db := setupRoomService(t, validRoomResponse)
 	ctx := context.Background()
-	room, err := s.Add(ctx, "1")
+	room, err := s.Add(ctx, AddInput{Value: "1"})
 	require.NoError(t, err)
 	taskID := createTask(t, db, room.ID, "active task")
 	_, err = db.ExecContext(ctx, `
@@ -377,7 +412,7 @@ func TestDeleteRoomWithActiveExecutionRollsBack(t *testing.T) {
 func TestRoomDeleteDBFailureRollsBack(t *testing.T) {
 	s, db := setupRoomService(t, validRoomResponse)
 	ctx := context.Background()
-	room, err := s.Add(ctx, "1")
+	room, err := s.Add(ctx, AddInput{Value: "1"})
 	require.NoError(t, err)
 	taskID := createTask(t, db, room.ID, "prevent deletion")
 	_, err = db.ExecContext(ctx, `
@@ -410,7 +445,7 @@ func TestRoomMetadataIsOptionalAndReadIsOffline(t *testing.T) {
 	}
 	s, db := setupRoomService(t, handler)
 	ctx := context.Background()
-	room, err := s.Add(ctx, "1")
+	room, err := s.Add(ctx, AddInput{Value: "1"})
 	require.NoError(t, err)
 	assert.Empty(t, room.Title)
 	assert.Empty(t, room.AnchorName)
@@ -437,9 +472,9 @@ func TestRoomAddFailureDoesNotWrite(t *testing.T) {
 	s, db := setupRoomService(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 	})
-	_, err := s.Add(context.Background(), "1")
+	_, err := s.Add(context.Background(), AddInput{Value: "1"})
 	require.ErrorIs(t, err, ErrUnavailable)
-	_, err = s.Add(context.Background(), "https://example.com/1")
+	_, err = s.Add(context.Background(), AddInput{Value: "https://example.com/1"})
 	require.ErrorIs(t, err, ErrInvalidInput)
 	var count int
 	require.NoError(t, db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM rooms`).Scan(&count))
@@ -450,7 +485,7 @@ func TestRoomAddHonorsCancelledContext(t *testing.T) {
 	s, db := setupRoomService(t, validRoomResponse)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := s.Add(ctx, "1")
+	_, err := s.Add(ctx, AddInput{Value: "1"})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, context.Canceled))
 	var count int
@@ -468,7 +503,7 @@ func TestRoomAddPersistsVerifiedRoomWhenOptionalMetadataTimesOut(t *testing.T) {
 	})
 	s.client.timeout = 100 * time.Millisecond
 	ctx := context.Background()
-	saved, err := s.Add(ctx, "1")
+	saved, err := s.Add(ctx, AddInput{Value: "1"})
 	require.NoError(t, err)
 	assert.Equal(t, "5440", saved.PlatformRoomID)
 	assert.Equal(t, "Room title", saved.Title)
@@ -498,7 +533,7 @@ func TestRoomAddDoesNotPersistWhenCallerCancelsOptionalMetadata(t *testing.T) {
 		<-masterStarted
 		cancel()
 	}()
-	_, err := s.Add(ctx, "1")
+	_, err := s.Add(ctx, AddInput{Value: "1"})
 	require.ErrorIs(t, err, context.Canceled)
 	var count int
 	require.NoError(t, db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM rooms`).Scan(&count))

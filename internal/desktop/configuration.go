@@ -56,7 +56,8 @@ func roomView(saved room.Room) Room {
 }
 
 type AddRoomInput struct {
-	Value string `json:"value"` // Bilibili room ID or live.bilibili.com URL
+	Value  string `json:"value"`  // Bilibili room ID or live.bilibili.com URL
+	Remark string `json:"remark"` // Optional user remark; an empty remark keeps the stored one
 }
 
 type UpdateRoomInput struct {
@@ -112,7 +113,7 @@ func (s *ConfigurationService) RefreshRoomMetadata(ctx context.Context, id int64
 }
 
 func (s *ConfigurationService) AddRoom(ctx context.Context, input AddRoomInput) (Room, error) {
-	saved, err := s.rooms.Add(ctx, input.Value)
+	saved, err := s.rooms.Add(ctx, room.AddInput{Value: input.Value, Remark: input.Remark})
 	if err != nil {
 		return Room{}, protect(err)
 	}

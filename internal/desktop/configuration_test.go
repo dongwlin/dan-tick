@@ -74,10 +74,11 @@ func TestConfigurationBindingRoomTaskLifecycle(t *testing.T) {
 	_, err = service.AddRoom(ctx, AddRoomInput{Value: "invalid-sensitive-input"})
 	assertPublicError(t, err, "invalid_input", "invalid-sensitive-input")
 
-	savedRoom, err := service.AddRoom(ctx, AddRoomInput{Value: "12345"})
+	savedRoom, err := service.AddRoom(ctx, AddRoomInput{Value: "12345", Remark: "  personal room  "})
 	require.NoError(t, err)
 	require.Equal(t, "98765", savedRoom.PlatformRoomID)
 	require.Equal(t, "private room title", savedRoom.Title)
+	require.Equal(t, "personal room", savedRoom.Remark)
 	require.Zero(t, savedRoom.TaskCount)
 	require.Equal(t, "https://i0.hdslb.com/bfs/live/cover.jpg", savedRoom.CoverURL)
 	changed, err := service.RefreshRoomMetadata(ctx, savedRoom.ID)
