@@ -2,6 +2,7 @@
 import { computed, shallowRef } from 'vue'
 import { Browser } from '@wailsio/runtime'
 import { ExternalLink, LayoutGrid, List, Pencil, Plus, Radio, Trash2 } from 'lucide-vue-next'
+import { ToggleGroupItem, ToggleGroupRoot } from 'reka-ui'
 import type { Room } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import { useAddRoom, useDeleteRoom, useRoomPages, useUpdateRoom } from './queries'
 import { fieldClass } from '@/components/ui/uiStyles'
@@ -54,6 +55,10 @@ function setRoomView(next: RoomView) {
   } catch {
     // Preserve the current selection even when persistence is unavailable.
   }
+}
+
+function updateRoomView(next: unknown) {
+  if (next === 'cards' || next === 'list') setRoomView(next)
 }
 
 function secondaryTitle(room: Room): string {
@@ -122,34 +127,27 @@ async function deleteRoom() {
   <section class="flex min-h-0 flex-1 flex-col gap-4">
     <UiPageHeader title="直播间">
       <template #actions>
-        <div
-          class="flex rounded-[10px] border border-border-hairline bg-surface-muted p-1"
-          role="group"
+        <ToggleGroupRoot
+          :model-value="view"
+          type="single"
+          orientation="horizontal"
           aria-label="直播间显示方式"
+          class="flex rounded-[10px] border border-border-hairline bg-surface-muted p-1"
+          @update:model-value="updateRoomView"
         >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1.5 text-sm"
-            :class="
-              view === 'cards' ? 'bg-surface-solid-hover text-text-primary' : 'text-text-secondary'
-            "
-            :aria-pressed="view === 'cards'"
-            @click="setRoomView('cards')"
+          <ToggleGroupItem
+            value="cards"
+            class="rounded-md px-2.5 py-1.5 text-sm text-text-secondary hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring data-[state=on]:bg-surface-solid-hover data-[state=on]:text-text-primary"
           >
             <LayoutGrid class="mr-1 inline size-4" aria-hidden="true" />卡片
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1.5 text-sm"
-            :class="
-              view === 'list' ? 'bg-surface-solid-hover text-text-primary' : 'text-text-secondary'
-            "
-            :aria-pressed="view === 'list'"
-            @click="setRoomView('list')"
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="list"
+            class="rounded-md px-2.5 py-1.5 text-sm text-text-secondary hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring data-[state=on]:bg-surface-solid-hover data-[state=on]:text-text-primary"
           >
             <List class="mr-1 inline size-4" aria-hidden="true" />列表
-          </button>
-        </div>
+          </ToggleGroupItem>
+        </ToggleGroupRoot>
         <button type="button" :class="primaryButton" @click="showForm = !showForm">
           <Plus class="size-4" aria-hidden="true" />添加直播间
         </button>
