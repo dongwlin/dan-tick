@@ -218,13 +218,15 @@ jobs:
                 && rm -rf /var/lib/apt/lists/*; \
               else \
                 dnf install -y xorg-x11-server-Xvfb dbus-daemon xorg-x11-xauth xwininfo xdpyinfo \
-                  ImageMagick python3-pyatspi at-spi2-core tzdata google-noto-sans-cjk-fonts \
+                  ImageMagick python3-pyatspi gobject-introspection at-spi2-core tzdata google-noto-sans-cjk-fonts \
                   mesa-dri-drivers mesa-libEGL procps-ng shadow-utils ca-certificates fuse3 \
                   bubblewrap xdg-dbus-proxy gtk4 webkitgtk6.0 glib-networking \
                 && dnf clean all; \
               fi \
               && useradd --create-home --uid 1001 smoke
           USER 1001
+          # Check the AT-SPI Python imports before launching any application.
+          RUN python3 -c 'import pyatspi'
           DOCKERFILE
 
       - name: Allow nested user namespaces in the smoke container
