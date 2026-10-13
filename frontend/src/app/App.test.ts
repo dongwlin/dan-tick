@@ -68,11 +68,6 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/diagnosticsserv
   ExportDiagnostics: vi.fn(),
 }))
 
-function requiredElement<T extends Element>(element: T | null): T {
-  if (!element) throw new Error('Expected an element to be present')
-  return element
-}
-
 function renderAtHash(path: string) {
   window.history.replaceState(null, '', `/#${path}`)
   const router = createAppRouter()

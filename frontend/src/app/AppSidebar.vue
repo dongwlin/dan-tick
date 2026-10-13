@@ -43,12 +43,7 @@ const navigation = [
                 : ''
             "
           >
-            <component
-              :is="item.icon"
-              class="size-[18px]"
-              :stroke-width="1.8"
-              aria-hidden="true"
-            />
+            <component :is="item.icon" class="size-[18px]" :stroke-width="1.8" aria-hidden="true" />
           </RouterLink>
         </TooltipTrigger>
         <TooltipPortal>
