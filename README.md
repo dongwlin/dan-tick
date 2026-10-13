@@ -2,20 +2,6 @@
 
 dan-tick 是一款面向 Windows 和 Linux 的 B 站直播弹幕定时发送桌面应用。计划支持本地管理直播间、弹幕任务、定时调度与执行记录，由 Go 后端直接调用 B 站接口，不依赖打开直播间网页。
 
-**当前处于开发阶段，尚未发布正式版本。** 正式 Wails 3 应用已接入业务界面、扫码账号、调度、发送与执行记录；Windows / Linux 实机验收仍待完成。`prototype/` 是独立 UI 原型，使用演示数据，不会调用真实 B 站接口。
-
-## 预览 UI 原型
-
-需要 Node.js 和 pnpm：
-
-```sh
-cd prototype
-pnpm install
-pnpm dev
-```
-
-按终端提示打开本地地址（默认 `http://localhost:5173`）。原型包含仪表盘、弹幕任务、直播间、执行记录、设置和任务编辑等页面，支持演示交互；刷新后演示数据会恢复初始状态。具体说明见 [原型 README](prototype/README.md)。
-
 ## 运行正式应用
 
 需要 Go 1.25、Node.js 24.18.0、pnpm 12.6.0、Wails 3 CLI，以及目标平台所需的 Wails 构建依赖。正式前端的 Node 版本记录在 `frontend/.node-version`，pnpm 版本由 `frontend/package.json` 的 `packageManager` 固定。
