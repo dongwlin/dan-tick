@@ -29,6 +29,21 @@ jobs:
         with:
           persist-credentials: false
 
+      # The WebKit build tree needs more room than a standard runner leaves
+      # behind by default; drop the preinstalled toolchains this job never uses.
+      - name: Reclaim runner disk space
+        run: |
+          sudo rm -rf -- \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /usr/local/.ghcup \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL \
+            /opt/google/chrome
+          sudo docker image prune --all --force || true
+          df -h / /var/lib/docker
+          free -h
+
       # Fewer parallel compilers than cores keep the peak memory of the WebKit
       # build inside what a standard GitHub runner provides.
       - name: Build and export the runtime artifact
