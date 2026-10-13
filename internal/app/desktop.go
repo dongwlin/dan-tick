@@ -7,11 +7,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/dongwlin/dan-tick/internal/buildinfo"
 	"github.com/dongwlin/dan-tick/internal/desktop"
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
 	"github.com/dongwlin/dan-tick/internal/history"
@@ -144,17 +144,13 @@ func runDesktop(assets fs.FS, logger *diagnostic.Logger) error {
 		applicationService,
 		application.ServiceOptions{MarshalError: desktop.MarshalError},
 	))
-	version := "development"
-	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
-		version = info.Main.Version
-	}
 	desktopApp.RegisterService(application.NewServiceWithOptions(
 		desktop.NewDiagnosticsService(logger, func(path string) error {
 			return desktopApp.Env.OpenFileManager(path, false)
 		}, func() (string, error) {
 			return desktopApp.Dialog.SaveFile().SetFilename("dan-tick-diagnostics.zip").
 				AddFilter("ZIP archive", "*.zip").PromptForSingleSelection()
-		}, version),
+		}, buildinfo.Current().Version),
 		application.ServiceOptions{MarshalError: desktop.MarshalError},
 	))
 	desktopApp.RegisterService(application.NewServiceWithOptions(runtime.Operations, application.ServiceOptions{

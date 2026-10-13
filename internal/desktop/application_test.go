@@ -2,12 +2,27 @@ package desktop
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/dongwlin/dan-tick/internal/buildinfo"
 	"github.com/dongwlin/dan-tick/internal/schedule"
 	"github.com/stretchr/testify/require"
 )
+
+func TestApplicationBuildInfoBindingExposesCompiledMetadataWithoutBusinessDependencies(t *testing.T) {
+	original := buildinfo.Current()
+	t.Cleanup(func() {
+		buildinfo.Version, buildinfo.BuildTime, buildinfo.Commit = original.Version, original.BuildTime, original.Commit
+	})
+	buildinfo.Version, buildinfo.BuildTime, buildinfo.Commit = "v1.2.3", "2026-10-13T08:12:00Z", "a1b2c3d4e5f67890"
+
+	info := (&ApplicationService{}).GetBuildInfo()
+	encoded, err := json.Marshal(info)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"version":"v1.2.3","buildTime":"2026-10-13T08:12:00Z","commit":"a1b2c3d4e5f67890"}`, string(encoded))
+}
 
 func TestApplicationSettingsAndOverviewUsePersistedState(t *testing.T) {
 	ctx := context.Background()

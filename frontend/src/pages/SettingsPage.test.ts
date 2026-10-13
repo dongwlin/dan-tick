@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/vue'
+import { render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { State } from '@bindings/github.com/dongwlin/dan-tick/internal/account/models'
 import { CheckAccount } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservice'
+import { GetBuildInfo } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice'
 import { createAppQueryClient } from '@/app/queryClient'
 import { initTheme, useTheme } from '@/app/theme'
 import { operationKeys } from '@/features/operations/queries'
@@ -26,6 +27,7 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice',
   SetCloseBehavior: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice', () => ({
+  GetBuildInfo: vi.fn().mockResolvedValue({ version: 'dev', buildTime: '', commit: '' }),
   GetPreferences: vi
     .fn()
     .mockResolvedValue({ defaultTimezone: 'Asia/Shanghai', schedulingEnabled: true }),
@@ -76,6 +78,37 @@ it('places the about section after diagnostics with the existing brand mark', ()
   expect(about.textContent).toContain('版本号')
   expect(about.textContent).toContain('构建时间')
   expect(about.textContent).toContain('Git Commit')
+})
+
+it('loads compiled metadata through the Go binding and displays it in the about section', async () => {
+  vi.mocked(GetBuildInfo).mockResolvedValueOnce({
+    version: 'v1.2.3-a1b2c3d4',
+    buildTime: '2026-10-13T08:12:00Z',
+    commit: 'a1b2c3d4e5f67890',
+  })
+  render(SettingsPage, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+
+  const about = within(screen.getByRole('region', { name: '关于' }))
+  expect(await about.findByText('v1.2.3-a1b2c3d4')).toBeTruthy()
+  expect(about.getByText('Git Commit').nextElementSibling?.textContent).toBe('a1b2c3d4')
+  expect(about.getByText('构建时间').nextElementSibling?.textContent).toContain('2026')
+  expect(about.getByText('构建时间').nextElementSibling?.textContent).not.toBe('未提供')
+})
+
+it('keeps the about placeholders and gives safe feedback when the binding fails', async () => {
+  vi.mocked(GetBuildInfo).mockRejectedValueOnce(new Error('private desktop detail'))
+  render(SettingsPage, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+
+  const about = within(screen.getByRole('region', { name: '关于' }))
+  expect((await about.findByRole('alert')).textContent).toContain('无法读取构建信息')
+  expect(about.getByText('版本号').nextElementSibling?.textContent).toBe('dev')
+  expect(about.getByText('构建时间').nextElementSibling?.textContent).toBe('未提供')
+  expect(about.getByText('Git Commit').nextElementSibling?.textContent).toBe('未提供')
+  expect(screen.queryByText('private desktop detail')).toBeNull()
 })
 
 it('shows the verified nickname, avatar and UID above credentials, then clears them on expiry', async () => {

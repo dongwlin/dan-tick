@@ -12,7 +12,9 @@ import CloseBehaviorPanel from '@/features/operations/CloseBehaviorPanel.vue'
 import SchedulingPanel from '@/features/application/SchedulingPanel.vue'
 import DiagnosticsPanel from '@/features/application/DiagnosticsPanel.vue'
 import AboutPanel from '@/features/application/AboutPanel.vue'
+import { useBuildInfo } from '@/features/application/queries'
 
+const buildInfo = useBuildInfo()
 const { preference, storageAvailable, setPreference } = useTheme()
 const choices: { value: ThemePreference; label: string }[] = [
   { value: 'dark', label: '深色' },
@@ -70,7 +72,12 @@ function updateTheme(value: unknown): void {
           </UiAlert>
         </UiPanel>
         <DiagnosticsPanel />
-        <AboutPanel />
+        <AboutPanel
+          :version="buildInfo.data.value?.version"
+          :build-time="buildInfo.data.value?.buildTime"
+          :commit="buildInfo.data.value?.commit"
+          :metadata-unavailable="buildInfo.isError.value"
+        />
       </div>
     </div>
   </section>

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
+  GetBuildInfo,
   GetOverview,
   GetPreferences,
   SetDefaultTimezone,
@@ -17,6 +18,15 @@ export const applicationKeys = {
   preferences: ['application', 'preferences'] as const,
   overview: ['application', 'overview'] as const,
   diagnostics: ['application', 'diagnostics'] as const,
+  buildInfo: ['application', 'build-info'] as const,
+}
+
+export function useBuildInfo() {
+  return useQuery({
+    queryKey: applicationKeys.buildInfo,
+    queryFn: GetBuildInfo,
+    staleTime: Infinity,
+  })
 }
 
 export function usePreferences() {

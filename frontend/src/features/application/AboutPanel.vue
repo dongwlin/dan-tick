@@ -2,14 +2,16 @@
 import { computed } from 'vue'
 import titlebarWordmark from '@/assets/branding/titlebar-wordmark.png'
 import UiPanel from '@/components/ui/UiPanel.vue'
+import UiAlert from '@/components/ui/UiAlert.vue'
 
 const props = withDefaults(
   defineProps<{
     version?: string
     buildTime?: string
     commit?: string
+    metadataUnavailable?: boolean
   }>(),
-  { version: 'dev', buildTime: undefined, commit: undefined },
+  { version: 'dev', buildTime: undefined, commit: undefined, metadataUnavailable: false },
 )
 
 const buildTimeLabel = computed(() => {
@@ -51,5 +53,6 @@ const shortCommit = computed(() => props.commit?.trim().slice(0, 8) || '未提�
         <dd class="font-mono text-text-primary tabular-nums">{{ shortCommit }}</dd>
       </dl>
     </div>
+    <UiAlert v-if="metadataUnavailable" tone="warning">无法读取构建信息。</UiAlert>
   </UiPanel>
 </template>

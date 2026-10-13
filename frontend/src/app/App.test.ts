@@ -40,6 +40,7 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/historyservice'
 }))
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice', () => ({
+  GetBuildInfo: vi.fn().mockResolvedValue({ version: 'dev', buildTime: '', commit: '' }),
   GetPreferences: vi
     .fn()
     .mockResolvedValue({ defaultTimezone: 'Asia/Shanghai', schedulingEnabled: true }),

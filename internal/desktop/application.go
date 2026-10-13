@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dongwlin/dan-tick/internal/buildinfo"
 	"github.com/dongwlin/dan-tick/internal/history"
 	"github.com/dongwlin/dan-tick/internal/scheduler"
 	"github.com/dongwlin/dan-tick/internal/settings"
@@ -14,8 +15,8 @@ import (
 
 const EventApplicationChanged = "dan-tick:application-changed"
 
-// ApplicationService presents settings and a bounded dashboard snapshot from
-// SQLite. No scheduler state is held in the frontend or duplicated here.
+// ApplicationService presents build metadata, settings and a bounded dashboard
+// snapshot from SQLite. No scheduler state is duplicated here.
 type ApplicationService struct {
 	db       *bun.DB
 	settings *settings.Service
@@ -25,6 +26,10 @@ type ApplicationService struct {
 
 func NewApplicationService(db *bun.DB, manager *scheduler.Manager, changed func(string)) *ApplicationService {
 	return &ApplicationService{db: db, settings: settings.NewService(db), manager: manager, changed: changed}
+}
+
+func (s *ApplicationService) GetBuildInfo() buildinfo.Info {
+	return buildinfo.Current()
 }
 
 type Preferences struct {
