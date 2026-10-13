@@ -161,7 +161,7 @@ it('loads task pages, resets cursor on search and room changes, and applies enab
   expect(screen.queryByText('已启用')).toBeNull()
   expect(screen.getAllByText('下次执行')).toHaveLength(1)
   expect(screen.getAllByText('单次发送 · 1 条消息')).toHaveLength(1)
-  expect(screen.getByText(/星河放映室/)).toBeTruthy()
+  expect(screen.getByText(/星河 · 1001/)).toBeTruthy()
   expect(screen.getByText(/每天 09:00/)).toBeTruthy()
   expect(screen.getByRole('button', { name: '立即执行 第三个任务' })).toBeTruthy()
   expect(screen.getByRole('link', { name: '编辑任务 第三个任务' })).toBeTruthy()

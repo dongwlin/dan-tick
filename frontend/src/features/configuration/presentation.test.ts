@@ -93,9 +93,10 @@ it('formats schedule labels in the shape shown by the prototype', () => {
   ).toBe('2026-10-18 19:00')
 })
 
-it('uses the room remark first and hides the next run for disabled tasks', () => {
-  expect(roomText(1, [room])).toBe('星河放映室')
+it('labels rooms by anchor and platform room number and hides the next run for disabled tasks', () => {
+  expect(roomText(1, [room])).toBe('主播 · 22625025')
   expect(roomText(9, [room])).toBe('直播间 #9')
+  expect(roomText(1, [{ ...room, anchorName: '' }])).toBe('未知主播 · 22625025')
 
   expect(nextRunText(task({ nextDueAt: null }))).toBe('—')
   expect(nextRunText(task({ enabled: false, nextDueAt: 1_000_000 }))).toBe('—')

@@ -26,7 +26,8 @@ export function scheduleText(task: Task): string {
 export function roomText(roomId: number, rooms: Room[] | null | undefined): string {
   const room = rooms?.find((candidate) => candidate.id === roomId)
   if (!room) return `直播间 #${roomId}`
-  return room.remark || room.title || `直播间 ${room.platformRoomId}`
+  const anchor = room.anchorName?.trim() || '未知主播'
+  return `${anchor} · ${room.platformRoomId || roomId}`
 }
 
 export function kindText(task: Task): string {
