@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Prove the packaged application runs on its own GTK 4 / WebKitGTK 6.0 runtime.
+"""Prove the thin application runs on system GTK 4 / WebKitGTK 6.0.
 
 Everything checked here is read from the running system: which libraries the UI
 process and the WebKit auxiliary processes mapped, whether the helpers came from
-the AppImage, whether the WebKit sandbox is active, and which text the rendered
+the system, whether the WebKit sandbox is active, and which text the rendered
 frontend exposes through AT-SPI. A data driven label is required as well, because
 it only appears after the frontend received an answer from the Go bindings.
 """
@@ -11,16 +11,13 @@ import argparse
 import json
 import os
 from pathlib import Path
-import re
 import subprocess
 import time
 
 import pyatspi
 
-# Libraries that must come from inside the AppImage. The list covers the GUI and
-# JavaScript stack the package is responsible for; glibc, libstdc++ and the GPU
-# drivers are allowed to come from the host.
-BUNDLED_LIBRARIES = (
+# The GUI and JavaScript stack must come from the distribution's runtime.
+GUI_LIBRARIES = (
     "libgtk-4.so",
     "libwebkitgtk-6.0.so",
     "libjavascriptcoregtk-6.0.so",
@@ -33,6 +30,9 @@ BUNDLED_LIBRARIES = (
     "libharfbuzz.so",
     "libepoxy.so",
 )
+REQUIRED_APPLICATION_LIBRARIES = GUI_LIBRARIES[:6]
+SYSTEM_LIBRARY_DIRS = ("/usr/lib/", "/usr/lib64/", "/lib/", "/lib64/")
+SYSTEM_HELPER_DIRS = (*SYSTEM_LIBRARY_DIRS, "/usr/libexec/")
 
 # Static navigation labels plus one label that is only rendered after the
 # frontend received an empty task list from the Go service.
@@ -76,9 +76,11 @@ def loaded_libraries(pid):
     except OSError:
         return libraries
     for line in maps.splitlines():
-        match = re.search(r"\s(\S+\.so[^\s]*)$", line)
-        if match:
-            libraries.append(match.group(1))
+        # /proc/maps encodes the path after five whitespace-delimited fields.
+        # Preserve spaces in paths when the extracted AppDir has a spaced name.
+        fields = line.split(maxsplit=5)
+        if len(fields) == 6 and fields[5].startswith("/") and ".so" in fields[5]:
+            libraries.append(fields[5].removesuffix(" (deleted)"))
     return sorted(set(libraries))
 
 
@@ -92,16 +94,16 @@ def library_report(processes, bundle_prefix):
             for library in libraries
             if not library.startswith(bundle_prefix) and library.startswith("/")
         ]
-        from_host = [
+        gui_stack = [
             library
             for library in libraries
-            if any(Path(library).name.startswith(name) for name in BUNDLED_LIBRARIES)
-            and not library.startswith(bundle_prefix)
+            if any(Path(library).name.startswith(name) for name in GUI_LIBRARIES)
         ]
         report[process["executable"]] = {
             "bundled": bundled,
             "outside_bundle": outside,
-            "gui_stack_outside_bundle": from_host,
+            "gui_stack_from_system": [library for library in gui_stack if library.startswith(SYSTEM_LIBRARY_DIRS)],
+            "gui_stack_outside_system": [library for library in gui_stack if not library.startswith(SYSTEM_LIBRARY_DIRS)],
         }
     return report
 
@@ -120,6 +122,17 @@ def frontend_names(app_pids):
                 visited += 1
                 if node.name:
                     names.add(node.name)
+                # WebKit versions differ in whether a plain paragraph has an
+                # accessible name. Read its Text interface as well so the same
+                # rendered, Binding-dependent empty state is checked on all
+                # distributions.
+                try:
+                    text = node.queryText().getText(0, -1).strip()
+                    if text:
+                        names.add(text)
+                except Exception:
+                    # Most containers and controls have no Text interface.
+                    pass
                 if depth < 40:
                     pending.extend((child, depth + 1) for child in node)
         except Exception:
@@ -162,8 +175,9 @@ def main():
             time.sleep(0.5)
             continue
 
-        packaged_helpers = [process for process in helpers if process["executable"].startswith(bundle_prefix)]
-        web_processes = [process for process in packaged_helpers if process["executable"].endswith("/WebKitWebProcess")]
+        system_helpers = [process for process in helpers if process["executable"].startswith(SYSTEM_HELPER_DIRS)]
+        helpers_outside_system = [process["executable"] for process in helpers if process not in system_helpers]
+        web_processes = [process for process in system_helpers if process["executable"].endswith("/WebKitWebProcess")]
 
         # The helper's own seccomp filter, its no-new-privileges flag and its own
         # user namespace prove that the WebKit sandbox ran with bubblewrap.
@@ -184,7 +198,8 @@ def main():
             "bundle_prefix": bundle_prefix,
             "processes": processes,
             "libraries": library_report(processes, bundle_prefix),
-            "packaged_helpers": [process["executable"] for process in packaged_helpers],
+            "system_helpers": [process["executable"] for process in system_helpers],
+            "helpers_outside_system": helpers_outside_system,
             "sandboxed_web_processes": sandboxed,
         }
 
@@ -200,36 +215,49 @@ def main():
         report["window_found"] = '"dan-tick"' in windows
 
         injected_bundle = any(
-            any(Path(library).name.startswith("libwebkitgtkinjectedbundle") for library in entry["bundled"])
+            any(Path(library).name.startswith("libwebkitgtkinjectedbundle")
+                and library.startswith(SYSTEM_LIBRARY_DIRS) for library in entry["outside_bundle"])
             for name, entry in report["libraries"].items()
             if name.endswith("/WebKitWebProcess")
         )
-        report["injected_bundle_from_bundle"] = injected_bundle
+        report["injected_bundle_from_system"] = injected_bundle
 
-        gui_stack_outside = {
-            name: entry["gui_stack_outside_bundle"]
+        gui_stack_outside_system = {
+            name: entry["gui_stack_outside_system"]
             for name, entry in report["libraries"].items()
-            if entry["gui_stack_outside_bundle"]
+            if entry["gui_stack_outside_system"]
         }
-        report["gui_stack_outside_bundle"] = gui_stack_outside
+        report["gui_stack_outside_system"] = gui_stack_outside_system
+        application_libraries = [
+            library
+            for executable, entry in report["libraries"].items()
+            if executable == str(Path(bundle_prefix) / "usr/bin/dan-tick")
+            for library in entry["gui_stack_from_system"]
+        ]
+        report["missing_application_libraries"] = [
+            name for name in REQUIRED_APPLICATION_LIBRARIES
+            if not any(Path(library).name.startswith(name) for library in application_libraries)
+        ]
 
         (args.results / "webview.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
         last_report = report
 
-        if (packaged_helpers
+        if (system_helpers
+                and not helpers_outside_system
                 and sandboxed
                 and injected_bundle
-                and not gui_stack_outside
+                and not gui_stack_outside_system
+                and not report["missing_application_libraries"]
                 and not report["missing_frontend_names"]
                 and report["window_found"]):
             return
         time.sleep(0.5)
 
     raise SystemExit(
-        "The packaged WebKit runtime, its sandbox and the rendered Vue page did not become ready: "
+        "System WebKit, its sandbox and the rendered Vue page did not become ready: "
         + json.dumps({key: last_report.get(key) for key in (
-            "packaged_helpers", "sandboxed_web_processes", "injected_bundle_from_bundle",
-            "gui_stack_outside_bundle", "missing_frontend_names", "window_found")}, ensure_ascii=False)
+            "system_helpers", "helpers_outside_system", "sandboxed_web_processes", "injected_bundle_from_system",
+            "gui_stack_outside_system", "missing_application_libraries", "missing_frontend_names", "window_found")}, ensure_ascii=False)
     )
 
 

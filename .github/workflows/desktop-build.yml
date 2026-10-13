@@ -81,18 +81,13 @@ jobs:
           package_json_file: frontend/package.json
           run_install: false
 
-      # The Linux build and packaging runs in the pinned image from
-      # build/linux/runtime/Dockerfile, so the runner needs no GTK or WebKit
-      # package and cannot leak its own libraries into the AppImage.
-      - name: Check the container runtime for the Linux build
+      - name: Install Linux build and AppImage dependencies
         if: matrix.platform == 'linux'
         run: |
-          docker version --format '{{.Server.Version}}'
-          docker buildx version
-          # The packaging image and the AppDir need several GB; record what the
-          # runner actually offers so a disk failure is diagnosable from the log.
-          df -h / /var/lib/docker
-          free -h
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev \
+            curl ca-certificates desktop-file-utils squashfs-tools
 
       - name: Locate or install NSIS
         if: matrix.platform == 'windows'
@@ -107,12 +102,11 @@ jobs:
           $nsisDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install matching Wails CLI
-        if: matrix.platform == 'windows'
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.25
 
-      - name: Build the self-contained Linux AppImage
+      - name: Build the thin Linux AppImage
         if: matrix.platform == 'linux'
-        run: bash build/linux/appimage/package.sh
+        run: wails3 task linux:create:appimage ARCH=amd64
 
       - name: Build Windows EXE and per-user NSIS installer
         if: matrix.platform == 'windows'
@@ -187,16 +181,10 @@ jobs:
         include:
           - distribution: Ubuntu 26.04
             image: ubuntu:26.04
-            host-sandbox-tools: ''
           - distribution: Debian 13
             image: debian:13
-            host-sandbox-tools: ''
-          # Only this environment installs bubblewrap and xdg-dbus-proxy, so the
-          # matrix covers both the packaged fallback helpers and the case where
-          # WebKit prefers the system tools (and their security policy).
           - distribution: Fedora 44
             image: fedora:44
-            host-sandbox-tools: bubblewrap xdg-dbus-proxy
     steps:
       - uses: actions/checkout@v7
         with:
@@ -211,52 +199,31 @@ jobs:
         working-directory: appimage-artifact
         run: sha256sum --check SHA256SUMS-linux-amd64.txt
 
-      - name: Prepare a minimal desktop test container
+      - name: Prepare a desktop test container with system WebKit
         env:
           SMOKE_BASE_IMAGE: ${{ matrix.image }}
-          SMOKE_EXTRA_PACKAGES: ${{ matrix.host-sandbox-tools }}
         run: |
           docker build --tag dan-tick-appimage-smoke --build-arg BASE_IMAGE="$SMOKE_BASE_IMAGE" \
-            --build-arg EXTRA_PACKAGES="$SMOKE_EXTRA_PACKAGES" --file - . <<'DOCKERFILE'
+            --file - . <<'DOCKERFILE'
           ARG BASE_IMAGE=ubuntu:24.04
-          ARG EXTRA_PACKAGES=
           FROM ${BASE_IMAGE}
-          # GTK, WebKitGTK, JavaScriptCore, GIO modules and the sandbox helpers are
-          # deliberately absent: the AppImage has to bring all of them.
+          # The thin AppImage uses the distribution's GTK, WebKitGTK, GIO
+          # modules and sandbox helpers, just as it does on a user's desktop.
           RUN if command -v apt-get >/dev/null; then \
                 apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-                  xvfb dbus-x11 xauth x11-utils imagemagick python3-pyatspi python3-gi gir1.2-glib-2.0 \
-                  at-spi2-core fonts-noto-cjk libgl1-mesa-dri libegl1 procps passwd openssl \
-                  ca-certificates fuse3 ${EXTRA_PACKAGES} \
+                  xvfb dbus-x11 xauth x11-utils imagemagick python3-pyatspi \
+                  at-spi2-core fonts-noto-cjk libgl1-mesa-dri libegl1 procps passwd \
+                  ca-certificates fuse3 bubblewrap xdg-dbus-proxy \
+                  libgtk-4-1 libwebkitgtk-6.0-4 glib-networking \
                 && rm -rf /var/lib/apt/lists/*; \
               else \
                 dnf install -y xorg-x11-server-Xvfb dbus-daemon xorg-x11-xauth xwininfo xdpyinfo \
-                  ImageMagick python3-pyatspi python3-gobject at-spi2-core tzdata google-noto-sans-cjk-fonts \
-                  mesa-dri-drivers mesa-libEGL procps-ng shadow-utils openssl ca-certificates fuse3 \
-                  ${EXTRA_PACKAGES} \
+                  ImageMagick python3-pyatspi at-spi2-core tzdata google-noto-sans-cjk-fonts \
+                  mesa-dri-drivers mesa-libEGL procps-ng shadow-utils ca-certificates fuse3 \
+                  bubblewrap xdg-dbus-proxy gtk4 webkitgtk6.0 glib-networking \
                 && dnf clean all; \
               fi \
               && useradd --create-home --uid 1001 smoke
-          # A test certificate authority lets the TLS check complete a real
-          # handshake without touching any production endpoint.
-          RUN mkdir -p /opt/dan-tick-smoke-tls \
-              && openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=dan-tick smoke CA' \
-                   -keyout /opt/dan-tick-smoke-tls/ca.key -out /opt/dan-tick-smoke-tls/ca.crt \
-              && openssl req -newkey rsa:2048 -nodes -subj '/CN=localhost' \
-                   -keyout /opt/dan-tick-smoke-tls/server.key -out /opt/dan-tick-smoke-tls/server.csr \
-              && printf 'subjectAltName=DNS:localhost,IP:127.0.0.1\n' > /tmp/san.cnf \
-              && openssl x509 -req -days 2 -extfile /tmp/san.cnf -CAcreateserial \
-                   -in /opt/dan-tick-smoke-tls/server.csr -CA /opt/dan-tick-smoke-tls/ca.crt \
-                   -CAkey /opt/dan-tick-smoke-tls/ca.key -out /opt/dan-tick-smoke-tls/server.crt \
-              && if command -v update-ca-certificates >/dev/null; then \
-                   install -m0644 /opt/dan-tick-smoke-tls/ca.crt /usr/local/share/ca-certificates/dan-tick-smoke.crt \
-                   && update-ca-certificates; \
-                 else \
-                   install -m0644 /opt/dan-tick-smoke-tls/ca.crt /etc/pki/ca-trust/source/anchors/dan-tick-smoke.crt \
-                   && update-ca-trust; \
-                 fi \
-              && rm -f /opt/dan-tick-smoke-tls/ca.key /opt/dan-tick-smoke-tls/ca.srl /opt/dan-tick-smoke-tls/server.csr \
-              && chmod 0644 /opt/dan-tick-smoke-tls/*
           USER 1001
           DOCKERFILE
 
@@ -273,7 +240,7 @@ jobs:
           PROFILE
           sudo apparmor_parser --replace "$RUNNER_TEMP/dan-tick-appimage-smoke.apparmor"
 
-      - name: Check the packaged WebView with its sandbox enabled
+      - name: Check the AppImage with system WebKit and its sandbox enabled
         timeout-minutes: 20
         run: |
           mkdir -p appimage-smoke-results

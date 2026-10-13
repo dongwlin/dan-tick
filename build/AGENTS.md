@@ -25,7 +25,7 @@
 
 - Windows 当前默认 `CGO_ENABLED=0`，使用原生 Go 交叉编译；非 Windows 主机显式启用 CGO 时走 Docker。Linux 桌面构建需要 CGO，同平台 / 同架构且有 C 编译器时走原生，其余走 Docker；SQLite 驱动纯 Go 不代表 Wails WebView 无平台依赖。
 - 当前 Linux 默认栈为 GTK4 + WebKitGTK 6.0，nFPM 依赖与 Docker 编译环境应与所选栈一致；使用其他 Wails build tag 时同时核对打包依赖和目标环境，不能只改编译标志。
-- Linux AppImage 发布使用 Ubuntu 24.04 编译基线，**自带** GTK4、WebKitGTK 6.0、JavaScriptCore、WebKit helper、注入库、GIO 模块（含 TLS）、图片加载器、GLib schemas 与沙箱工具；宿主只提供 glibc / libstdc++、字体与显卡驱动栈。`linux/runtime/` 固定 WebKitGTK 源码、构建选项与 `relocatable-runtime.patch`，产出按 SHA-256 固定的运行时产物；`linux/appimage/package.sh` 下载该产物、构建固定打包镜像并在其中编译应用与组装 AppDir，`linux/appimage/build.sh` 用固定版本 `appimagetool` 收藏依赖闭包、改写为 `$ORIGIN` 相对路径并保证 helper 可执行。不调用 Wails AppImage generator / linuxdeploy，不做无差别二进制替换，不关闭沙箱，也不要求用户安装系统 GTK / WebKit。兼容范围、FUSE 与提取运行方式见 [构建与发布](../docs/构建与发布.md#linux-appimage-自带运行时与兼容范围)。
+- Linux 发布采用**薄 AppImage + 系统 WebKit**，使用 Ubuntu 24.04 编译基线，适配 Ubuntu 26.04、Debian 13 和 Fedora 44；Ubuntu 24.04 及其他旧版本仅尽力兼容，不作为验收目标。`linux:create:appimage` 依赖普通 Linux `build`，`linux/appimage/build.sh` 用固定版本 `appimagetool` 组装只含应用二进制、启动入口和图标的 AppDir。GTK4、WebKitGTK 6.0、JavaScriptCore、helper、注入库、GIO 模块、图片加载器、schemas 与沙箱工具均由发行版系统包提供，不复制运行时依赖、不重定位 WebKit、不关闭沙箱。兼容范围、安装命令、FUSE 与提取运行方式见 [构建与发布](../docs/构建与发布.md#linux-appimage-运行依赖与兼容范围)。
 - 原生开发构建保留 `DEV=true` 的非 production 路径；生产构建使用 `production`、`-trimpath`、`-buildvcs=false` 与剥离符号，Windows 还使用 `-H windowsgui`。调整 flags 时同时检查原生、Docker 和 Binding 生成路径，不假定各路径传参相同；MCP 生产隔离遵守根文档。
 - 图标和 `.syso` 通过 Wails 生成；Windows 构建后的根 `.syso` 会清理，检查失败构建是否遗留生成文件。`config.yml` 的 `info` / 文件关联变更会自动同步到支持平台的目标资源；`common:update:build-assets` 可按 `PLATFORM` 同步 Windows / Linux。直接运行 Wails 原生 `wails3 update build-assets` 会覆盖多个平台模板资源，先核对已有定制，再检查生成差异。
 - Linux Task 生成 `linux/dan-tick.desktop`，nFPM 引用该路径与各尺寸图标；不要混淆保留的 `linux/desktop` 模板。Windows 资源路径、Manifest 与安装包元数据也应按实际任务核对，保留的占位值不能当作已确认的发行信息。
@@ -45,6 +45,6 @@ wails3 task package GOOS=linux              # Linux 打包任务
 ```
 
 - Taskfile、编译标志或资源路径变更验证受影响构建；触及打包配置时再验证对应安装包产物、资源和依赖。不为纯指令文档修改执行完整打包。
-- AppImage 兼容性检查使用同一个最终包，在**没有安装 GTK4 / WebKitGTK 6.0** 的 Ubuntu 26.04、Debian 13、Fedora 44 容器中核对包内 helper 执行权限、主程序与 helper 的动态库映射、注入库、沙箱标志、包内 GIO TLS 模块的本地 HTTPS 握手，以及真实 Vue 页面的 AT-SPI 文本（含依赖 Go Binding 结果的文案）。运行方式覆盖 FUSE 挂载、提取运行与含空格路径的提取运行。现有 CI 容器通过 Xvfb / 软件渲染验证，且纳入 Release 门禁；不得将该 X11 / 软件渲染检查写成 Wayland、GPU、SELinux / 默认 AppArmor 或全桌面验收通过。新增捆绑依赖或改用其他打包工具前，先更新技术选型并验证各发行版的 helper、图形与沙箱行为。
+- AppImage 兼容性检查使用同一个最终包，在**已安装发行版 GTK4 / WebKitGTK 6.0 / GIO TLS 运行时**的 Ubuntu 26.04、Debian 13、Fedora 44 容器中核对主程序与系统 helper 的动态库映射、系统注入库、沙箱标志，以及真实 Vue 页面的 AT-SPI 文本（含依赖 Go Binding 结果的文案）。运行方式覆盖 FUSE 挂载、提取运行与含空格路径的提取运行。现有 CI 容器通过 Xvfb / 软件渲染验证，且纳入 Release 门禁；不得将该 X11 / 软件渲染检查写成 Wayland、GPU、SELinux / 默认 AppArmor 或全桌面验收通过。改变运行时来源或打包工具前，先更新技术选型并验证各发行版的 helper、图形与沙箱行为。
 - 跨平台构建成功不代表目标平台运行通过；WebView、托盘、窗口、安装 / 卸载与 Keyring 的验收仍需对应平台人工验证。环境或工具缺失时如实记录未完成的检查。
 - 构建后按根文档检查工作树，特别核对 `go.mod` / `go.sum`、生成 Binding / 前端产物、图标、`.desktop`、`.syso` 和安装器辅助文件；只纳入本次明确需要的源码 / 配置 / 资源变更。

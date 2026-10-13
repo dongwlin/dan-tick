@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Run the final AppImage in a disposable, offline desktop session on a system
-# that has no GTK 4 and no WebKitGTK installed.
+# Run the final thin AppImage in a disposable, offline desktop session with
+# the distribution's GTK 4 and WebKitGTK 6.0 installed.
 #
-# The script first inspects the package itself (helper permissions, load paths,
-# runtime manifest, bundled GIO TLS module), then starts the same AppImage in
+# The script first checks that the package has no bundled runtime and resolves
+# its libraries from the system, then starts the same AppImage in
 # three ways: FUSE mount, --appimage-extract-and-run, and an extracted AppDir
 # started from an unrelated working directory with spaces in its path.
 set -euo pipefail
@@ -66,7 +66,7 @@ if [[ ${1:-} == --session ]]; then
   sleep 3
   kill -0 "$app_pid"
   python3 "$script_dir/appimage-smoke.py" "$app_pid" "$results" --timeout 10
-  echo "mode $mode: rendered the Vue page with the packaged WebKit helper and its sandbox enabled."
+  echo "mode $mode: rendered the Vue page with system WebKit and its sandbox enabled."
   exit 0
 fi
 
@@ -84,21 +84,12 @@ mkdir -p "$results"
 cat /proc/self/attr/current >"$results/security-label.txt" 2>&1 || true
 cat /etc/os-release >"$results/distribution.txt"
 
-# The point of this job is that the package needs no GTK or WebKit from the
-# system, so their absence is a precondition, not an accident.
+# Record the distribution runtime versions alongside the startup diagnostics.
 if command -v dpkg-query >/dev/null 2>&1; then
-  dpkg-query -W -f='${Package} ${Status}\n' >"$results/system-packages.txt" 2>/dev/null || true
-  awk '$2 == "install" && $3 == "ok" && $4 == "installed" { print $1 }' \
-    "$results/system-packages.txt" >"$results/system-packages-installed.txt"
+  dpkg-query -W -f='${binary:Package} ${Version} ${Status}\n' >"$results/system-packages.txt" 2>/dev/null || true
 else
-  rpm -qa >"$results/system-packages-installed.txt"
+  rpm -qa >"$results/system-packages.txt"
 fi
-for forbidden in libgtk-4-1 libwebkitgtk-6.0-4 libjavascriptcoregtk-6.0-1 libwebkit2gtk-4.1-0 \
-  gtk4 webkitgtk6.0 webkitgtk6.0-devel webkit2gtk4.1; do
-  if grep -qx "$forbidden" "$results/system-packages-installed.txt"; then
-    fail "$forbidden is installed: this environment cannot prove self-containment."
-  fi
-done
 
 shopt -s nullglob
 images=("$artifact_dir"/*.AppImage)
@@ -109,10 +100,14 @@ version=$(basename -- "$appimage" | sed -E 's/^dan-tick-(.*)-linux-amd64\.AppIma
 task_root=$(mktemp -d /tmp/dan-tick-appimage-smoke.XXXXXX)
 xvfb_pid=
 finish() {
-  if [[ -d $task_root/state/dan-tick/logs ]]; then
-    cp -r "$task_root/state/dan-tick/logs" "$results/diagnostic-logs"
-    chmod -R go+rX "$results/diagnostic-logs"
-  fi
+  local log_dir log_mode
+  for log_dir in "$task_root"/*/state/dan-tick/logs; do
+    [[ -d $log_dir ]] || continue
+    log_mode=${log_dir#"$task_root"/}
+    log_mode=${log_mode%%/*}
+    cp -r "$log_dir" "$results/$log_mode-diagnostic-logs"
+    chmod -R go+rX "$results/$log_mode-diagnostic-logs"
+  done
   [[ -n $xvfb_pid ]] && { kill "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true; }
   rm -rf -- "$task_root"
 }
@@ -136,45 +131,33 @@ space_root="$task_root/path with spaces"
 mkdir -p "$space_root/working directory"
 cp --archive "$appdir" "$space_root/squashfs-root"
 
-runtime_libdir="$appdir/usr/lib/x86_64-linux-gnu"
-for helper in WebKitWebProcess WebKitNetworkProcess WebKitGPUProcess; do
-  path="$runtime_libdir/webkitgtk-6.0/$helper"
-  [[ -f $path ]] || fail "The package does not contain $helper."
-  helper_mode=$(stat -c %a "$path")
-  [[ $helper_mode == 755 || $helper_mode == 775 ]] || fail "$helper is not executable (mode $helper_mode)."
-done
-[[ -f $runtime_libdir/webkitgtk-6.0/injected-bundle/libwebkitgtkinjectedbundle.so ]] \
-  || fail 'The package does not contain the injected bundle.'
-[[ -f $appdir/usr/share/dan-tick/runtime-manifest.txt ]] || fail 'The runtime manifest is missing.'
-grep -q '^runtime-id: ' "$appdir/usr/share/dan-tick/runtime-manifest.txt" \
-  || fail 'The runtime manifest does not name the WebKit runtime.'
-cp "$appdir/usr/share/dan-tick/runtime-manifest.txt" "$results/runtime-manifest.txt"
+[[ -x $appdir/AppRun && -x $appdir/usr/bin/dan-tick ]] \
+  || fail 'AppRun or the application executable is missing or not executable.'
+find "$appdir" -printf '%P\n' | sort >"$results/package-files.txt"
 
-# Every ELF of the package must resolve its libraries from inside the package.
-{
-  printf '## %s\n' 'usr/bin/dan-tick'
-  ldd "$appdir/usr/bin/dan-tick"
-  for helper in "$runtime_libdir"/webkitgtk-6.0/WebKit*Process "$runtime_libdir/webkitgtk-6.0/bwrap" \
-    "$runtime_libdir/webkitgtk-6.0/xdg-dbus-proxy" \
-    "$runtime_libdir/webkitgtk-6.0/injected-bundle/libwebkitgtkinjectedbundle.so"; do
-    printf '## %s\n' "${helper#"$appdir"/}"
-    ldd "$helper"
-  done
-} >"$results/package-ldd.txt" 2>&1
+# The AppDir may contain desktop metadata and icons, but the application must
+# be its only ELF. In particular it cannot carry WebKit, helpers or GIO modules.
+while IFS= read -r -d '' package_file; do
+  [[ $package_file == "$appdir/usr/bin/dan-tick" ]] && continue
+  [[ $(od -An -tx1 -N4 "$package_file" | tr -d ' \n') != 7f454c46 ]] \
+    || fail "The thin package contains another ELF: ${package_file#"$appdir"/}."
+done < <(find "$appdir" -type f -print0)
+for forbidden_dir in usr/lib usr/lib64 usr/libexec; do
+  [[ ! -e $appdir/$forbidden_dir ]] || fail "The thin package contains $forbidden_dir."
+done
+[[ ! -e $appdir/usr/share/dan-tick/runtime-manifest.txt ]] \
+  || fail 'The thin package still contains a bundled-runtime manifest.'
+
+ldd "$appdir/usr/bin/dan-tick" >"$results/package-ldd.txt" 2>&1
 grep -q 'not found' "$results/package-ldd.txt" && fail 'The package has unresolved shared libraries.'
-for requirement in libgtk-4.so.1 libwebkitgtk-6.0.so.4 libjavascriptcoregtk-6.0.so.1; do
+for requirement in libgtk-4.so.1 libwebkitgtk-6.0.so.4 libjavascriptcoregtk-6.0.so.1 \
+  libsoup-3.0.so.0 libgio-2.0.so.0 libglib-2.0.so.0; do
   resolved=$(awk -v name="$requirement" '$1 == name { print $3 }' "$results/package-ldd.txt" | head -1)
-  [[ $resolved == "$appdir"/* ]] || fail "$requirement resolves to '$resolved' instead of the packaged copy."
+  case $resolved in
+    /usr/lib/*|/usr/lib64/*|/lib/*|/lib64/*) ;;
+    *) fail "$requirement resolves to '$resolved' instead of the system runtime." ;;
+  esac
 done
-
-# The bundled GIO TLS module must complete a handshake against the system trust
-# store, because the application reaches HTTPS APIs through libsoup only.
-if [[ -f $appdir/usr/lib/x86_64-linux-gnu/gio/modules/libgiognutls.so ]]; then
-  python3 "$script_dir/appimage-tls-check.py" "$appdir" "$results/gio-tls.txt" \
-    || fail 'The bundled GIO TLS module could not complete a TLS handshake.'
-else
-  fail 'The package does not contain the GIO TLS module.'
-fi
 
 # ---------------------------------------------------------------------------
 # Desktop sessions
@@ -216,4 +199,4 @@ for run_mode in "${modes[@]}"; do
   cp "$results/webview.json" "$results/$run_mode-webview.json" 2>/dev/null || true
 done
 
-echo "AppImage $version passed package inspection and the ${modes[*]} run modes without system GTK or WebKit."
+echo "AppImage $version passed thin-package inspection and the ${modes[*]} run modes with system GTK and WebKit."

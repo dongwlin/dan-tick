@@ -37,7 +37,7 @@ wails3 build
 
 CI 自动构建 Linux amd64 AppImage、Windows amd64 EXE 和用户级 NSIS 安装包，普通构建上传 Actions artifacts，只有推送正式版本 Tag 才发布 Release。版本由 Git 自动生成，无需每次修改配置；命名、配置同步、下载和发布步骤见 [构建与发布](docs/构建与发布.md)。
 
-Linux AppImage **自带** GTK4、WebKitGTK 6.0、JavaScriptCore、WebKit helper、注入库、GIO TLS 模块、图片加载器与 GLib schemas，无需安装系统的 GTK / WebKit；宿主只需 glibc 2.39+、C++ 运行库、字体与显卡驱动栈。CI 在没有安装 GTK4 / WebKitGTK 6.0 的 Ubuntu 26.04、Debian 13 和 Fedora 44 容器中检查同一最终包的真实页面加载、helper 动态库映射与沙箱状态；更旧的发行版仅尽力兼容，不作为验收目标。
+Linux 采用**薄 AppImage + 系统 WebKit**：包内仅包含应用二进制、启动入口和图标，运行前需安装发行版的 GTK4、WebKitGTK 6.0 与 GIO TLS 运行时，安装命令见 [Linux 运行依赖](docs/构建与发布.md#linux-appimage-运行依赖与兼容范围)。发布以 Ubuntu 24.04 为编译基线，适配目标为 Ubuntu 26.04、Debian 13 和 Fedora 44；Ubuntu 24.04 及其他旧版本仅尽力兼容。CI 在安装系统运行时的三个目标发行版容器中检查同一最终包的真实页面、Binding 和沙箱状态，正常桌面验收仍待完成。
 
 ## 仓库结构
 
