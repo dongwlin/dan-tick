@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { Minus, Power, Square, X } from 'lucide-vue-next'
+import { Minus, Square, X } from 'lucide-vue-next'
 import { shallowRef } from 'vue'
 import titlebarWordmark from '@/assets/branding/titlebar-wordmark.png'
 
 const error = shallowRef('')
 
-async function controlWindow(action: 'minimise' | 'maximise' | 'close' | 'quit') {
+async function controlWindow(action: 'minimise' | 'maximise' | 'close') {
   error.value = ''
   // The Wails bootstrap sets the platform environment before mounting the UI.
   // Avoid importing the desktop runtime (and its browser transport) in web previews.
@@ -17,13 +17,6 @@ async function controlWindow(action: 'minimise' | 'maximise' | 'close' | 'quit')
   }
 
   try {
-    if (action === 'quit') {
-      // Native confirmation also handles OS close shortcuts in quit mode.
-      const { Quit } =
-        await import('@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice')
-      await Quit()
-      return
-    }
     const { Window } = await import('@wailsio/runtime')
     if (action === 'minimise') await Window.Minimise()
     else if (action === 'maximise') await Window.ToggleMaximise()
@@ -48,15 +41,6 @@ async function controlWindow(action: 'minimise' | 'maximise' | 'close' | 'quit')
       draggable="false"
     />
     <div class="window-controls flex items-stretch" role="group" aria-label="窗口操作">
-      <button
-        type="button"
-        class="window-control"
-        aria-label="退出应用"
-        title="退出应用（停止后台调度）"
-        @click="controlWindow('quit')"
-      >
-        <Power class="size-3.5" aria-hidden="true" />
-      </button>
       <button
         type="button"
         class="window-control"
