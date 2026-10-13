@@ -54,25 +54,25 @@ pnpm run build
 
 Vite 默认监听 `127.0.0.1:9245`，可以用 `WAILS_VITE_PORT` 调整。普通浏览器能预览页面，但 Wails Service / Events 的桌面行为需要在真实 Wails 窗口中验证。`typecheck` 使用 `vue-tsc --noEmit` 检查 [`tsconfig.json`](tsconfig.json) 中的源码与生成 Binding，使用 `tsc --project tsconfig.node.json` 检查 [`tsconfig.node.json`](tsconfig.node.json) 中的 `vite.config.ts` 和 `vitest.config.ts`。`build` 和 `build:dev` 保留该类型检查步骤。
 
-## 前端持续集成（FE9）
+## 前端持续集成
 
 仓库根目录的 [Frontend CI](../.github/workflows/frontend-ci.yml) 在每次 Push / Pull Request 上运行，使用 Ubuntu 24.04、`.node-version` 中的 Node 24.18.0、固定 pnpm 12.6.0 和 `go.mod` 中的 Go 版本。先在 `frontend/` 执行 `pnpm install --frozen-lockfile`、`pnpm run lint`、`pnpm run format:check`，之后生成 Wails Binding，**再执行** `pnpm run test`、`pnpm run typecheck` 和 `pnpm run build`。任务测试和路由懒加载的业务页面会导入生成的 Binding，不能在生成前运行 Vitest；任一命令失败则该 Job 失败。
 
 Binding 由固定的 Wails 3 CLI 版本（`v3.0.0-beta.25`）从 Go 根入口 `./...` 生成，需要 Ubuntu 的 GTK4 / WebKitGTK 6.0 开发头。由于干净 checkout 没有 `frontend/dist`，CI 先放一个临时 `dist/index.html` 满足 `main.go` 的 `go:embed`，随后生产构建替换它；不提交生成产物，也不修改独立的 `prototype/`。CI 仅作前端质量门禁，桌面构建、Windows / Linux WebView 与实际系统行为仍需另行验收。若要严格阻止不合格变更合并，在 GitHub 分支保护 / Ruleset 中将 `Lint, typecheck, test and build` 配为必需检查。
 
-## 行为测试（FE6）
+## 行为测试
 
 `pnpm run test` 使用 Vitest 5、Vue Testing Library、user-event 与 happy-dom。`vitest.config.ts` 与生产 Vite 配置分离：只加载 Vue SFC 插件和 `@/*` 别名，不调用 Wails 桌面插件；因此不依赖运行中的桌面应用、真实 B 站网络或系统 Keyring。`src/test/setup.ts` 在测试后清理挂载的 DOM、Mock、`localStorage` 和 Hash URL。需要真实路由的测试使用 `createAppRouter()` 创建独立的 Hash Router，不替换内部导航逻辑。
 
 现有 `App.test.ts` 测试深链接、实际导航、未知路径回退；`SettingsPage.test.ts` 通过页面交互测试主题状态、系统颜色变化和存储不可用时的反馈。新增测试优先与源文件共置，使用 `*.test.ts`，通过可访问角色 / 名称定位，不直接调用组件私有方法。未来 Wails Binding / Events 业务测试在实际接入时替换外部边界；复杂 Focus / 键盘、CSS 与系统 WebView 行为仍需浏览器或桌面验证，不能仅依赖 DOM 模拟。
 
-## 主题与视觉基础（FE4）
+## 主题与视觉基础
 
 `src/style.css` 使用 Tailwind CSS v4 CSS-first 的 `@theme inline` 将亚克力语义角色映射到实用类，令牌值与 [定稿原型](../prototype/README.md) 对齐，不维护 `tailwind.config.js`。需要毛玻璃的容器可使用 `acrylic`、`acrylic--thin` 或 `acrylic--thick`；不支持背景模糊、用户请求减少透明度时使用实心背景。输入与高密度数据区域使用 `surface-solid`，全局排版、焦点、滚动条、选区和浅深主题由同一文件管理。
 
-`src/app/theme.ts` 只管理 UI 偏好：`dark`、`light`、`system`（跟随系统），初次默认深色。`index.html` 的内联脚本在 CSS 渲染前恢复 `html[data-theme]`，Vue 启动后接管并监听系统颜色变化。偏好仅保存在 `localStorage` 的 `dan-tick-theme` 键中，不放入业务状态或系统凭证；无法访问存储时保持当前会话的选择。FE4 暂时在设置占位页提供切换，F3 已迁移正式外壳，F7 再迁移设置布局。Tailwind 只用于正式前端，不影响 `prototype/` 的独立 CSS。
+`src/app/theme.ts` 只管理 UI 偏好：`dark`、`light`、`system`（跟随系统），初次默认深色。`index.html` 的内联脚本在 CSS 渲染前恢复 `html[data-theme]`，Vue 启动后接管并监听系统颜色变化。偏好仅保存在 `localStorage` 的 `dan-tick-theme` 键中，不放入业务状态或系统凭证；无法访问存储时保持当前会话的选择。Tailwind 只用于正式前端，不影响 `prototype/` 的独立 CSS。
 
-## 交互基础（FE5）
+## 交互基础
 
 `lucide-vue-next` 为正式侧栏、窗口标题栏与页面操作提供图标；已有可见文字的图标标记为 `aria-hidden`。设置页直接使用 Reka UI `RadioGroup` 实现带键盘焦点管理的主题选择；侧栏 `Tooltip`、直播间视图 `ToggleGroup`、任务编辑器 `CheckboxGroup` / `Checkbox`、自动执行 `Switch` 与账号头像 `Avatar` 也直接使用 Reka UI 原语。`src/components/ui/UiButton.vue` 供真正复用的按钮 / 导航链接使用，无业务语义的基础 UI 组件与共享样式统一放在 `src/components/ui/` 下。主题存储失败会显示提示，已选默认值时恢复按钮禁用。原生 Select、输入与表格保持语义元素，仅在字段接线与共享样式层面包装；不预建组件库。
 

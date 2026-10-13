@@ -20,7 +20,7 @@
 - dan-tick 是面向 **Windows、Linux** 的 B 站直播弹幕定时发送桌面应用，本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
 - **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及通用规范的项目例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。后续待办见 [`docs/待办.md`](docs/待办.md)，版本方向见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
 - 按任务阅读 [`docs/specs/`](docs/specs/) 中相关 Pack 及关联规范；后端与正式前端的规范入口见各自子目录指令。修改根入口时使用 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md)。`docs/specs/` 是外部 specs 仓库复制件，来源见 [manifest](docs/specs/spec-pack-manifest.json)；项目差异写入技术选型文档，不直接编辑复制的规范。
-- 根 [README](README.md) 是项目入口，子目录 README 提供对应运行说明。实现状态以实际代码及开发计划核对，区分已实现行为与计划行为。
+- 根 [README](README.md) 是项目入口，子目录 README 提供对应运行说明。实现状态以实际代码及技术选型核对，区分已实现行为与计划行为。
 
 ## 3. 项目结构与全局架构边界
 
@@ -31,16 +31,16 @@
 | `frontend/` | 正式 Vue 界面；具体结构与实现约定见局部指令 |
 | `prototype/` | 独立演示原型，使用会话演示数据 |
 | `Taskfile.yml`、`build/` | Wails / Task 的开发、构建和各平台打包配置；`build/config.yml` 为开发配置 |
-| `docs/` | PRD、技术决策、开发计划、数据模型与引入的工程规范 |
+| `docs/` | PRD、技术决策、待办、数据模型与引入的工程规范 |
 
 - 正式应用中，**Go 是权威业务状态来源**，负责调度、数据库、HTTP 发送、频率限制、凭证和进程生命周期；前端承担配置、展示与交互，不另行维护任务、调度等权威业务状态。调用使用 **Wails Service Binding**，后端主动通知使用 **Wails Events**，不要另建桌面业务 HTTP API。
-- Go 模块为 `github.com/dongwlin/dan-tick`，`go.mod` 要求 **Go 1.25.0**，当前 Wails 为 `v3.0.0-beta.25`；前后端 Runtime 与构建 CLI 的版本须与项目依赖匹配。
+- Go 模块为 `github.com/dongwlin/dan-tick`，Go 与 Wails 版本要求以 `go.mod` 为准；前后端 Runtime 与构建 CLI 的版本须与项目依赖匹配。
 - Go 应用源码根目录仅保留入口 `main.go`，包括 `frontend/dist` 的 `go:embed` 声明；嵌入路径相对 Go 包目录，资源由根入口通过 `fs.FS` 传入应用组合根。其余后端代码按职责放在 `internal/`，`build/` 的平台模板 Go 文件不受入口限制。
 - 调度器只触发计划；执行防重、持久化、漏发判定与恢复由业务逻辑和 SQLite 事务承担。任务使用明确时区（PRD 默认 `Asia/Shanghai`）；错过计划默认不补发，手动执行不改变定时计划。同一账号的多个任务共享发送频率限制。
 - B 站接口成功不能只看 HTTP 200，需校验业务响应；发送结果不确定时默认不自动重试。HTTP 请求必须有超时与取消能力，避免停任务或退出后继续发送。
 - 凭证只进入系统安全存储；不可用时明确失败，不回退明文配置。不要记录 Cookie，或将其放入普通前端 Store / Query 缓存、持久化 Web 存储及路由；B 站鉴权与请求统一由 Go 完成。旧双字段 Keyring 数据保留并要求重扫，未完成轮换的会话拒绝发送。
 - `frontend/` 与 `prototype/` 分别管理依赖与锁文件，不合并 workspace。不要手动编辑或提交 `frontend/bindings/`、`frontend/dist/`；它们由 Wails / Vite 生成，后端 Service 或构建流程变更也须遵守此约束。
-- `build/` 中的 macOS、iOS、Android 模板不代表首版支持这些平台；目标平台仍以 PRD 的 Windows、Linux 为准。
+- `build/` 中的 macOS、iOS、Android 模板不代表本项目支持这些平台；目标平台以 PRD 的 Windows、Linux 为准。
 
 ## 4. 构建与真实桌面调试
 
