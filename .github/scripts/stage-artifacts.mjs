@@ -26,6 +26,10 @@ for (const [source, name] of files) {
   await copyFile(path.join('bin', source), destination)
   const hash = createHash('sha256')
   for await (const chunk of createReadStream(destination)) hash.update(chunk)
-  checksums.push(`${hash.digest('hex')}  ${name}`)
+  const checksum = `${hash.digest('hex')}  ${name}`
+  checksums.push(checksum)
+  if (platform === 'windows') {
+    await writeFile(`${destination}.sha256`, `${checksum}\n`)
+  }
 }
 await writeFile(path.join(output, `SHA256SUMS-${platform}-amd64.txt`), `${checksums.join('\n')}\n`)

@@ -132,11 +132,37 @@ jobs:
       - name: Name artifacts and generate SHA-256 checksums
         run: node .github/scripts/stage-artifacts.mjs ${{ matrix.platform }}
 
-      - name: Upload CI artifacts
+      - name: Upload Linux CI artifact
+        if: matrix.platform == 'linux'
         uses: actions/upload-artifact@v7
         with:
-          name: dan-tick-${{ needs.version.outputs.version }}-${{ matrix.platform }}-amd64
+          name: dan-tick-${{ needs.version.outputs.version }}-linux-amd64
           path: bin/artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload Windows EXE artifact
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: dan-tick-${{ needs.version.outputs.version }}-windows-exe-amd64
+          path: |
+            bin/artifacts/dan-tick-${{ needs.version.outputs.version }}-windows-amd64.exe
+            bin/artifacts/dan-tick-${{ needs.version.outputs.version }}-windows-amd64.exe.sha256
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload Windows installer artifact
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: dan-tick-${{ needs.version.outputs.version }}-windows-installer-amd64
+          path: |
+            bin/artifacts/dan-tick-${{ needs.version.outputs.version }}-windows-amd64-installer.exe
+            bin/artifacts/dan-tick-${{ needs.version.outputs.version }}-windows-amd64-installer.exe.sha256
+            bin/artifacts/SHA256SUMS-windows-amd64.txt
           if-no-files-found: error
           retention-days: 14
           compression-level: 0

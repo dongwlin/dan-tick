@@ -8,6 +8,12 @@ test -s "dan-tick-${RELEASE_TAG}-linux-amd64.AppImage"
 test -s "dan-tick-${RELEASE_TAG}-windows-amd64.exe"
 test -s "dan-tick-${RELEASE_TAG}-windows-amd64-installer.exe"
 sha256sum --check SHA256SUMS-linux-amd64.txt SHA256SUMS-windows-amd64.txt
+sha256sum --check \
+  "dan-tick-${RELEASE_TAG}-windows-amd64.exe.sha256" \
+  "dan-tick-${RELEASE_TAG}-windows-amd64-installer.exe.sha256"
+rm -- \
+  "dan-tick-${RELEASE_TAG}-windows-amd64.exe.sha256" \
+  "dan-tick-${RELEASE_TAG}-windows-amd64-installer.exe.sha256"
 
 # A failed upload leaves a draft that the same tag's next run can finish.
 # Published releases are not silently replaced by a rebuild with a new date.
