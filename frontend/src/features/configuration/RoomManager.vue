@@ -41,6 +41,7 @@ const pendingDelete = shallowRef<Room | null>(null)
 const editingID = shallowRef<number | null>(null)
 const remark = shallowRef('')
 const message = shallowRef('')
+const formError = shallowRef('')
 const rooms = computed(() => pages.data.value?.pages.flatMap((p) => p.items ?? []) ?? [])
 const deleteDescription = computed(() => {
   const room = pendingDelete.value
@@ -79,13 +80,19 @@ async function openRoom(room: Room) {
   }
 }
 
-async function addRoom(value: string) {
+function openForm() {
   message.value = ''
+  formError.value = ''
+  showForm.value = true
+}
+
+async function addRoom(input: { value: string; remark: string }) {
+  formError.value = ''
   try {
-    await add.mutateAsync(value)
+    await add.mutateAsync(input)
     showForm.value = false
   } catch (error) {
-    message.value = bindingError(error)
+    formError.value = bindingError(error)
   }
 }
 function beginEdit(room: Room) {
@@ -148,16 +155,16 @@ async function deleteRoom() {
             <List class="mr-1 inline size-4" aria-hidden="true" />列表
           </ToggleGroupItem>
         </ToggleGroupRoot>
-        <button type="button" :class="primaryButton" @click="showForm = !showForm">
+        <button type="button" :class="primaryButton" @click="openForm">
           <Plus class="size-4" aria-hidden="true" />添加直播间
         </button>
       </template>
     </UiPageHeader>
     <RoomForm
-      v-if="showForm"
+      v-model:open="showForm"
       :pending="add.isPending.value"
+      :error="formError"
       @submit="addRoom"
-      @cancel="showForm = false"
     />
     <UiAlert v-if="message" role="alert">
       {{ message }}
@@ -183,7 +190,7 @@ async function deleteRoom() {
         title="还没有添加直播间"
         description="添加一个直播间即可创建弹幕任务。"
         action-label="添加直播间"
-        @action="showForm = true"
+        @action="openForm"
       />
       <div v-else class="min-h-0 flex-1 overflow-y-auto pb-3" aria-label="直播间内容" tabindex="0">
         <div
@@ -237,15 +244,15 @@ async function deleteRoom() {
                   class="mt-3 flex flex-wrap gap-2"
                   @submit.prevent="saveRemark(room.id)"
                 >
-                  <span class="sr-only">备注名称</span>
+                  <span class="sr-only">备注</span>
                   <input
                     :id="`remark-${room.id}`"
                     v-model="remark"
-                    aria-label="备注名称"
+                    aria-label="备注"
                     :class="fieldClass"
                     class="min-w-30 flex-1"
                     maxlength="100"
-                    placeholder="备注名称"
+                    placeholder="备注（可选）"
                   />
                   <button
                     type="submit"

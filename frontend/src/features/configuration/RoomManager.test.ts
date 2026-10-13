@@ -9,6 +9,7 @@ import {
   ListRoomPage,
   UpdateRoom,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice'
+import type { Room } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 import { createAppQueryClient } from '@/app/queryClient'
 import RoomManager from './RoomManager.vue'
 
@@ -201,20 +202,128 @@ it('loads real binding pages, switches views, adds rooms and retains input on fa
   expect(cardActions?.parentElement?.classList.contains('pr-7')).toBe(false)
 
   await user.click(screen.getByRole('button', { name: '添加直播间' }))
-  const input = screen.getByRole<HTMLInputElement>('textbox', { name: '直播间 ID 或链接' })
+  const dialog = screen.getByRole('dialog', { name: '添加直播间' })
+  const input = within(dialog).getByRole<HTMLInputElement>('textbox', {
+    name: '直播间 ID 或链接',
+  })
+  expect(document.activeElement).toBe(input)
+  expect(within(dialog).queryByText('主播信息由 B 站查询后自动填充。')).toBeNull()
+  expect(within(dialog).queryByText('支持直播间 ID 或完整链接。')).toBeNull()
+  expect(within(dialog).queryByText('可选，留空时列表显示直播标题。')).toBeNull()
+  const remarkInput = within(dialog).getByRole<HTMLInputElement>('textbox', { name: '备注' })
+  expect(remarkInput.placeholder).toBe('（可选）')
   await user.type(input, '12345')
-  await user.click(screen.getByRole('button', { name: '添加到列表' }))
-  expect(await screen.findByRole('alert')).toHaveProperty('textContent', '该直播间已添加')
+  await user.type(remarkInput, '晚间直播')
+  await user.click(within(dialog).getByRole('button', { name: '添加直播间' }))
+  expect(await within(dialog).findByRole('alert')).toHaveProperty('textContent', '该直播间已添加')
   expect(input.value).toBe('12345')
-  await user.click(screen.getByRole('button', { name: '添加到列表' }))
+  await user.click(within(dialog).getByRole('button', { name: '添加直播间' }))
   await waitFor(() => expect(vi.mocked(AddRoom)).toHaveBeenCalledTimes(2))
+  expect(vi.mocked(AddRoom)).toHaveBeenLastCalledWith({ value: '12345', remark: '晚间直播' })
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(screen.queryByRole('textbox', { name: '直播间 ID 或链接' })).toBeNull()
 
   await user.click(screen.getByRole('button', { name: '修改 300 的备注' }))
-  const form = screen.getByRole<HTMLInputElement>('textbox', { name: '备注名称' })
+  const form = screen.getByRole<HTMLInputElement>('textbox', { name: '备注' })
   await user.type(form, '备注')
   await user.click(screen.getByRole('button', { name: '保存备注' }))
   await waitFor(() => expect(vi.mocked(UpdateRoom)).toHaveBeenCalledWith(3, { remark: '备注' }))
+})
+
+it('discards an unfinished addition and returns focus to the trigger', async () => {
+  vi.mocked(ListRoomPage).mockResolvedValue({
+    items: [
+      {
+        id: 3,
+        platformRoomId: '300',
+        title: '直播三',
+        anchorName: '主播',
+        remark: '',
+        coverUrl: '',
+        taskCount: 0,
+      },
+    ],
+    nextCursor: null,
+  })
+  vi.mocked(AddRoom).mockClear()
+
+  const user = userEvent.setup()
+  render(RoomManager, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+  await screen.findByRole('heading', { name: '直播三' })
+
+  const trigger = screen.getByRole('button', { name: '添加直播间' })
+  await user.click(trigger)
+  const dialog = screen.getByRole('dialog', { name: '添加直播间' })
+  // A missing room ID never reaches the binding.
+  await user.click(within(dialog).getByRole('button', { name: '添加直播间' }))
+  expect(vi.mocked(AddRoom)).not.toHaveBeenCalled()
+  expect(screen.getByRole('dialog', { name: '添加直播间' })).toBeTruthy()
+
+  await user.type(
+    within(dialog).getByRole<HTMLInputElement>('textbox', { name: '直播间 ID 或链接' }),
+    '98765',
+  )
+  await user.type(within(dialog).getByRole<HTMLInputElement>('textbox', { name: '备注' }), '草稿')
+  await user.keyboard('{Escape}')
+
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(vi.mocked(AddRoom)).not.toHaveBeenCalled()
+  expect(document.activeElement).toBe(trigger)
+
+  // Reopening starts from empty fields instead of the discarded draft.
+  await user.click(trigger)
+  const reopened = screen.getByRole('dialog', { name: '添加直播间' })
+  expect(
+    within(reopened).getByRole<HTMLInputElement>('textbox', { name: '直播间 ID 或链接' }).value,
+  ).toBe('')
+  expect(within(reopened).getByRole<HTMLInputElement>('textbox', { name: '备注' }).value).toBe('')
+})
+
+it('holds the modal open while the addition is running', async () => {
+  const room: Room = {
+    id: 3,
+    platformRoomId: '300',
+    title: '直播三',
+    anchorName: '主播',
+    remark: '',
+    coverUrl: '',
+    taskCount: 0,
+  }
+  vi.mocked(ListRoomPage).mockResolvedValue({ items: [room], nextCursor: null })
+  let resolveAdd: (saved: Room) => void = () => {}
+  // The query layer only awaits the binding promise; the Wails cancellation
+  // helpers are irrelevant while the call is still running.
+  const pendingAdd = new Promise<Room>((resolve) => {
+    resolveAdd = resolve
+  })
+  vi.mocked(AddRoom).mockReturnValue(pendingAdd as ReturnType<typeof AddRoom>)
+
+  const user = userEvent.setup()
+  render(RoomManager, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+  await screen.findByRole('heading', { name: '直播三' })
+
+  await user.click(screen.getByRole('button', { name: '添加直播间' }))
+  const dialog = screen.getByRole('dialog', { name: '添加直播间' })
+  await user.type(
+    within(dialog).getByRole<HTMLInputElement>('textbox', { name: '直播间 ID 或链接' }),
+    '12345',
+  )
+  await user.click(within(dialog).getByRole('button', { name: '添加直播间' }))
+
+  // The running action states why the Dialog cannot be dismissed yet.
+  await within(dialog).findByRole('button', { name: '正在添加…' })
+  expect(within(dialog).getByRole<HTMLButtonElement>('button', { name: '取消' }).disabled).toBe(
+    true,
+  )
+  await user.keyboard('{Escape}')
+  expect(screen.getByRole('dialog', { name: '添加直播间' })).toBeTruthy()
+
+  resolveAdd(room)
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 })
 
 it('shows a different room title or its missing-title hint without duplicating the primary label', async () => {

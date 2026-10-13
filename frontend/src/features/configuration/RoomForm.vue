@@ -1,50 +1,92 @@
 <script setup lang="ts">
-import { shallowRef } from 'vue'
-import { Plus, X } from 'lucide-vue-next'
+import { shallowRef, useTemplateRef, watch } from 'vue'
+import { Plus } from 'lucide-vue-next'
+import UiAlert from '@/components/ui/UiAlert.vue'
 import UiButton from '@/components/ui/UiButton.vue'
+import UiDialog from '@/components/ui/UiDialog.vue'
 import UiField from '@/components/ui/UiField.vue'
 import { fieldClass } from '@/components/ui/uiStyles'
-import UiPanel from '@/components/ui/UiPanel.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
 
-defineProps<{ pending: boolean }>()
-const emit = defineEmits<{ submit: [value: string]; cancel: [] }>()
+const props = defineProps<{
+  open: boolean
+  pending: boolean
+  /** Safe binding error rendered inside the Dialog; the page keeps other messages. */
+  error?: string
+}>()
+
+const emit = defineEmits<{
+  submit: [input: { value: string; remark: string }]
+  'update:open': [open: boolean]
+}>()
+
 const value = shallowRef('')
+const remark = shallowRef('')
+const valueInput = useTemplateRef<HTMLInputElement>('valueInput')
+
+// Closing discards the draft: a reopened Dialog starts from empty fields, and a
+// failed submission keeps them because the Dialog stays open.
+watch(
+  () => props.open,
+  (open) => {
+    if (open) return
+    value.value = ''
+    remark.value = ''
+  },
+)
+
 function submit() {
-  if (value.value.trim()) emit('submit', value.value.trim())
+  const room = value.value.trim()
+  if (!room || props.pending) return
+  emit('submit', { value: room, remark: remark.value.trim() })
+}
+
+function focusFirstField(event: Event) {
+  event.preventDefault()
+  valueInput.value?.focus()
 }
 </script>
 
 <template>
-  <UiPanel as="form" @submit.prevent="submit">
-    <div class="mb-4 flex items-center justify-between">
-      <h2 class="text-base font-semibold">添加直播间</h2>
-      <UiIconButton label="关闭添加表单" @click="emit('cancel')">
-        <X class="size-5" aria-hidden="true" />
-      </UiIconButton>
-    </div>
-    <UiField
-      id="room-input"
-      v-slot="{ id, ariaInvalid, describedBy }"
-      label="直播间 ID 或链接"
-      description="主播与标题由 B 站查询，备注可添加后修改。"
-    >
-      <input
-        :id="id"
-        v-model="value"
-        :class="fieldClass"
-        :aria-invalid="ariaInvalid"
-        :aria-describedby="describedBy"
-        required
-        autocomplete="off"
-        placeholder="例如 22625025 或 https://live.bilibili.com/22625025"
-      />
-    </UiField>
-    <div class="mt-4 flex justify-end gap-2">
-      <UiButton @click="emit('cancel')">取消</UiButton>
-      <UiButton type="submit" variant="primary" :loading="pending">
-        <Plus class="size-4" aria-hidden="true" />添加到列表
-      </UiButton>
-    </div>
-  </UiPanel>
+  <UiDialog
+    :open="open"
+    title="添加直播间"
+    :busy="pending"
+    @open-auto-focus="focusFirstField"
+    @update:open="emit('update:open', $event)"
+  >
+    <form class="space-y-4" @submit.prevent="submit">
+      <UiField id="room-input" v-slot="{ id, ariaInvalid, describedBy }" label="直播间 ID 或链接">
+        <input
+          :id="id"
+          ref="valueInput"
+          v-model="value"
+          :class="fieldClass"
+          :aria-invalid="ariaInvalid"
+          :aria-describedby="describedBy"
+          required
+          autocomplete="off"
+          placeholder="例如 22625025 或 https://live.bilibili.com/22625025"
+        />
+      </UiField>
+      <UiField id="room-remark" v-slot="{ id, ariaInvalid, describedBy }" label="备注">
+        <input
+          :id="id"
+          v-model="remark"
+          :class="fieldClass"
+          :aria-invalid="ariaInvalid"
+          :aria-describedby="describedBy"
+          maxlength="100"
+          autocomplete="off"
+          placeholder="（可选）"
+        />
+      </UiField>
+      <UiAlert v-if="error" tone="danger">{{ error }}</UiAlert>
+      <div class="flex justify-end gap-2">
+        <UiButton :disabled="pending" @click="emit('update:open', false)">取消</UiButton>
+        <UiButton type="submit" variant="primary" :loading="pending">
+          <Plus class="size-4" aria-hidden="true" />{{ pending ? '正在添加…' : '添加直播间' }}
+        </UiButton>
+      </div>
+    </form>
+  </UiDialog>
 </template>

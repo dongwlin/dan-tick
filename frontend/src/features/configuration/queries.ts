@@ -78,7 +78,9 @@ function useConfigurationWrite<T, V>(write: (value: V) => Promise<T>) {
 }
 
 export function useAddRoom() {
-  return useConfigurationWrite((value: string) => AddRoom({ value }))
+  return useConfigurationWrite(({ value, remark }: { value: string; remark: string }) =>
+    AddRoom({ value, remark }),
+  )
 }
 export function useUpdateRoom() {
   return useConfigurationWrite(({ id, remark }: { id: number; remark: string }) =>
