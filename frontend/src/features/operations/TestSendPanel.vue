@@ -100,6 +100,7 @@ async function submit() {
       <UiButton
         type="submit"
         variant="primary"
+        class="min-w-36"
         :loading="send.isPending.value"
         :disabled="!roomID || !message.trim()"
       >

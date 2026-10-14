@@ -581,6 +581,7 @@ const submit = handleSubmit(
         <UiButton
           type="submit"
           variant="primary"
+          class="min-w-29"
           :loading="save.isPending.value"
           :disabled="rooms.isPending.value || !rooms.data.value?.length"
         >

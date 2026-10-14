@@ -86,7 +86,9 @@ function focusRemark(event: Event) {
         <UiButton type="button" :disabled="pending" @click="emit('update:open', false)"
           >取消</UiButton
         >
-        <UiButton type="submit" variant="primary" :loading="pending">保存备注</UiButton>
+        <UiButton type="submit" variant="primary" class="min-w-28" :loading="pending"
+          >保存备注</UiButton
+        >
       </div>
     </form>
   </UiDialog>

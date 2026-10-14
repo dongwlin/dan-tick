@@ -105,7 +105,7 @@ function focusFirstField(event: Event) {
           正在添加，请稍候…
         </p>
         <UiButton :disabled="pending" @click="emit('update:open', false)">取消</UiButton>
-        <UiButton type="submit" variant="primary" :loading="pending">
+        <UiButton type="submit" variant="primary" class="min-w-32" :loading="pending">
           <Plus class="size-4" aria-hidden="true" />添加直播间
         </UiButton>
       </div>
