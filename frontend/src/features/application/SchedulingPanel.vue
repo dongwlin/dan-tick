@@ -1,34 +1,41 @@
 <script setup lang="ts">
-import { shallowRef, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
 import { fieldClass } from '@/components/ui/uiStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
-import { secondaryButton } from '@/components/ui/buttonStyles'
 import { useToast } from '@/composables/useToast'
+import { timezonePickerOptions } from '@/lib/timezones'
 import { usePreferences, useSetDefaultTimezone, useSetSchedulingEnabled } from './queries'
 
 const preferences = usePreferences()
 const setTimezone = useSetDefaultTimezone()
 const setScheduling = useSetSchedulingEnabled()
-const timezone = shallowRef('')
 const { notify, dismiss } = useToast()
 
+// The select commits as soon as a zone is picked, so its own value is held
+// locally until the backend or a re-read reports what is stored. The stored
+// zone is authoritative: never overwrite it with the value of a write whose
+// response failed.
+const localTimezone = ref('')
+const storedTimezone = computed(() => preferences.data.value?.defaultTimezone ?? '')
+watch(storedTimezone, (value) => (localTimezone.value = value), { immediate: true })
 watch(
-  () => preferences.data.value?.defaultTimezone,
-  (value) => {
-    if (value && !setTimezone.isPending.value) timezone.value = value
+  () => setTimezone.isPending.value,
+  (pending) => {
+    if (!pending) localTimezone.value = storedTimezone.value
   },
-  { immediate: true },
 )
+const options = computed(() => timezonePickerOptions(storedTimezone.value))
 
-async function saveTimezone() {
-  dismiss()
+async function changeTimezone(value: string) {
+  if (!value || value === storedTimezone.value) return
+  notify('正在保存默认时区…', 'info')
   try {
-    await setTimezone.mutateAsync(timezone.value.trim())
+    await setTimezone.mutateAsync(value)
     notify('默认时区已保存，仅应用于新建任务。', 'success')
   } catch {
-    notify('默认时区保存失败，请检查时区名称后重试。', 'error')
+    notify('默认时区保存失败，请重新选择时区后重试。', 'error')
   }
 }
 
@@ -83,32 +90,23 @@ async function toggleScheduling(enabled: boolean) {
             />
           </span>
         </SwitchRoot>
-        <form
-          class="flex flex-wrap items-end justify-between gap-4 py-4"
-          @submit.prevent="saveTimezone"
-        >
-          <label for="default-timezone" class="flex min-w-44 flex-1 flex-col gap-1.5 text-sm">
+        <div class="flex min-h-20 flex-wrap items-center justify-between gap-x-5 gap-y-3 py-4">
+          <label for="default-timezone" class="text-sm font-medium">
             <strong>默认时区</strong>
-            <span class="text-xs text-text-tertiary">使用 IANA 时区名称；只影响新建任务</span>
-            <input
-              id="default-timezone"
-              v-model="timezone"
-              :class="fieldClass"
-              required
-              maxlength="100"
-              placeholder="Asia/Shanghai"
-              autocomplete="off"
-            />
           </label>
-          <button
-            type="submit"
-            :class="[secondaryButton, 'min-w-32']"
-            :disabled="setTimezone.isPending.value || !timezone.trim()"
+          <select
+            id="default-timezone"
+            v-model="localTimezone"
+            :class="[fieldClass, 'w-auto min-w-56 max-w-72']"
+            :disabled="setTimezone.isPending.value"
             :aria-busy="setTimezone.isPending.value"
+            @change="changeTimezone(localTimezone)"
           >
-            {{ setTimezone.isPending.value ? '正在保存…' : '保存默认时区' }}
-          </button>
-        </form>
+            <option v-for="option in options" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
       </div>
     </UiAsyncSection>
   </UiPanel>

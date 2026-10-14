@@ -93,7 +93,17 @@ export function useSetDefaultTimezone() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (value: string) => SetDefaultTimezone(value),
-    onSettled: () => client.invalidateQueries({ queryKey: applicationKeys.all }),
+    // Optimistic: the select shows the picked zone while the write runs.
+    onMutate: (value) => {
+      client.setQueryData<Preferences | undefined>(applicationKeys.preferences, (current) =>
+        current ? { ...current, defaultTimezone: value } : current,
+      )
+    },
+    // Read the stored value again on success and on failure. A re-read that
+    // lands while the write is in flight, or a write whose response fails after
+    // it landed, must not leave a zone on screen that the backend never stored.
+    onSuccess: () => client.invalidateQueries({ queryKey: applicationKeys.preferences }),
+    onError: () => client.invalidateQueries({ queryKey: applicationKeys.preferences }),
   })
 }
 

@@ -22,6 +22,8 @@ import DiagnosticsPanel from './DiagnosticsPanel.vue'
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice', () => ({
   GetPreferences: vi.fn(),
+  // Only the scheduling switch is driven from this file; the timezone select
+  // keeps its own coverage in SchedulingPanel.test.ts.
   SetDefaultTimezone: vi.fn(),
   SetSchedulingEnabled: vi.fn(),
 }))
@@ -59,7 +61,7 @@ beforeEach(() => {
     .mockResolvedValue({ cancelled: false, filename: 'safe.zip' })
 })
 
-it('updates scheduling through Go and preserves authoritative state after failures', async () => {
+it('updates scheduling through Go and keeps the card stable while the toast reports it', async () => {
   const user = userEvent.setup()
   vi.mocked(SetSchedulingEnabled).mockImplementationOnce((enabled) => {
     vi.mocked(GetPreferences).mockResolvedValue({
@@ -82,28 +84,6 @@ it('updates scheduling through Go and preserves authoritative state after failur
   expect(card.children).toHaveLength(initialChildCount)
   expect(within(card).queryByText(/已暂停新的自动调度/)).toBeNull()
   await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
-
-  vi.mocked(SetDefaultTimezone).mockRejectedValueOnce(new Error('private DB path'))
-  const input = screen.getByRole<HTMLInputElement>('textbox', { name: /默认时区/ })
-  await user.clear(input)
-  await user.type(input, 'Invalid/Timezone')
-  await user.click(screen.getByRole('button', { name: '保存默认时区' }))
-  expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
-    '默认时区保存失败',
-  )
-  expect(input.value).toBe('Invalid/Timezone')
-  expect(card.children).toHaveLength(initialChildCount)
-  expect(within(card).queryByText(/默认时区保存失败/)).toBeNull()
-  expect(document.body.textContent).not.toContain('private DB path')
-
-  await user.clear(input)
-  await user.type(input, 'Europe/Berlin')
-  await user.click(screen.getByRole('button', { name: '保存默认时区' }))
-  await waitFor(() => expect(SetDefaultTimezone).toHaveBeenCalledWith('Europe/Berlin'))
-  expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
-    '默认时区已保存',
-  )
-  expect(card.children).toHaveLength(initialChildCount)
 })
 
 it('flips the scheduling switch optimistically and restores the stored value after a failed update', async () => {

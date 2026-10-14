@@ -22,6 +22,7 @@ import UiAlert from '@/components/ui/UiAlert.vue'
 import UiPageHeader from '@/components/ui/UiPageHeader.vue'
 import { useToast } from '@/composables/useToast'
 import { bindingError } from '@/lib/bindingError'
+import { timezonePickerOptions } from '@/lib/timezones'
 import {
   cleanDanmakuMessages,
   danmakuMessageLimitDescription,
@@ -502,18 +503,25 @@ const submit = handleSubmit(
             <UiField
               id="task-timezone"
               v-slot="{ id, ariaInvalid, describedBy }"
-              label="时区（IANA）"
+              label="时区"
               :error="errors.timezone"
             >
-              <input
+              <select
                 :id="id"
                 v-model="timezone"
                 v-bind="timezoneAttrs"
                 :class="fieldClass"
                 :aria-invalid="ariaInvalid"
                 :aria-describedby="describedBy"
-                placeholder="Asia/Shanghai"
-              />
+              >
+                <option
+                  v-for="option in timezonePickerOptions(timezone)"
+                  :key="option.value"
+                  :value="option.value"
+                >
+                  {{ option.label }}
+                </option>
+              </select>
             </UiField>
           </div>
           <UiField

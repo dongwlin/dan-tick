@@ -14,6 +14,7 @@ import { GetPreferences } from '@bindings/github.com/dongwlin/dan-tick/internal/
 import App from '@/app/App.vue'
 import { createAppRouter } from '@/app/router'
 import { createAppQueryClient } from '@/app/queryClient'
+import { timezoneOptions } from '@/lib/timezones'
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationservice', () => ({
   ListRooms: vi.fn(),
@@ -414,8 +415,68 @@ it('uses the persisted IANA default for new tasks without dirtying the form', as
   render(App, {
     global: { plugins: [router, [VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
-  const input = await screen.findByRole<HTMLInputElement>('textbox', { name: '时区（IANA）' })
-  await waitFor(() => expect(input.value).toBe('Europe/Berlin'))
+  const select = await screen.findByRole<HTMLSelectElement>('combobox', { name: '时区' })
+  await waitFor(() => expect(select.value).toBe('Europe/Berlin'))
+  // The persisted zone is offered as one of the curated options.
+  expect(select.selectedOptions[0]?.textContent).toContain('Europe/Berlin')
+  expect(select.options.length).toBe(timezoneOptions.length)
+})
+
+it('picks the task timezone from a select and saves the chosen zone', async () => {
+  vi.mocked(ListRooms).mockResolvedValue([
+    {
+      id: 1,
+      platformRoomId: '98765',
+      title: '测试直播间',
+      anchorName: '',
+      remark: '',
+      coverUrl: '',
+      taskCount: 0,
+    },
+  ])
+  vi.mocked(CreateTask).mockResolvedValue({
+    id: 9,
+    roomId: 1,
+    name: '深夜问候',
+    kind: TaskKind.Single,
+    messages: ['晚上好'],
+    intervalSeconds: null,
+    maxCount: null,
+    maxDurationSeconds: null,
+    schedule: {
+      kind: ScheduleKind.Daily,
+      timezone: 'America/New_York',
+      localDate: '',
+      localTime: '21:00:00',
+      weekdays: 0,
+    },
+    enabled: true,
+    nextDueAt: null,
+    createdAt: 0,
+    updatedAt: 0,
+  })
+  window.history.replaceState(null, '', '/#/tasks/new')
+  const user = userEvent.setup()
+  const router = createAppRouter()
+  render(App, {
+    global: { plugins: [router, [VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+
+  await user.type(await screen.findByRole('textbox', { name: '任务名称' }), '深夜问候')
+  await user.selectOptions(await screen.findByRole('combobox', { name: '目标直播间' }), '1')
+  await user.type(screen.getByRole('textbox', { name: '发送队列' }), '晚上好')
+  const select = screen.getByRole<HTMLSelectElement>('combobox', { name: '时区' })
+  expect(select.value).toBe('Asia/Shanghai')
+  await user.selectOptions(select, 'America/New_York')
+  expect(select.value).toBe('America/New_York')
+
+  await user.click(screen.getByRole('button', { name: '创建任务' }))
+  await waitFor(() => expect(window.location.hash).toBe('#/tasks'))
+  expect(vi.mocked(CreateTask)).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      schedule: expect.objectContaining({ timezone: 'America/New_York' }),
+    }),
+  )
 })
 
 it('asks before discarding dirty edits and keeps them when the user continues editing', async () => {
