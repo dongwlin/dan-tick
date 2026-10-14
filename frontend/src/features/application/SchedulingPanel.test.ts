@@ -88,7 +88,8 @@ it('places the zone control beside the label in one row', async () => {
   // The select is the label's next sibling in that row, not stacked under it.
   expect(label?.nextElementSibling).toBe(trigger)
   expect(label?.parentElement).toBe(row)
-  expect(row?.classList.contains('items-center')).toBe(true)
+  // Top-aligned, not centred: the label takes the control's top edge.
+  expect(row?.classList.contains('items-start')).toBe(true)
   expect(row?.classList.contains('justify-between')).toBe(true)
 })
 

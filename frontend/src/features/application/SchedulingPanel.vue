@@ -85,7 +85,7 @@ async function toggleScheduling(enabled: boolean) {
             />
           </span>
         </SwitchRoot>
-        <div class="flex min-h-20 flex-wrap items-center justify-between gap-x-5 gap-y-3 py-4">
+        <div class="flex min-h-15 flex-wrap items-start justify-between gap-x-5 gap-y-3 py-3">
           <label for="default-timezone" class="text-sm font-medium">
             <strong>默认时区</strong>
           </label>
