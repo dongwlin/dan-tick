@@ -57,10 +57,14 @@ it('shows the stored close behavior as one labelled row with both choices', asyn
 
   const label = card.querySelector('label[for="close-behavior"]')
   expect(label?.textContent?.trim()).toBe('关闭窗口时')
-  // The label sits beside the control in that row, not stacked above it.
+  // The label sits beside the control in that row, not stacked above it. The
+  // row carries the same padding as the rows in the cards below, so the title
+  // keeps a 20px gap to the control instead of hugging it.
   expect(label?.nextElementSibling).toBe(trigger)
   expect(label?.parentElement).toBe(trigger.parentElement)
+  expect(label?.parentElement?.classList.contains('items-start')).toBe(true)
   expect(label?.parentElement?.classList.contains('justify-between')).toBe(true)
+  expect(label?.parentElement?.classList.contains('py-3')).toBe(true)
   expect(card.querySelectorAll('input[type="radio"]')).toHaveLength(0)
 
   await user.click(trigger)

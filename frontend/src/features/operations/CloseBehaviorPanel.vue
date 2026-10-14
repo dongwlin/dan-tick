@@ -50,7 +50,7 @@ function onChange(value: string) {
 <template>
   <UiPanel aria-labelledby="close-behavior-heading">
     <h2 id="close-behavior-heading" class="mb-2 text-base font-semibold">窗口行为</h2>
-    <div class="flex min-h-15 flex-wrap items-start justify-between gap-x-5 gap-y-3">
+    <div class="flex min-h-15 flex-wrap items-start justify-between gap-x-5 gap-y-3 py-3">
       <label for="close-behavior" class="text-sm font-medium"><strong>关闭窗口时</strong></label>
       <UiSelect
         id="close-behavior"
