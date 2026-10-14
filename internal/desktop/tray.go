@@ -62,7 +62,7 @@ func NewTray(app *application.App, window application.Window, service *Applicati
 
 func newTrayMenu(actions *trayActions) *application.Menu {
 	menu := application.NewMenu()
-	menu.Add("打开主窗口").OnClick(func(*application.Context) { actions.openWindow() })
+	menu.Add("显示").OnClick(func(*application.Context) { actions.openWindow() })
 	menu.Add("查看运行状态").OnClick(func(*application.Context) { actions.showStatus() })
 	menu.AddSeparator()
 	// Both operations remain available and idempotent. Status is read on

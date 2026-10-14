@@ -43,7 +43,7 @@ sh assets/branding/generate-tray-icons.sh
 
 Go 通过 `internal/desktop/tray.go` 嵌入这些资源，构建不需要 ImageMagick。Windows 使用 Wails 的系统主题图标切换；Linux 的 Wails `v3.0.0-beta.25` 没有可靠的托盘面板主题切换能力，因此使用同一张双色描边图标，不调用 `SetDarkModeIcon` 覆盖它。前端 UI 主题与系统托盘主题各自独立。
 
-托盘菜单提供打开主窗口、查看运行状态、暂停 / 恢复自动调度和退出应用。暂停只控制自动调度，退出复用现有的任务警告与业务收尾。Windows 单击托盘图标即恢复主窗口；Linux 双击图标恢复主窗口，单击和右键只打开菜单。Wails `v3.0.0-beta.25` 把 StatusNotifierItem 的 `Activate`（双击）与 dbusmenu 的菜单打开通知接到同一个点击回调，[`internal/desktop/tray.go`](../../internal/desktop/tray.go) 因此按当前调用来源归因，只对 `Activate` 恢复窗口；该归因依赖 Wails 内部的 Linux 托盘方法名，升级 Wails 后必须重新实测两种手势（归因失效时双击不恢复窗口，不会改回“弹菜单也拉起窗口”）。在 Linux 没有 StatusNotifier 托盘宿主时，仍可通过再次启动应用恢复主窗口；托盘不会成为唯一恢复入口。
+托盘菜单提供显示、查看运行状态、暂停 / 恢复自动调度和退出应用。暂停只控制自动调度，退出复用现有的任务警告与业务收尾。Windows 单击托盘图标即恢复主窗口；Linux 双击图标恢复主窗口，单击和右键只打开菜单。Wails `v3.0.0-beta.25` 把 StatusNotifierItem 的 `Activate`（双击）与 dbusmenu 的菜单打开通知接到同一个点击回调，[`internal/desktop/tray.go`](../../internal/desktop/tray.go) 因此按当前调用来源归因，只对 `Activate` 恢复窗口；该归因依赖 Wails 内部的 Linux 托盘方法名，升级 Wails 后必须重新实测两种手势（归因失效时双击不恢复窗口，不会改回“弹菜单也拉起窗口”）。在 Linux 没有 StatusNotifier 托盘宿主时，仍可通过再次启动应用恢复主窗口；托盘不会成为唯一恢复入口。
 
 ### 目标平台人工验收（待完成）
 
