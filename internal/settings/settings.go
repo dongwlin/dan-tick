@@ -17,15 +17,20 @@ const DefaultTimezone = "Asia/Shanghai"
 
 var ErrInvalidTimezone = errors.New("invalid default timezone")
 var ErrInvalidCloseBehavior = errors.New("invalid window close behavior")
+var ErrInvalidStartupVisibility = errors.New("invalid startup window visibility")
 
 const (
 	CloseHide = "hide"
 	CloseQuit = "quit"
+
+	ShowOnStart = "show"
+	HideOnStart = "hide"
 )
 
 type Values struct {
 	DefaultTimezone   string
 	SchedulingEnabled bool
+	StartupVisibility string
 }
 
 type Service struct{ db *bun.DB }
@@ -42,7 +47,11 @@ func (s *Service) Get(ctx context.Context) (Values, error) {
 	if err != nil {
 		return Values{}, err
 	}
-	return Values{DefaultTimezone: zone, SchedulingEnabled: enabled}, nil
+	visibility, err := s.StartupVisibility(ctx)
+	if err != nil {
+		return Values{}, err
+	}
+	return Values{DefaultTimezone: zone, SchedulingEnabled: enabled, StartupVisibility: visibility}, nil
 }
 
 // DefaultZone reads the configured fallback for newly created tasks.
@@ -110,6 +119,27 @@ func (s *Service) SetCloseBehavior(ctx context.Context, value string) error {
 		return ErrInvalidCloseBehavior
 	}
 	return write(ctx, s.db, "close_behavior", value)
+}
+
+// StartupVisibility decides whether launching dan-tick shows the main window.
+// It defaults to showing it: a first launch must never leave only a tray entry
+// or no visible window at all.
+func (s *Service) StartupVisibility(ctx context.Context) (string, error) {
+	value, err := read(ctx, s.db, "startup_visibility", ShowOnStart)
+	if err != nil {
+		return "", err
+	}
+	if value != ShowOnStart && value != HideOnStart {
+		return "", ErrInvalidStartupVisibility
+	}
+	return value, nil
+}
+
+func (s *Service) SetStartupVisibility(ctx context.Context, value string) error {
+	if value != ShowOnStart && value != HideOnStart {
+		return ErrInvalidStartupVisibility
+	}
+	return write(ctx, s.db, "startup_visibility", value)
 }
 
 func validTimezone(value string) bool {

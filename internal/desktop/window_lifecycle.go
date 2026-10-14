@@ -13,35 +13,69 @@ import (
 // WindowLifecycle coordinates the native close button, frontend exit action,
 // and single-instance activation without tying any of them to the scheduler.
 type WindowLifecycle struct {
-	app        *application.App
-	db         *bun.DB
-	window     application.Window
-	behavior   atomic.Value // settings.CloseHide or settings.CloseQuit
-	exiting    atomic.Bool
-	confirming atomic.Bool
+	app         *application.App
+	db          *bun.DB
+	window      application.Window
+	behavior    atomic.Value // settings.CloseHide or settings.CloseQuit
+	startHidden atomic.Bool
+	shown       atomic.Bool
+	exiting     atomic.Bool
+	confirming  atomic.Bool
 }
 
-func NewWindowLifecycle(app *application.App, db *bun.DB, behavior string) *WindowLifecycle {
+func NewWindowLifecycle(app *application.App, db *bun.DB, behavior string, hiddenOnStart bool) *WindowLifecycle {
 	lifecycle := &WindowLifecycle{app: app, db: db}
 	lifecycle.SetCloseBehavior(behavior)
+	lifecycle.startHidden.Store(hiddenOnStart)
 	return lifecycle
 }
 
 func (l *WindowLifecycle) SetCloseBehavior(behavior string) { l.behavior.Store(behavior) }
 
+// ShouldStartHidden reports whether the main window is created without being
+// shown. Hiding the window at launch is only safe while the user can still
+// reach it: the tray entry and relaunching the executable both restore it.
+func (l *WindowLifecycle) ShouldStartHidden() bool { return l.startHidden.Load() }
+
+// MarkShown records that the main window has become visible to the user. Every
+// path that brings a hidden window back goes through Show, which calls this.
+func (l *WindowLifecycle) MarkShown() { l.shown.Store(true) }
+
+// Show restores the main window and records it as visible.
+func (l *WindowLifecycle) Show() {
+	if l.window == nil {
+		return
+	}
+	RestoreWindow(l.window)
+	l.MarkShown()
+}
+
 func (l *WindowLifecycle) Attach(window application.Window) {
 	l.window = window
 	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		if l.exiting.Load() {
-			return
+		// The native close button and the explicit quit action share one rule.
+		if l.closeWindow() {
+			event.Cancel()
 		}
-		event.Cancel()
-		if l.behavior.Load() == settings.CloseHide {
-			window.Hide()
-			return
-		}
-		l.RequestQuit()
 	})
+}
+
+// closeWindow answers a close request. It reports whether the window stays
+// open, and hides it for the background close behavior.
+func (l *WindowLifecycle) closeWindow() bool {
+	// A window that was never shown must not answer the close request by
+	// hiding itself again; that would strand the application invisibly.
+	if l.exiting.Load() || !l.shown.Load() {
+		return false
+	}
+	if l.behavior.Load() == settings.CloseHide {
+		if l.window != nil {
+			l.window.Hide()
+		}
+		return true
+	}
+	l.RequestQuit()
+	return true
 }
 
 // RequestQuit is also the explicit Quit binding. Both native close and the

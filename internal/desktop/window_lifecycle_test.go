@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/dongwlin/dan-tick/internal/settings"
 	"github.com/dongwlin/dan-tick/internal/storage"
 	"github.com/stretchr/testify/require"
 )
@@ -49,4 +50,25 @@ func TestExitWarningCountsEnabledTasksAndRunningExecutions(t *testing.T) {
 	needs, err = needsExitWarning(ctx, db)
 	require.NoError(t, err)
 	require.False(t, needs)
+}
+
+func TestCloseRequestNeverHidesAWindowTheUserHasNotSeen(t *testing.T) {
+	hidden := NewWindowLifecycle(nil, nil, settings.CloseHide, true)
+	require.True(t, hidden.ShouldStartHidden(), "the stored preference governs window creation")
+	require.False(t, hidden.closeWindow(), "closing a window that was never shown must quit")
+
+	// The tray and a second launch restore the window through the same path.
+	hidden.MarkShown()
+	require.True(t, hidden.closeWindow(), "the background close behavior applies once the window is visible")
+
+	visible := NewWindowLifecycle(nil, nil, settings.CloseQuit, false)
+	require.False(t, visible.ShouldStartHidden())
+	require.False(t, visible.closeWindow(), "closing quits when the user chose to exit")
+}
+
+func TestExplicitQuitIsNotTurnedIntoAHiddenWindow(t *testing.T) {
+	lifecycle := NewWindowLifecycle(nil, nil, settings.CloseHide, false)
+	lifecycle.MarkShown()
+	lifecycle.exiting.Store(true)
+	require.False(t, lifecycle.closeWindow())
 }

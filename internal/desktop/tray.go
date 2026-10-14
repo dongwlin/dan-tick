@@ -27,12 +27,14 @@ type Tray struct {
 	actions *trayActions
 }
 
-func NewTray(app *application.App, window application.Window, service *ApplicationService, quit func()) *Tray {
+func NewTray(app *application.App, window application.Window, service *ApplicationService, lifecycle *WindowLifecycle) *Tray {
 	if runtime.GOOS != "windows" && runtime.GOOS != "linux" {
 		return nil
 	}
-	show := func() { RestoreWindow(window) }
-	actions := newTrayActions(service, application.InvokeAsync, show, quit, func(title, message string, failed bool) {
+	// Every tray entry point that reaches the window goes through the
+	// lifecycle, so a window created hidden is recorded as visible here.
+	show := lifecycle.Show
+	actions := newTrayActions(service, application.InvokeAsync, show, lifecycle.RequestQuit, func(title, message string, failed bool) {
 		show()
 		dialog := app.Dialog.Info()
 		if failed {

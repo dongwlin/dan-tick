@@ -64,7 +64,7 @@ func runDesktop(assets fs.FS, logger *diagnostic.Logger) error {
 	// Acquire Wails' OS-session single-instance ownership BEFORE opening SQLite
 	// or recovering Cron. A second launch signals the existing window and exits.
 	var windowMu sync.RWMutex
-	var mainWindow application.Window
+	var windowLifecycle *desktop.WindowLifecycle
 	var windowReady bool
 	desktopApp := newDesktopApplication(logger, application.Options{
 		Name:        "dan-tick",
@@ -76,11 +76,13 @@ func runDesktop(assets fs.FS, logger *diagnostic.Logger) error {
 			UniqueID: "io.github.dongwlin.dan-tick",
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
 				windowMu.RLock()
-				window := mainWindow
+				lifecycle := windowLifecycle
 				ready := windowReady
 				windowMu.RUnlock()
-				if ready && window != nil {
-					desktop.RestoreWindow(window)
+				if ready && lifecycle != nil {
+					// Relaunching the executable is the way back to a window
+					// that started hidden without a tray entry point.
+					lifecycle.Show()
 				}
 			},
 		},
@@ -137,6 +139,10 @@ func runDesktop(assets fs.FS, logger *diagnostic.Logger) error {
 	if err != nil {
 		return fmt.Errorf("load desktop preferences: %w", err)
 	}
+	startupVisibility, err := preferences.StartupVisibility(context.Background())
+	if err != nil {
+		return fmt.Errorf("load desktop preferences: %w", err)
+	}
 	desktopApp.RegisterService(application.NewServiceWithOptions(runtime.Config, application.ServiceOptions{
 		MarshalError: desktop.MarshalError,
 	}))
@@ -165,7 +171,7 @@ func runDesktop(assets fs.FS, logger *diagnostic.Logger) error {
 		desktop.NewHistoryService(history.NewService(db)),
 		application.ServiceOptions{MarshalError: desktop.MarshalError},
 	))
-	windowLifecycle := desktop.NewWindowLifecycle(desktopApp, db, closeBehavior)
+	windowLifecycle = desktop.NewWindowLifecycle(desktopApp, db, closeBehavior, startupVisibility == settings.HideOnStart)
 	desktopApp.RegisterService(application.NewServiceWithOptions(
 		desktop.NewWindowService(preferences, windowLifecycle.SetCloseBehavior, windowLifecycle.RequestQuit),
 		application.ServiceOptions{MarshalError: desktop.MarshalError},
@@ -174,7 +180,9 @@ func runDesktop(assets fs.FS, logger *diagnostic.Logger) error {
 	if err := runtime.Start(context.Background()); err != nil {
 		return fmt.Errorf("start scheduled work: %w", err)
 	}
-	// The F3 window remains independent of the long-lived Go scheduler.
+	// The F3 window remains independent of the long-lived Go scheduler. A
+	// hidden window still loads the frontend, so tasks and the tray are ready
+	// before the user restores it.
 	window := desktopApp.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "dan-tick",
 		Width:     1280,
@@ -182,6 +190,7 @@ func runDesktop(assets fs.FS, logger *diagnostic.Logger) error {
 		MinWidth:  1080,
 		MinHeight: 680,
 		Frameless: true,
+		Hidden:    windowLifecycle.ShouldStartHidden(),
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,
@@ -191,15 +200,12 @@ func runDesktop(assets fs.FS, logger *diagnostic.Logger) error {
 		URL:              "/",
 	})
 	windowLifecycle.Attach(window)
-	tray := desktop.NewTray(desktopApp, window, applicationService, windowLifecycle.RequestQuit)
+	tray := desktop.NewTray(desktopApp, window, applicationService, windowLifecycle)
 	defer tray.Close()
 	// Wails may terminate without returning from Run on some platforms. Stop
 	// tray queries before business shutdown and database close in both paths.
 	desktopApp.OnShutdown(tray.Close)
 	desktopApp.OnShutdown(runtime.Close)
-	windowMu.Lock()
-	mainWindow = window
-	windowMu.Unlock()
 	desktopApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		windowMu.Lock()
 		windowReady = true

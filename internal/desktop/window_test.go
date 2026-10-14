@@ -43,3 +43,35 @@ func TestWindowServiceUpdatesCommittedBehaviorAndSanitizesErrors(t *testing.T) {
 	require.NotContains(t, err.Error(), "private database detail")
 	require.Equal(t, []string{settings.CloseQuit}, changed)
 }
+
+func TestWindowServiceExposesStartupVisibilityWithoutLeakingStorageErrors(t *testing.T) {
+	ctx := context.Background()
+	db, err := storage.Open(ctx, filepath.Join(t.TempDir(), "settings.db"))
+	require.NoError(t, err)
+	defer db.Close()
+
+	var changed []string
+	service := NewWindowService(settings.NewService(db), func(value string) {
+		changed = append(changed, value)
+	}, func() {})
+
+	value, err := service.GetStartupVisibility(ctx)
+	require.NoError(t, err)
+	require.Equal(t, settings.ShowOnStart, value, "the default launch shows the main window")
+	require.Error(t, service.SetStartupVisibility(ctx, "minimised"))
+	require.Empty(t, changed)
+
+	require.NoError(t, service.SetStartupVisibility(ctx, settings.HideOnStart))
+	require.Equal(t, []string{settings.HideOnStart}, changed)
+	value, err = service.GetStartupVisibility(ctx)
+	require.NoError(t, err)
+	require.Equal(t, settings.HideOnStart, value)
+
+	_, err = db.ExecContext(ctx, `CREATE TRIGGER deny_startup_visibility BEFORE UPDATE ON app_settings
+		BEGIN SELECT RAISE(ABORT, 'private database detail'); END`)
+	require.NoError(t, err)
+	err = service.SetStartupVisibility(ctx, settings.ShowOnStart)
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "private database detail")
+	require.Equal(t, []string{settings.HideOnStart}, changed)
+}
