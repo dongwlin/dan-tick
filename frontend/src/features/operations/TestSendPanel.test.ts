@@ -108,9 +108,7 @@ it('validates programmatic submissions, focuses the invalid field, and sends onl
     await waitFor(() => expect(message.getAttribute('aria-invalid')).toBe('true'))
     await waitFor(() => expect(document.activeElement).toBe(message))
     expect(message.value).toBe(invalid)
-    expect(message.getAttribute('aria-describedby')).toBe(
-      'test-message-error test-message-description',
-    )
+    expect(message.getAttribute('aria-describedby')).toBe('test-message-error')
     expect(vi.mocked(TestSend)).not.toHaveBeenCalled()
   }
   expect(screen.getByText('弹幕内容含有无效字符，请移除后重试')).toBeTruthy()

@@ -85,7 +85,6 @@ async function submit() {
         v-slot="{ id, ariaInvalid, describedBy }"
         label="测试弹幕内容"
         :error="messageError"
-        :description="`${danmakuMessageLimitDescription}实际发送仍受平台规则限制。`"
       >
         <textarea
           :id="id"
@@ -94,9 +93,9 @@ async function submit() {
           :class="fieldClass"
           :aria-invalid="ariaInvalid"
           :aria-describedby="describedBy"
-          rows="2"
+          rows="5"
           required
-          placeholder="输入要实际发送到直播间的内容"
+          :placeholder="`输入要实际发送到直播间的内容\n\n${danmakuMessageLimitDescription}实际发送仍受平台规则限制。`"
         />
       </UiField>
       <UiButton

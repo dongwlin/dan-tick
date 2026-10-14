@@ -383,7 +383,6 @@ const submit = handleSubmit(
             v-slot="{ id, ariaInvalid, describedBy }"
             label="发送队列"
             :error="errors.messages"
-            :description="`每行一条，空行自动忽略；${danmakuMessageLimitDescription}实际发送仍受平台规则限制。`"
           >
             <textarea
               :id="id"
@@ -393,7 +392,7 @@ const submit = handleSubmit(
               :aria-invalid="ariaInvalid"
               :aria-describedby="describedBy"
               rows="5"
-              placeholder="在这里输入弹幕内容…"
+              :placeholder="`在这里输入弹幕内容…\n\n每行一条，空行自动忽略；${danmakuMessageLimitDescription}实际发送仍受平台规则限制。`"
             />
           </UiField>
           <div v-if="kind === 'loop'" class="mt-4 grid gap-3 md:grid-cols-3">

@@ -127,15 +127,11 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   )
   expect(screen.getByLabelText('任务名称')).toBe(screen.getByRole('textbox', { name: '任务名称' }))
   const messagesInput = screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' })
-  expect(messagesInput.placeholder).toBe('在这里输入弹幕内容…')
-  expect(messagesInput.getAttribute('aria-describedby')).toBe(
-    'task-messages-error task-messages-description',
+  expect(messagesInput.placeholder).toBe(
+    '在这里输入弹幕内容…\n\n每行一条，空行自动忽略；本应用上限相当于 80 个英文字母或数字、40 个普通汉字或 20 个 😀 表情；混合内容按比例计数，组合表情可能占更多长度。实际发送仍受平台规则限制。',
   )
-  expect(
-    screen.getByText(
-      '每行一条，空行自动忽略；本应用上限相当于 80 个英文字母或数字、40 个普通汉字或 20 个 😀 表情；混合内容按比例计数，组合表情可能占更多长度。实际发送仍受平台规则限制。',
-    ).id,
-  ).toBe('task-messages-description')
+  expect(messagesInput.getAttribute('aria-describedby')).toBe('task-messages-error')
+  expect(document.getElementById('task-messages-description')).toBeNull()
   expect(messageCard.querySelector('p')).toBeNull()
   expect(screen.queryByText('执行计划使用明确时区，保存后由后端计算下次执行时间。')).toBeNull()
   await user.type(screen.getByRole('textbox', { name: '任务名称' }), '自动问候')
