@@ -67,14 +67,25 @@ it('loads an existing enabled registration from the backend', async () => {
   expect(SetAutostartEnabled).not.toHaveBeenCalled()
 })
 
-it('enables and disables autostart using the confirmed system state', async () => {
+it('flips the switch immediately and confirms the write through the backend', async () => {
   const user = userEvent.setup()
+  let resolveChange: (status: typeof defaultStatus) => void = () => {}
+  vi.mocked(SetAutostartEnabled).mockImplementationOnce(
+    () =>
+      new CancellablePromise((resolve) => {
+        resolveChange = resolve
+      }),
+  )
   show()
 
   const toggle = await findReadySwitch('开机自启')
   await user.click(toggle)
   expect(SetAutostartEnabled).toHaveBeenCalledWith(true)
-  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
+  // Optimistic: the requested value shows before the platform write confirms.
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
+  expect(toggle.hasAttribute('disabled')).toBe(true)
+
+  resolveChange({ ...defaultStatus, enabled: true })
   expect((await successToast()).textContent).toContain('已开启开机自启')
   await waitFor(() => expect(toggle.hasAttribute('disabled')).toBe(false))
 
@@ -85,7 +96,7 @@ it('enables and disables autostart using the confirmed system state', async () =
   expect((await successToast()).textContent).toContain('已关闭开机自启')
 })
 
-it('rereads the system after a failed confirmation and shows a change that already took effect', async () => {
+it('keeps a failed confirmation that already took effect', async () => {
   const user = userEvent.setup()
   let resolveRead: (status: typeof defaultStatus) => void = () => {}
   vi.mocked(GetAutostartStatus)
@@ -103,7 +114,7 @@ it('rereads the system after a failed confirmation and shows a change that alrea
   await user.click(toggle)
   await waitFor(() => expect(GetAutostartStatus).toHaveBeenCalledTimes(2))
   expect(toggle.hasAttribute('disabled')).toBe(true)
-  expect(toggle.getAttribute('aria-checked')).toBe('false')
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
   await user.click(toggle)
   expect(SetAutostartEnabled).toHaveBeenCalledTimes(1)
 
@@ -116,12 +127,39 @@ it('rereads the system after a failed confirmation and shows a change that alrea
   expect(document.body.textContent).not.toContain('private registry path')
 })
 
+it('reverts the requested value when the reread shows the write never landed', async () => {
+  const user = userEvent.setup()
+  let rejectWrite: (reason: Error) => void = () => {}
+  vi.mocked(GetAutostartStatus)
+    .mockResolvedValueOnce(defaultStatus)
+    .mockResolvedValueOnce(defaultStatus)
+  vi.mocked(SetAutostartEnabled).mockImplementationOnce(
+    () =>
+      new CancellablePromise((_resolve, reject) => {
+        rejectWrite = reject
+      }),
+  )
+  show()
+
+  const toggle = await findReadySwitch('开机自启')
+  await user.click(toggle)
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
+
+  rejectWrite(new Error('private registry path'))
+  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
+  expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
+    '更改开机自启未成功确认',
+  )
+  expect(GetAutostartStatus).toHaveBeenCalledTimes(2)
+  expect(toggle.hasAttribute('disabled')).toBe(false)
+})
+
 it('reports a failed write and a failed verification through the toast and rereads on the next visit', async () => {
   const user = userEvent.setup()
   vi.mocked(GetAutostartStatus)
     .mockResolvedValueOnce(defaultStatus)
     .mockRejectedValueOnce(new Error('private file path'))
-    .mockResolvedValueOnce({ ...defaultStatus, enabled: true })
+    .mockResolvedValueOnce(defaultStatus)
   vi.mocked(SetAutostartEnabled).mockRejectedValueOnce(new Error('private write detail'))
   const view = show()
 
@@ -135,13 +173,16 @@ it('reports a failed write and a failed verification through the toast and rerea
     /无法读取开机自启状态|更改开机自启未成功确认/,
   )
   expect(toggle.hasAttribute('disabled')).toBe(true)
+  // Nothing verified the write, so the requested value stays on screen until a
+  // later read reports what the system actually holds.
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
   expect(document.body.textContent).not.toContain('private file path')
   expect(document.body.textContent).not.toContain('private write detail')
 
   view.unmount()
   show()
   const reread = await findReadySwitch('开机自启')
-  expect(reread.getAttribute('aria-checked')).toBe('true')
+  expect(reread.getAttribute('aria-checked')).toBe('false')
 })
 
 it('keeps autostart unavailable on unsupported systems', async () => {
@@ -169,7 +210,8 @@ it('offers re-enabling to repair an outdated registration', async () => {
   await user.click(toggle)
 
   expect(SetAutostartEnabled).toHaveBeenCalledWith(true)
-  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
+  // Repairing the entry shows the switch on straight away.
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
   expect(screen.queryByText(/已有启动项需要修复/)).toBeNull()
 })
 
@@ -206,7 +248,8 @@ it('prevents repeated writes while a registration change is pending', async () =
   await user.click(toggle)
   expect(toggle.hasAttribute('disabled')).toBe(true)
   expect(toggle.getAttribute('aria-busy')).toBe('true')
-  expect(toggle.getAttribute('aria-checked')).toBe('false')
+  // Requested optimistically, then locked so no second write can race it.
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
   expect((await screen.findByRole('status', { name: '操作提示通知' })).textContent).toContain(
     '正在更新开机自启状态…',
   )

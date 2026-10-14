@@ -20,6 +20,7 @@ import {
   GetStartupVisibility,
   SetStartupVisibility,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice'
+import type { AutostartStatus } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 
 export const applicationKeys = {
   all: ['application'] as const,
@@ -39,9 +40,16 @@ export function useSetAutostartEnabled() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (enabled: boolean) => SetAutostartEnabled(enabled),
+    // Optimistic: the switch shows the requested value while the platform write
+    // and its verification round trip run.
+    onMutate: (enabled) => {
+      client.setQueryData<AutostartStatus | undefined>(applicationKeys.autostart, (current) =>
+        current ? { ...current, enabled, needsRepair: false } : current,
+      )
+    },
     onSuccess: (status) => client.setQueryData(applicationKeys.autostart, status),
     // A failed confirmation can follow a successful system change. Read the
-    // registered state again before allowing another attempt.
+    // registered state again so the requested value cannot survive unverified.
     onError: () => client.invalidateQueries({ queryKey: applicationKeys.autostart }),
   })
 }
@@ -54,9 +62,10 @@ export function useSetStartupVisibility() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (value: string) => SetStartupVisibility(value),
+    onMutate: (value) => client.setQueryData(applicationKeys.startupVisibility, value),
     onSuccess: (_, value) => client.setQueryData(applicationKeys.startupVisibility, value),
     // The write can succeed before its response fails. Read the stored value
-    // again so the switch never shows a state the backend does not hold.
+    // again so an unconfirmed value cannot remain on screen.
     onError: () => client.invalidateQueries({ queryKey: applicationKeys.startupVisibility }),
   })
 }
