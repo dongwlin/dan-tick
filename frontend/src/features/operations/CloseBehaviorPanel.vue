@@ -66,7 +66,7 @@ function onChange(value: unknown) {
         class="group flex min-h-11 items-center gap-3 rounded-[10px] border border-border-strong bg-surface-solid px-4 py-2.5 text-left text-text-primary hover:bg-surface-solid-hover data-[state=checked]:border-soft-accent-border data-[state=checked]:bg-soft-accent-bg disabled:cursor-not-allowed"
       >
         <span
-          class="flex size-4 items-center justify-center rounded-full border border-border-strong group-data-[disabled]:opacity-60 group-data-[state=checked]:border-accent-solid"
+          class="flex size-4 items-center justify-center rounded-full border border-border-strong group-data-[state=checked]:border-accent-solid"
           aria-hidden="true"
         >
           <RadioGroupIndicator class="flex size-3 items-center justify-center text-accent-text">
@@ -80,7 +80,7 @@ function onChange(value: unknown) {
         class="group flex min-h-11 items-center gap-3 rounded-[10px] border border-border-strong bg-surface-solid px-4 py-2.5 text-left text-text-primary hover:bg-surface-solid-hover data-[state=checked]:border-soft-accent-border data-[state=checked]:bg-soft-accent-bg disabled:cursor-not-allowed"
       >
         <span
-          class="flex size-4 items-center justify-center rounded-full border border-border-strong group-data-[disabled]:opacity-60 group-data-[state=checked]:border-accent-solid"
+          class="flex size-4 items-center justify-center rounded-full border border-border-strong group-data-[state=checked]:border-accent-solid"
           aria-hidden="true"
         >
           <RadioGroupIndicator class="flex size-3 items-center justify-center text-accent-text">
