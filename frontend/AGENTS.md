@@ -41,7 +41,7 @@ Page 负责组合，业务逻辑留在所属 Feature；共享组件不能反向�
 - 危险操作与未保存离开复用 `UiConfirmDialog.vue`，不用 `window.confirm`。默认 Alert Dialog 不响应 Escape / 外部点击，初始焦点在取消 / 安全操作；`dismissible` 模式使用普通 Dialog，供“继续编辑 / 放弃更改”场景。
 - 全应用只有一个 `UiToastHost.vue`，在 `App.vue` 根级挂载一次；Feature 通过 `src/composables/useToast.ts` 上报，不各自渲染 Provider。组件测试用 `src/test/toastHost.ts` 挂载同一宿主。
 - **反馈不改变布局**：卡片与面板在交互期间保持结构稳定——进行中、成功、失败和状态警告统一通过 `src/composables/useToast.ts` 走根级 Toast 宿主，不用 `v-if` 在卡片里增删提示行、警告块或操作按钮（反例：启动设置卡片的“正在更新…”行、「保存后…生效」提示与内联警告块，会撑高卡片把下方内容顶下去）。数据加载与失败仍由 `UiAsyncSection` 原地替换，确需内联状态时复用既有行位或预留固定高度；参考 `StartupPanel` 与 `StartupPanel.test.ts` 的写法断言交互期间卡片内容不变，改到既有内联 pending 文案时按此收敛。
-- **禁用态只降控件的透明度**：`disabled:opacity-60` 不加在含文字的行容器上，改用控件自身的 `group-data-[disabled]:opacity-60`（Reka 根节点在禁用时会带 `data-disabled`）。行容器上的 `opacity` 或 `filter` 会把文字放进独立合成图层重新栅格化，WebView 里看起来就是开关时文字跳动；行容器保留 `disabled:cursor-not-allowed` 即可。
+- **禁用态只在持久不可用时变淡**：不要用 `disabled:opacity-60`（它同时命中“写入进行中”这类瞬时状态，那零点几秒的透明度变化看起来就是开关闪一下），改用只对持久不可用（系统不支持、状态读取失败等）生效的绑定类，并把透明度放在控件本身而不是含文字的行容器上；写入期间的变化交给 Toast 与 `aria-busy`。行容器上的 `opacity` / `filter` 还会把文字放进独立合成图层重新栅格化，WebView 里表现为文字跳动；行容器保留 `disabled:cursor-not-allowed` 即可。
 - 写 Reka UI 交互前查官方 [LLM 文档索引](https://reka-ui.com/llms.txt)。文档页面 URL 加 `.md` 可获取 props、events、slots 与 API 表，如 [Dialog Markdown](https://reka-ui.com/docs/components/dialog.md)；官网随最新版本更新，与本项目锁定版本不同则以仓库实际类型和行为为准。
 - 遵循引入规范的可访问性要求；已有可见文字的图标标记为 `aria-hidden`，原生输入、Select 和表格保持语义，不为每个控件预建包装层。
 
