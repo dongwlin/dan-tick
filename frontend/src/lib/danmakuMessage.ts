@@ -1,8 +1,8 @@
 // Keep this local limit aligned with internal/danmaku's offline validation.
-export const danmakuMessageLimit = 20
+export const danmakuMessageLimit = 80
 export const danmakuMessageLengthError = '弹幕内容超过本应用的长度上限，请缩短后重试'
 export const danmakuMessageLimitDescription =
-  '本应用上限相当于 20 个英文字母、10 个普通汉字或 5 个 😀 表情；混合内容按比例计数，组合表情可能占更多长度。'
+  '本应用上限相当于 80 个英文字母或数字、40 个普通汉字或 20 个 😀 表情；混合内容按比例计数，组合表情可能占更多长度。'
 
 export function validateDanmakuMessage(message: string): string | undefined {
   if (!message.trim()) return '请输入弹幕内容'

@@ -17,7 +17,7 @@ func TestRunManualRejectsLegacyOverlongMessageWithoutChangingTaskOrSnapshot(t *t
 	ctx := context.Background()
 	db := testDB(t)
 	created := addSingleTask(t, db)
-	legacyMessage := strings.Repeat("弹", 11)
+	legacyMessage := strings.Repeat("弹", 41)
 	// Simulate a task saved before submission validation existed.
 	_, err := db.ExecContext(ctx, "UPDATE task_messages SET content = ? WHERE task_id = ?", legacyMessage, created.ID)
 	require.NoError(t, err)

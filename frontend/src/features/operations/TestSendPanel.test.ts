@@ -98,9 +98,9 @@ it('validates programmatic submissions, focuses the invalid field, and sends onl
   for (const invalid of [
     '',
     '   ',
-    '中'.repeat(11),
-    'a'.repeat(21),
-    '😀'.repeat(6),
+    '中'.repeat(41),
+    'a'.repeat(81),
+    '😀'.repeat(21),
     '文\u0000字',
   ]) {
     await fireEvent.update(message, invalid)
@@ -115,13 +115,13 @@ it('validates programmatic submissions, focuses the invalid field, and sends onl
   }
   expect(screen.getByText('弹幕内容含有无效字符，请移除后重试')).toBeTruthy()
 
-  await fireEvent.update(message, '😀'.repeat(5))
+  await fireEvent.update(message, '😀'.repeat(20))
   await waitFor(() => expect(message.hasAttribute('aria-invalid')).toBe(false))
   await user.click(screen.getByRole('button', { name: '发送测试弹幕' }))
   await waitFor(() =>
     expect(vi.mocked(TestSend)).toHaveBeenCalledExactlyOnceWith({
       roomId: 7,
-      message: '😀'.repeat(5),
+      message: '😀'.repeat(20),
     }),
   )
   expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(

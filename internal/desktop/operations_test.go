@@ -81,11 +81,12 @@ func TestOperationsServiceCredentialAndSendBoundary(t *testing.T) {
 	s := NewOperationsService(db, store, fakeChecker{status: account.Status{State: account.LoggedIn}}, sender, runner, func(event string) { events = append(events, event) })
 	require.Equal(t, account.LoggedIn, s.CheckAccount(ctx).State)
 
-	result, err := s.TestSend(ctx, TestSendInput{RoomID: roomID, Message: "private test text"})
+	message := strings.Repeat("弹", 40)
+	result, err := s.TestSend(ctx, TestSendInput{RoomID: roomID, Message: message})
 	require.NoError(t, err)
 	require.Equal(t, danmaku.Accepted, result.Outcome)
 	require.Equal(t, "98765", sender.room)
-	require.Equal(t, "private test text", sender.message)
+	require.Equal(t, message, sender.message)
 	require.Empty(t, result.ErrorCode)
 	_, err = s.TestSend(ctx, TestSendInput{RoomID: roomID + 10, Message: "private test text"})
 	assertPublicError(t, err, "not_found", "private test text")
@@ -125,7 +126,7 @@ func TestOperationsServiceRejectsInvalidMessagesBeforeLookupAndSending(t *testin
 		{"", "invalid_input"},
 		{"text\nline", "invalid_input"},
 		{string([]byte{0xff}), "invalid_input"},
-		{strings.Repeat("弹", 11), "too_long"},
+		{strings.Repeat("弹", 41), "too_long"},
 	} {
 		_, err := service.TestSend(context.Background(), TestSendInput{RoomID: 1, Message: tc.message})
 		assertPublicError(t, err, tc.code, "private")

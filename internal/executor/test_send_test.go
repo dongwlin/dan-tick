@@ -15,6 +15,7 @@ import (
 func TestTestSendPersistsExecutionAndAttemptBeforeSharingSender(t *testing.T) {
 	db := testDB(t)
 	ctx := context.Background()
+	message := strings.Repeat("弹", 40)
 	var roomID int64
 	require.NoError(t, db.QueryRowContext(ctx, `
 INSERT INTO rooms (platform_room_id, created_at, updated_at)
@@ -23,6 +24,8 @@ VALUES ('12345', ?, ?) RETURNING id`,
 
 	var pendingSeen, nullTaskSeen, testKindSeen bool
 	sender, closeServer := testSender(t, func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, r.ParseForm())
+		require.Equal(t, message, r.PostForm.Get("msg"))
 		var taskID sql.NullInt64
 		var trigger, status, attempt string
 		if err := db.QueryRowContext(r.Context(), `
@@ -39,7 +42,7 @@ WHERE e.id = (SELECT MAX(id) FROM executions)`).Scan(&taskID, &trigger, &status,
 	}, fakeCredentials{})
 	defer closeServer()
 
-	result, err := testExecutor(db, sender, nil).TestSend(ctx, "12345", testMessage)
+	result, err := testExecutor(db, sender, nil).TestSend(ctx, "12345", message)
 	require.NoError(t, err)
 	require.True(t, pendingSeen, "test execution and pending attempt must be committed before HTTP")
 	require.True(t, nullTaskSeen)
@@ -82,7 +85,7 @@ FROM send_attempts WHERE execution_id = ?`, result.ExecutionID).Scan(
 		&sequence, &messageNo, &content, &attemptResult))
 	require.Equal(t, 1, sequence)
 	require.Equal(t, 1, messageNo)
-	require.Equal(t, testMessage, content)
+	require.Equal(t, message, content)
 	require.Equal(t, "accepted", attemptResult)
 
 	var tasks int
@@ -155,7 +158,7 @@ func TestTestSendRejectsInvalidInputAndClosedExecutorWithoutHistory(t *testing.T
 		{"   ", danmaku.ErrInvalidInput},
 		{"text\nline", danmaku.ErrInvalidInput},
 		{string([]byte{0xff}), danmaku.ErrInvalidInput},
-		{strings.Repeat("弹", 11), danmaku.ErrTooLong},
+		{strings.Repeat("弹", 41), danmaku.ErrTooLong},
 	} {
 		_, err := svc.TestSend(ctx, "12345", tc.message)
 		require.ErrorIs(t, err, tc.want)

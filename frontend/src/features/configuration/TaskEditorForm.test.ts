@@ -133,7 +133,7 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   )
   expect(
     screen.getByText(
-      '每行一条，空行自动忽略；本应用上限相当于 20 个英文字母、10 个普通汉字或 5 个 😀 表情；混合内容按比例计数，组合表情可能占更多长度。实际发送仍受平台规则限制。',
+      '每行一条，空行自动忽略；本应用上限相当于 80 个英文字母或数字、40 个普通汉字或 20 个 😀 表情；混合内容按比例计数，组合表情可能占更多长度。实际发送仍受平台规则限制。',
     ).id,
   ).toBe('task-messages-description')
   expect(messageCard.querySelector('p')).toBeNull()
@@ -282,8 +282,8 @@ it.each(['single', 'loop'])(
     await pickOption(user, '目标直播间', '测试直播间 · 98765')
     await pickOption(user, '任务类型', kind === 'loop' ? '循环发送' : '单次发送')
     const messages = screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' })
-    const validFirst = kind === 'loop' ? `  ${'中'.repeat(10)}  \n\n` : ''
-    const invalidDraft = `${validFirst}  ${'a'.repeat(21)}  `
+    const validFirst = kind === 'loop' ? `  ${'中'.repeat(40)}  \n\n` : ''
+    const invalidDraft = `${validFirst}  ${'a'.repeat(81)}  `
     await fireEvent.update(messages, invalidDraft)
     await user.click(screen.getByRole('button', { name: '创建任务' }))
 
@@ -306,13 +306,13 @@ it.each(['single', 'loop'])(
     ).toBeTruthy()
     expect(vi.mocked(CreateTask)).not.toHaveBeenCalled()
 
-    await fireEvent.update(messages, `${validFirst}  ${'😀'.repeat(5)}  `)
+    await fireEvent.update(messages, `${validFirst}  ${'😀'.repeat(20)}  `)
     await waitFor(() => expect(messages.hasAttribute('aria-invalid')).toBe(false))
     await user.click(screen.getByRole('button', { name: '创建任务' }))
     await waitFor(() => expect(window.location.hash).toBe('#/tasks'))
     expect(vi.mocked(CreateTask)).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
-        messages: kind === 'loop' ? ['中'.repeat(10), '😀'.repeat(5)] : ['😀'.repeat(5)],
+        messages: kind === 'loop' ? ['中'.repeat(40), '😀'.repeat(20)] : ['😀'.repeat(20)],
       }),
     )
   },

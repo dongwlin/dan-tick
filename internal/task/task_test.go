@@ -269,7 +269,7 @@ func TestMessageLengthLimitRejectsCreateAndUpdateAtomically(t *testing.T) {
 	for _, tc := range []struct {
 		text  string
 		count int
-	}{{"a", 20}, {"弹", 10}, {"🐱", 5}} {
+	}{{"a", 80}, {"弹", 40}, {"🐱", 20}} {
 		t.Run(tc.text, func(t *testing.T) {
 			s, db := newTestService(t)
 			ctx := context.Background()

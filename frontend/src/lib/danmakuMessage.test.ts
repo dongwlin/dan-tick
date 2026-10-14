@@ -6,17 +6,23 @@ import {
 } from './danmakuMessage'
 
 it.each([
-  { character: '中', limit: 10 },
-  { character: 'a', limit: 20 },
-  { character: '😀', limit: 5 },
+  { character: '中', limit: 40 },
+  { character: '。', limit: 40 },
+  { character: 'a', limit: 80 },
+  { character: '😀', limit: 20 },
+  { character: '👍🏽', limit: 10 },
+  { character: '❤️', limit: 20 },
 ])('counts $character at its weighted local boundary', ({ character, limit }) => {
   expect(validateDanmakuMessage(character.repeat(limit - 1))).toBeUndefined()
   expect(validateDanmakuMessage(character.repeat(limit))).toBeUndefined()
   expect(validateDanmakuMessage(character.repeat(limit + 1))).toBe(danmakuMessageLengthError)
 })
 
-it('applies the same weighted limit to mixed content', () => {
-  const boundary = `${'a'.repeat(10)}${'中'.repeat(3)}😀`
+it.each([
+  `${'a'.repeat(74)}中😀`,
+  `${'e\u0301'.repeat(26)}ab`,
+  `${'👨‍👩‍👧‍👦'.repeat(3)}${'a'.repeat(14)}`,
+])('applies the weighted limit to mixed and combining content %j', (boundary) => {
   expect(validateDanmakuMessage(boundary)).toBeUndefined()
   expect(validateDanmakuMessage(`${boundary}a`)).toBe(danmakuMessageLengthError)
 })

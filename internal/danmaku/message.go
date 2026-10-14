@@ -6,9 +6,9 @@ import (
 	"unicode/utf8"
 )
 
-// MaxMessageUnits is this application's conservative offline message budget.
-// Bilibili may allow a different length depending on the account.
-const MaxMessageUnits = 20
+// MaxMessageUnits is this application's offline message budget.
+// Bilibili may allow a different length depending on the account and room.
+const MaxMessageUnits = 80
 
 // ValidateMessage checks the exact text that would be sent without truncating
 // or otherwise changing it. Printable ASCII costs one unit; every other UTF-16

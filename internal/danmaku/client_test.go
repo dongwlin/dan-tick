@@ -59,6 +59,7 @@ func safe(t *testing.T, result Result, err error) {
 }
 
 func TestSendAcceptedUsesOnlyDocumentedParameters(t *testing.T) {
+	message := strings.Repeat("a", 67) + "  弹 &+ 🐱 " // Exactly 80 weighted units.
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
@@ -78,7 +79,7 @@ func TestSendAcceptedUsesOnlyDocumentedParameters(t *testing.T) {
 		require.NoError(t, r.ParseForm())
 		require.Equal(t, url.Values{
 			"roomid":   {"12345"},
-			"msg":      {"  弹 &+ 🐱 "},
+			"msg":      {message},
 			"rnd":      {"1760123456"},
 			"fontsize": {"25"},
 			"color":    {"16777215"},
@@ -89,7 +90,7 @@ func TestSendAcceptedUsesOnlyDocumentedParameters(t *testing.T) {
 	defer server.Close()
 
 	store := storedCredentials()
-	result, err := testClient(store, server).Send(context.Background(), "12345", "  弹 &+ 🐱 ")
+	result, err := testClient(store, server).Send(context.Background(), "12345", message)
 	require.NoError(t, err)
 	require.Equal(t, Accepted, result.Outcome)
 	require.NotNil(t, result.Code)
@@ -200,7 +201,7 @@ func TestSendRejectsOverlongMessagesBeforeCredentialsOrHTTP(t *testing.T) {
 	for _, tc := range []struct {
 		text  string
 		count int
-	}{{"a", 21}, {"弹", 11}, {"🐱", 6}} {
+	}{{"a", 81}, {"弹", 41}, {"🐱", 21}} {
 		t.Run(tc.text, func(t *testing.T) {
 			store := storedCredentials()
 			client := testClient(store, server)
