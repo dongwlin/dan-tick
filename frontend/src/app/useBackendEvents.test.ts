@@ -3,17 +3,11 @@ import { VueQueryPlugin } from '@tanstack/vue-query'
 import { render, waitFor } from '@testing-library/vue'
 import { expect, it, vi } from 'vitest'
 import { Events } from '@wailsio/runtime'
-import type * as WailsRuntime from '@wailsio/runtime'
 import { createAppQueryClient } from './queryClient'
 import { useBackendEvents } from './useBackendEvents'
 import { operationKeys } from '@/features/operations/queries'
 import { historyKeys } from '@/features/history/queries'
 import { applicationKeys } from '@/features/application/queries'
-
-vi.mock('@wailsio/runtime', async (importOriginal) => {
-  const actual = await importOriginal<typeof WailsRuntime>()
-  return { ...actual, Events: { ...actual.Events, On: vi.fn() } }
-})
 
 it('invalidates only matching Query keys and detaches all listeners on unmount', async () => {
   const handlers = new Map<string, () => void>()
