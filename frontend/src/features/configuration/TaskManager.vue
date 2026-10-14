@@ -161,7 +161,7 @@ async function deleteTask() {
               >
                 <div class="flex min-w-0 items-center gap-4">
                   <SwitchRoot
-                    class="group inline-flex shrink-0 cursor-pointer items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+                    class="group inline-flex shrink-0 cursor-pointer items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
                     :model-value="taskEnabled(task)"
                     :disabled="enabledMutation.isPending.value"
                     :aria-label="`${task.name} 自动执行`"
