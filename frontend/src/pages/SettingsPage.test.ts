@@ -93,7 +93,7 @@ it('groups autostart and hidden launch under one startup card in that order', as
   const startup = screen.getByRole('region', { name: '启动设置' })
   expect(within(startup).getByRole('heading', { name: '启动设置' })).toBeTruthy()
   const hidden = await within(startup).findByRole('switch', { name: '启动后隐藏窗口' })
-  const autostart = within(startup).getByRole('switch', { name: '启用开机自启动' })
+  const autostart = within(startup).getByRole('switch', { name: '开机自启动' })
   expect(autostart.compareDocumentPosition(hidden) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 

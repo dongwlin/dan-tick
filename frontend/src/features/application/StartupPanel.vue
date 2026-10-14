@@ -80,7 +80,7 @@ function refreshStatus() {
           <SwitchRoot
             id="autostart-switch"
             class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="启用开机自启动"
+            aria-label="开机自启动"
             aria-describedby="autostart-description"
             :model-value="(status.data.value?.enabled && !status.data.value.needsRepair) ?? false"
             :disabled="autostartDisabled"
@@ -88,7 +88,7 @@ function refreshStatus() {
             @update:model-value="changeAutostart"
           >
             <span class="flex min-w-0 flex-col gap-1">
-              <strong class="text-sm">启用开机自启动</strong>
+              <strong class="text-sm">开机自启动</strong>
               <span id="autostart-description" class="text-xs text-text-tertiary">
                 登录桌面会话后自动启动 dan-tick
               </span>

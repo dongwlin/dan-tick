@@ -50,7 +50,7 @@ it('loads an existing enabled registration from the backend', async () => {
   vi.mocked(GetAutostartStatus).mockResolvedValueOnce({ ...defaultStatus, enabled: true })
   show()
 
-  const toggle = await screen.findByRole('switch', { name: '启用开机自启动' })
+  const toggle = await screen.findByRole('switch', { name: '开机自启动' })
   expect(toggle.getAttribute('aria-checked')).toBe('true')
   expect(screen.getByText('登录桌面会话后自动启动 dan-tick')).toBeTruthy()
   expect(SetAutostartEnabled).not.toHaveBeenCalled()
@@ -60,7 +60,7 @@ it('enables and disables autostart using the confirmed system state', async () =
   const user = userEvent.setup()
   show()
 
-  const toggle = await screen.findByRole('switch', { name: '启用开机自启动' })
+  const toggle = await screen.findByRole('switch', { name: '开机自启动' })
   await user.click(toggle)
   expect(SetAutostartEnabled).toHaveBeenCalledWith(true)
   await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
@@ -91,7 +91,7 @@ it('rereads the system after a failed confirmation and shows a change that alrea
   vi.mocked(SetAutostartEnabled).mockRejectedValueOnce(new Error('private registry path'))
   show()
 
-  const toggle = await screen.findByRole('switch', { name: '启用开机自启动' })
+  const toggle = await screen.findByRole('switch', { name: '开机自启动' })
   await user.click(toggle)
   await waitFor(() => expect(GetAutostartStatus).toHaveBeenCalledTimes(2))
   expect(toggle.hasAttribute('disabled')).toBe(true)
@@ -117,14 +117,14 @@ it('requires a successful reread when both saving and its state verification fai
   vi.mocked(SetAutostartEnabled).mockRejectedValueOnce(new Error('private write detail'))
   show()
 
-  await user.click(await screen.findByRole('switch', { name: '启用开机自启动' }))
+  await user.click(await screen.findByRole('switch', { name: '开机自启动' }))
   expect(await screen.findByText('无法读取开机自启动状态，请重新读取后再试。')).toBeTruthy()
-  expect(screen.queryByRole('switch', { name: '启用开机自启动' })).toBeNull()
+  expect(screen.queryByRole('switch', { name: '开机自启动' })).toBeNull()
   expect(document.body.textContent).not.toContain('private file path')
   expect(document.body.textContent).not.toContain('private write detail')
 
   await user.click(screen.getByRole('button', { name: '重新读取' }))
-  const toggle = await screen.findByRole('switch', { name: '启用开机自启动' })
+  const toggle = await screen.findByRole('switch', { name: '开机自启动' })
   expect(toggle.getAttribute('aria-checked')).toBe('true')
   expect(toggle.hasAttribute('disabled')).toBe(false)
 })
@@ -134,7 +134,7 @@ it('keeps autostart unavailable on unsupported systems', async () => {
   vi.mocked(GetAutostartStatus).mockResolvedValueOnce({ ...defaultStatus, supported: false })
   show()
 
-  const toggle = await screen.findByRole('switch', { name: '启用开机自启动' })
+  const toggle = await screen.findByRole('switch', { name: '开机自启动' })
   expect(toggle.hasAttribute('disabled')).toBe(true)
   expect(screen.getByText('当前系统不支持开机自启动。')).toBeTruthy()
   await user.click(toggle)
@@ -146,7 +146,7 @@ it('offers re-enabling to repair an outdated registration', async () => {
   vi.mocked(GetAutostartStatus).mockResolvedValueOnce({ ...defaultStatus, needsRepair: true })
   show()
 
-  const toggle = await screen.findByRole('switch', { name: '启用开机自启动' })
+  const toggle = await screen.findByRole('switch', { name: '开机自启动' })
   expect(toggle.getAttribute('aria-checked')).toBe('false')
   expect(screen.getByText(/已有启动项需要修复/)).toBeTruthy()
   await user.click(toggle)
@@ -164,7 +164,7 @@ it('can remove an outdated registration without enabling autostart', async () =>
   await user.click(await screen.findByRole('button', { name: '清理启动项' }))
   expect(SetAutostartEnabled).toHaveBeenCalledWith(false)
   await waitFor(() => expect(screen.queryByText(/已有启动项需要修复/)).toBeNull())
-  expect(screen.getByRole('switch', { name: '启用开机自启动' }).getAttribute('aria-checked')).toBe(
+  expect(screen.getByRole('switch', { name: '开机自启动' }).getAttribute('aria-checked')).toBe(
     'false',
   )
 })
@@ -175,11 +175,11 @@ it('shows safe read failures and retries through the backend', async () => {
   show()
 
   expect(await screen.findByText('无法读取开机自启动状态，请重新读取后再试。')).toBeTruthy()
-  expect(screen.queryByRole('switch', { name: '启用开机自启动' })).toBeNull()
+  expect(screen.queryByRole('switch', { name: '开机自启动' })).toBeNull()
   expect(document.body.textContent).not.toContain('private executable path')
   await user.click(screen.getByRole('button', { name: '重新读取' }))
 
-  const toggle = await screen.findByRole('switch', { name: '启用开机自启动' })
+  const toggle = await screen.findByRole('switch', { name: '开机自启动' })
   expect(toggle.hasAttribute('disabled')).toBe(false)
   expect(GetAutostartStatus).toHaveBeenCalledTimes(2)
   expect(SetAutostartEnabled).not.toHaveBeenCalled()
@@ -197,7 +197,7 @@ it('prevents repeated writes while a registration change is pending', async () =
   )
   show()
 
-  const toggle = await screen.findByRole('switch', { name: '启用开机自启动' })
+  const toggle = await screen.findByRole('switch', { name: '开机自启动' })
   await user.click(toggle)
   expect(toggle.hasAttribute('disabled')).toBe(true)
   expect(toggle.getAttribute('aria-busy')).toBe('true')
