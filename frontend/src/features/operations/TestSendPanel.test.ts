@@ -16,6 +16,15 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/operationsservi
   TestSend: vi.fn(),
 }))
 
+type User = ReturnType<typeof userEvent.setup>
+
+/** Opens the room picker; finding the option also waits for the room read. */
+async function pickRoom(user: User, label: string) {
+  await user.click(screen.getByRole('combobox', { name: '目标直播间' }))
+  const listbox = await screen.findByRole('listbox')
+  await user.click(await within(listbox).findByRole('option', { name: label }))
+}
+
 it('requires a saved room, distinguishes test send results, and never starts a task', async () => {
   const user = userEvent.setup()
   vi.mocked(ListRooms).mockResolvedValue([
@@ -40,8 +49,7 @@ it('requires a saved room, distinguishes test send results, and never starts a t
   expect(within(card).queryByText(/不写入任务执行历史/)).toBeNull()
   expect(within(card).queryByText(/与任务共用账号限流/)).toBeNull()
   const initialChildCount = card.children.length
-  expect(await screen.findByRole('option', { name: '演示直播间' })).toBeTruthy()
-  await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '7')
+  await pickRoom(user, '演示直播间')
   await user.type(screen.getByRole('textbox', { name: '测试弹幕内容' }), '测试文字')
   await user.click(screen.getByRole('button', { name: '发送测试弹幕' }))
   await waitFor(() =>
@@ -76,7 +84,6 @@ it('validates programmatic submissions, focuses the invalid field, and sends onl
   render(TestSendPanel, {
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
-  await screen.findByRole('option', { name: '演示直播间' })
   const room = screen.getByRole('combobox', { name: '目标直播间' })
   const message = screen.getByRole<HTMLTextAreaElement>('textbox', { name: '测试弹幕内容' })
   const form = message.closest('form')
@@ -87,7 +94,7 @@ it('validates programmatic submissions, focuses the invalid field, and sends onl
   await waitFor(() => expect(document.activeElement).toBe(room))
   expect(vi.mocked(TestSend)).not.toHaveBeenCalled()
 
-  await user.selectOptions(room, '7')
+  await pickRoom(user, '演示直播间')
   for (const invalid of [
     '',
     '   ',
@@ -140,8 +147,7 @@ it('keeps the original message after a backend failure', async () => {
   render(TestSendPanel, {
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
-  await screen.findByRole('option', { name: '演示直播间' })
-  await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '7')
+  await pickRoom(user, '演示直播间')
   const message = screen.getByRole<HTMLTextAreaElement>('textbox', { name: '测试弹幕内容' })
   await user.type(message, '  原文保留  ')
   await user.click(screen.getByRole('button', { name: '发送测试弹幕' }))

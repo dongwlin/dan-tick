@@ -4,6 +4,7 @@ import { Send } from 'lucide-vue-next'
 import { Outcome } from '@bindings/github.com/dongwlin/dan-tick/internal/danmaku/models'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiField from '@/components/ui/UiField.vue'
+import UiSelect from '@/components/ui/UiSelect.vue'
 import { useRoomOptions } from '@/features/configuration/queries'
 import { fieldClass } from '@/components/ui/uiStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
@@ -15,13 +16,18 @@ import { sendFailureText, useTestSend } from './queries'
 const rooms = useRoomOptions()
 const send = useTestSend()
 const roomID = shallowRef(0)
+const roomOptions = computed(() =>
+  (rooms.data.value ?? []).map((room) => ({
+    value: room.id,
+    label: room.remark || room.title || `房间 ${room.platformRoomId}`,
+  })),
+)
 const message = shallowRef('')
 const submitted = shallowRef(false)
 const roomError = computed(() => (submitted.value && !roomID.value ? '请选择直播间' : ''))
 const messageError = computed(() =>
   submitted.value ? validateDanmakuMessage(message.value) : undefined,
 )
-const roomInput = useTemplateRef<HTMLSelectElement>('room-input')
 const messageInput = useTemplateRef<HTMLTextAreaElement>('message-input')
 const { notify, dismiss } = useToast()
 
@@ -31,7 +37,7 @@ async function submit() {
   submitted.value = true
   if (roomError.value || messageError.value) {
     await nextTick()
-    if (roomError.value) roomInput.value?.focus()
+    if (roomError.value) document.getElementById('test-room-id')?.focus()
     else messageInput.value?.focus()
     return
   }
@@ -63,20 +69,16 @@ async function submit() {
         label="目标直播间"
         :error="roomError"
       >
-        <select
+        <UiSelect
           :id="id"
-          ref="room-input"
-          v-model.number="roomID"
+          v-model="roomID"
+          :options="roomOptions"
+          placeholder="请选择已保存的直播间"
           :class="fieldClass"
           :aria-invalid="ariaInvalid"
           :aria-describedby="describedBy"
           required
-        >
-          <option :value="0" disabled>请选择已保存的直播间</option>
-          <option v-for="room in rooms.data.value ?? []" :key="room.id" :value="room.id">
-            {{ room.remark || room.title || `房间 ${room.platformRoomId}` }}
-          </option>
-        </select>
+        />
       </UiField>
       <UiField
         id="test-message"
