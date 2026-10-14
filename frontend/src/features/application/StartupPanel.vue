@@ -24,9 +24,11 @@ const visibilityDisabled = computed(
   () => busy.value || visibility.isError.value || visibility.isPending.value,
 )
 const hideOnStartup = computed(() => visibility.data.value === 'hide')
-// Dimming marks a switch that stays unavailable (unsupported system, failed
-// read). A write in flight is only momentary, so it must not change the switch
-// look: a brief 60% dip reads as a flicker, and the toast already reports it.
+// Dimming and the "no entry" cursor mark a switch that stays unavailable
+// (unsupported system, failed read). A write in flight is only momentary, so it
+// must not change the switch look or its cursor: a brief 60% dip reads as a
+// flicker, a forbidden cursor under the pointer reads as a broken control, and
+// the toast already reports the write.
 const autostartUnavailable = computed(
   () => status.isError.value || status.data.value?.supported === false,
 )
@@ -98,7 +100,8 @@ async function changeStartupVisibility(enabled: boolean) {
     <div class="divide-y divide-border-hairline">
       <SwitchRoot
         id="autostart-switch"
-        class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden disabled:cursor-not-allowed"
+        class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden"
+        :class="{ 'cursor-pointer': busy && !autostartUnavailable }"
         aria-label="开机自启"
         aria-describedby="autostart-description"
         :model-value="(status.data.value?.enabled && !status.data.value.needsRepair) ?? false"
@@ -124,7 +127,8 @@ async function changeStartupVisibility(enabled: boolean) {
       </SwitchRoot>
       <SwitchRoot
         id="startup-visibility-switch"
-        class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden disabled:cursor-not-allowed"
+        class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden"
+        :class="{ 'cursor-pointer': busy && !visibilityUnavailable }"
         aria-label="静默启动"
         aria-describedby="startup-visibility-description"
         :model-value="hideOnStartup"
