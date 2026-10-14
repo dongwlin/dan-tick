@@ -46,18 +46,13 @@ beforeEach(() => {
     .mockImplementation(() => new CancellablePromise((resolve) => resolve(undefined)))
 })
 
-it('loads an existing enabled registration and refreshes changes made outside the app', async () => {
-  const user = userEvent.setup()
+it('loads an existing enabled registration from the backend', async () => {
   vi.mocked(GetAutostartStatus).mockResolvedValueOnce({ ...defaultStatus, enabled: true })
   show()
 
   const toggle = await screen.findByRole('switch', { name: '启用开机自启动' })
   expect(toggle.getAttribute('aria-checked')).toBe('true')
   expect(screen.getByText('登录桌面会话后自动启动 dan-tick')).toBeTruthy()
-  expect(SetAutostartEnabled).not.toHaveBeenCalled()
-
-  await user.click(screen.getByRole('button', { name: '刷新状态' }))
-  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
   expect(SetAutostartEnabled).not.toHaveBeenCalled()
 })
 
@@ -190,7 +185,7 @@ it('shows safe read failures and retries through the backend', async () => {
   expect(SetAutostartEnabled).not.toHaveBeenCalled()
 })
 
-it('prevents repeated writes and refreshing while a registration change is pending', async () => {
+it('prevents repeated writes while a registration change is pending', async () => {
   const user = userEvent.setup()
   let resolveChange: (status: typeof defaultStatus) => void = () => {}
   vi.mocked(GetAutostartStatus).mockResolvedValueOnce({ ...defaultStatus, needsRepair: true })
@@ -207,14 +202,11 @@ it('prevents repeated writes and refreshing while a registration change is pendi
   expect(toggle.hasAttribute('disabled')).toBe(true)
   expect(toggle.getAttribute('aria-busy')).toBe('true')
   expect(toggle.getAttribute('aria-checked')).toBe('false')
-  const refresh = screen.getByRole('button', { name: '刷新状态' })
   const clean = screen.getByRole('button', { name: '清理启动项' })
-  expect(refresh.hasAttribute('disabled')).toBe(true)
   expect(clean.hasAttribute('disabled')).toBe(true)
   expect(screen.getByText('正在更新开机自启动状态…')).toBeTruthy()
   await user.click(toggle)
   await user.click(clean)
-  await user.click(refresh)
   expect(SetAutostartEnabled).toHaveBeenCalledTimes(1)
   expect(GetAutostartStatus).toHaveBeenCalledTimes(1)
 
@@ -296,14 +288,4 @@ it('keeps the hidden launch available when autostart cannot be read', async () =
   expect(toggle.hasAttribute('disabled')).toBe(false)
   await user.click(toggle)
   expect(SetStartupVisibility).toHaveBeenCalledWith('hide')
-})
-
-it('rereads both startup settings through the panel refresh action', async () => {
-  const user = userEvent.setup()
-  show()
-
-  await screen.findByRole('switch', { name: '启用开机自启动' })
-  await user.click(screen.getByRole('button', { name: '刷新状态' }))
-  await waitFor(() => expect(GetAutostartStatus).toHaveBeenCalledTimes(2))
-  expect(GetStartupVisibility).toHaveBeenCalledTimes(2)
 })

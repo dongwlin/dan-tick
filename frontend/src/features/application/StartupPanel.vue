@@ -65,18 +65,7 @@ function refreshStatus() {
 
 <template>
   <UiPanel aria-labelledby="startup-heading">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 id="startup-heading" class="text-base font-semibold">启动设置</h2>
-      <UiButton
-        variant="secondary"
-        size="small"
-        :disabled="busy"
-        :loading="busy"
-        @click="refreshStatus"
-      >
-        刷新状态
-      </UiButton>
-    </div>
+    <h2 id="startup-heading" class="text-base font-semibold">启动设置</h2>
     <div class="divide-y divide-border-hairline">
       <UiAsyncSection
         :pending="status.isPending.value || (status.isError.value && status.isFetching.value)"
