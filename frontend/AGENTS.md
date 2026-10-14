@@ -28,6 +28,7 @@ Page 负责组合，业务逻辑留在所属 Feature；共享组件不能反向�
 
 - TanStack Query 缓存从生成 Binding 获取的业务数据，Query / Mutation 放在所属 Feature。操作成功与 Wails Events 触发相关查询失效；`src/app/useBackendEvents.ts` 随应用外壳生命周期订阅和清理事件。
 - Query Client 的桌面调用配置集中在 `src/app/queryClient.ts`：Query / Mutation 使用 `networkMode: 'always'`，默认不自动重试。不要自动重放发送等有副作用的操作。
+- 设置类开关使用乐观更新：`useMutation` 的 `onMutate` 先把缓存改成目标值，开关立即响应；写入期间保持禁用以防重复写入与基于旧值操作，成功以后端返回值（或重新读取的结果）覆盖，失败则重新读取并给出错误反馈——写入可能已经生效，不能简单回退。进行中不要改动开关外观，见第 3 节。
 - Pinia 是按需选型，**当前未安装**；仅在确有客户端共享状态需求时引入。表单草稿、弹窗开关等局部状态用 Vue 响应式状态，业务状态来源遵守根文档。
 - 使用 `createWebHashHistory()`；Page 解析参数后传给 Feature，不为对话框或短暂 UI 状态创建路由。任务编辑保留未保存离开的确认行为。
 - 简单表单使用本地 Vue 状态；任务创建 / 编辑复用 `TaskEditorForm.vue` 的 vee-validate + Zod 校验与提交逻辑。前端即时反馈不替代后端最终校验；失败保留输入，提交中防止重复操作。
