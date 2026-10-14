@@ -298,3 +298,31 @@ it('renders the startup card with the switches only, without inline actions or h
   expect(screen.queryByRole('button', { name: '刷新状态' })).toBeNull()
   expect(screen.queryByText(/下一次启动 dan-tick 时生效/)).toBeNull()
 })
+
+it('keeps the card contents stable while feedback is reported through the toast', async () => {
+  const user = userEvent.setup()
+  let resolveChange: (status: typeof defaultStatus) => void = () => {}
+  vi.mocked(SetAutostartEnabled).mockImplementationOnce(
+    () =>
+      new CancellablePromise((resolve) => {
+        resolveChange = resolve
+      }),
+  )
+  show()
+
+  const toggle = await findReadySwitch('开机自启')
+  const card = screen.getByRole('region', { name: '启动设置' })
+  const text = card.textContent
+  const elements = card.querySelectorAll('*').length
+
+  await user.click(toggle)
+  const pending = await screen.findByRole('status', { name: '操作提示通知' })
+  expect(card.contains(pending)).toBe(false)
+  expect(card.textContent).toBe(text)
+  expect(card.querySelectorAll('*').length).toBe(elements)
+
+  resolveChange({ ...defaultStatus, enabled: true })
+  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
+  expect(card.textContent).toBe(text)
+  expect(card.querySelectorAll('*').length).toBe(elements)
+})
