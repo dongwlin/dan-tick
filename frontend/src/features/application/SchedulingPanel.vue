@@ -70,17 +70,11 @@ async function toggleScheduling(enabled: boolean) {
           class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden"
           :class="{ 'cursor-pointer': setScheduling.isPending.value }"
           aria-label="启用自动调度"
-          aria-describedby="scheduling-description"
           :model-value="preferences.data.value?.schedulingEnabled ?? false"
           :disabled="setScheduling.isPending.value"
           @update:model-value="toggleScheduling"
         >
-          <span class="flex min-w-0 flex-col gap-1">
-            <strong class="text-sm">启用自动调度</strong>
-            <span id="scheduling-description" class="text-xs text-text-tertiary">
-              暂停后不会触发新的计划，手动执行仍可使用
-            </span>
-          </span>
+          <strong class="text-sm">启用自动调度</strong>
           <span
             aria-hidden="true"
             class="flex h-[19px] w-[31px] shrink-0 items-center rounded-full border border-border-strong bg-surface-muted px-[2px] group-data-[state=checked]:border-accent-solid group-data-[state=checked]:bg-accent-solid group-hover:bg-surface-solid-hover group-data-[state=checked]:group-hover:bg-accent-solid group-data-[state=checked]:group-hover:brightness-95 group-active:brightness-90 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-focus-ring motion-safe:transition-colors motion-safe:duration-200"
