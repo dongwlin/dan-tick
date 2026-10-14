@@ -88,13 +88,13 @@ async function run(action: 'logs' | 'data' | 'export') {
     <UiAlert v-if="status.isError.value" tone="warning" class="mb-3"> 无法读取日志状态。 </UiAlert>
     <button
       type="button"
-      :class="[secondaryButton, 'min-w-42']"
+      :class="[secondaryButton, 'min-w-32']"
       :disabled="exportAction.isPending.value"
       :aria-busy="exportAction.isPending.value"
       @click="run('export')"
     >
       <FileArchive class="size-4" aria-hidden="true" />
-      {{ exportAction.isPending.value ? '正在检查并导出…' : '导出诊断包…' }}
+      {{ exportAction.isPending.value ? '导出中…' : '导出诊断包' }}
     </button>
   </UiPanel>
 </template>
