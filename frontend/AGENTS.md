@@ -36,15 +36,15 @@ Page 负责组合，业务逻辑留在所属 Feature；共享组件不能反向�
 
 ## 3. 共享 UI 与交互契约
 
-- 优先复用 `src/components/ui/` 的基础组件。按钮保留原生动作与 RouterLink 导航语义；侧栏 Tooltip、视图 ToggleGroup、任务 CheckboxGroup / Checkbox、自动执行 Switch、账号 Avatar 等使用 Reka UI 原语及已有包装（如 `UiAvatar.vue`）。
+- 优先复用 `src/components/ui/` 的基础组件。按钮保留原生动作与 RouterLink 导航语义；下拉选择统一使用 `UiSelect.vue`（Reka UI Select，选项经 `options` 传入，外框视觉仍由调用方通过 `class` 提供 `fieldClass`），不再新增原生 `<select>`；侧栏 Tooltip、视图 ToggleGroup、任务 CheckboxGroup / Checkbox、自动执行 Switch、账号 Avatar 等使用 Reka UI 原语及已有包装（如 `UiAvatar.vue`）。
 - `UiAsyncSection.vue` 统一加载、失败与重试；`UiEmptyState.vue` 统一空状态图标、标题、说明和下一步动作。
 - 普通表单弹层复用受控 `UiDialog.vue`，集中装配 Portal、遮罩、可访问标题 / 描述及关闭按钮。Escape / 外部点击按普通 Dialog 关闭，`busy` 期间拦截关闭，避免丢失进行中的提交。
 - 危险操作与未保存离开复用 `UiConfirmDialog.vue`，不用 `window.confirm`。默认 Alert Dialog 不响应 Escape / 外部点击，初始焦点在取消 / 安全操作；`dismissible` 模式使用普通 Dialog，供“继续编辑 / 放弃更改”场景。
 - 全应用只有一个 `UiToastHost.vue`，在 `App.vue` 根级挂载一次；Feature 通过 `src/composables/useToast.ts` 上报，不各自渲染 Provider。组件测试用 `src/test/toastHost.ts` 挂载同一宿主。Toast 只有一个槽位：进行中与结果提示共用它，后一条覆盖前一条，不要指望堆叠多条，也不要为此新建宿主。
 - **反馈不改变布局**：卡片与面板在交互期间保持结构稳定——进行中、成功、失败和状态警告统一通过 `src/composables/useToast.ts` 走根级 Toast 宿主，不用 `v-if` 在卡片里增删提示行、警告块或操作按钮（反例：启动设置卡片的“正在更新…”行、「保存后…生效」提示与内联警告块，会撑高卡片把下方内容顶下去）。数据加载与失败仍由 `UiAsyncSection` 原地替换，确需内联状态时复用既有行位或预留固定高度；参考 `StartupPanel` 与 `StartupPanel.test.ts` 的写法断言交互期间卡片内容不变，改到既有内联 pending 文案时按此收敛。进行中的按钮也不得改变自身宽度：文案切换或加载 spinner 会改变宽度时，按最宽状态加 `min-w-*` 下限（宁可略宽），避免推动同一行或页脚里的其他控件。
-- **禁用态只在持久不可用时可见**：`disabled:opacity-60` 与 `disabled:cursor-not-allowed` 都会命中“写入进行中”这类瞬时状态——那零点几秒里的变淡与禁止光标，看起来就是开关闪一下、鼠标突然变成禁止符号。两者都只对持久不可用（系统不支持、状态读取失败等）生效：透明度放在控件本身而不是含文字的行容器上，开关 / 单选这类切换控件的短暂写入锁用绑定类保持 `cursor-pointer`，进行中的反馈交给 Toast 与 `aria-busy`。提交类按钮在自身动作期间沿用 `buttonStyles.ts` 的禁用样式（动作由用户触发，变淡是预期反馈），但不要让它改变周边布局。持久不可用的禁止光标由 `src/style.css` 的 `button:disabled` 基础规则提供，不要在行上再写 `disabled:cursor-not-allowed`。行容器上的 `opacity` / `filter` 还会把文字放进独立合成图层重新栅格化，WebView 里表现为文字跳动。
+- **禁用态只在持久不可用时可见**：`disabled:opacity-60` 与 `disabled:cursor-not-allowed` 都会命中“写入进行中”这类瞬时状态——那零点几秒里的变淡与禁止光标，看起来就是开关闪一下、鼠标突然变成禁止符号。两者都只对持久不可用（系统不支持、状态读取失败等）生效：透明度放在控件本身而不是含文字的行容器上，开关 / 单选这类切换控件的短暂写入锁用绑定类保持 `cursor-pointer`，进行中的反馈交给 Toast 与 `aria-busy`。提交类按钮在自身动作期间沿用 `buttonStyles.ts` 的禁用样式（动作由用户触发，变淡是预期反馈），但不要让它改变周边布局。持久不可用的禁止光标由 `src/style.css` 的 `button:disabled` 基础规则提供，不要在行上再写 `disabled:cursor-not-allowed`；`UiSelect` 的触发器本身就是 `button`，它的短暂写入锁用 `disabled:cursor-pointer` 覆盖这条基础规则。行容器上的 `opacity` / `filter` 还会把文字放进独立合成图层重新栅格化，WebView 里表现为文字跳动。
 - 写 Reka UI 交互前查官方 [LLM 文档索引](https://reka-ui.com/llms.txt)。文档页面 URL 加 `.md` 可获取 props、events、slots 与 API 表，如 [Dialog Markdown](https://reka-ui.com/docs/components/dialog.md)；官网随最新版本更新，与本项目锁定版本不同则以仓库实际类型和行为为准。
-- 遵循引入规范的可访问性要求；已有可见文字的图标标记为 `aria-hidden`，原生输入、Select 和表格保持语义，不为每个控件预建包装层。
+- 遵循引入规范的可访问性要求；已有可见文字的图标标记为 `aria-hidden`，原生输入和表格保持语义，下拉统一走 `UiSelect`，不为每个控件预建包装层。
 
 ## 4. 样式与主题
 
