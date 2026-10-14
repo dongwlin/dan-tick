@@ -18,7 +18,7 @@
 ## 2. 项目与文档入口
 
 - dan-tick 是面向 **Windows、Linux** 的 B 站直播弹幕定时发送桌面应用，本地管理直播间、任务、调度、执行记录与账号凭证，不依赖浏览器发送弹幕。
-- **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及通用规范的项目例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。后续待办见 [`docs/待办.md`](docs/待办.md)，版本方向见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
+- **需求与验收标准**以 [`docs/PRD.md`](docs/PRD.md) 为准；**技术决策及通用规范的项目例外**以 [`docs/技术栈选型.md`](docs/技术栈选型.md) 为准。后续待办见 [`docs/待办.md`](docs/待办.md)，产品方向与长期候选见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
 - 按任务阅读 [`docs/specs/`](docs/specs/) 中相关 Pack 及关联规范；后端与正式前端的规范入口见各自子目录指令。修改根入口时使用 [Wails 桌面后端 Pack](docs/specs/packs/Wails%20桌面后端%20Pack.md)。`docs/specs/` 是外部 specs 仓库复制件，来源见 [manifest](docs/specs/spec-pack-manifest.json)；项目差异写入技术选型文档，不直接编辑复制的规范。
 - 根 [README](README.md) 是项目入口，子目录 README 提供对应运行说明。实现状态以实际代码及技术选型核对，区分已实现行为与计划行为。
 

@@ -2,7 +2,7 @@
 
 本文记录当前使用的第三方接口协议、兼容性差异和验证边界。产品行为见 [PRD](PRD.md)，凭证安全见 [FR-003](PRD.md#fr-003凭证安全)，发送记录与恢复见 [数据持久化设计](数据持久化设计.md#4-执行记录与发送尝试)，后端职责与验证方法见 [后端开发指南](../internal/AGENTS.md)。
 
-社区资料提供协议线索，不构成 B 站对第三方接口稳定性或本项目用途的保证。当前客户端行为以各节链接的实现为准，尚未完成的核验与修正统一见 [待办](待办.md#未分配版本的核验与修正)。
+社区资料提供协议线索，不构成 B 站对第三方接口稳定性或本项目用途的保证。当前客户端行为以各节链接的实现为准，尚未完成的核验与修正统一见 [待办](待办.md#1-可靠性与实机验证)。
 
 ## 1. 当前接口协议
 
@@ -118,7 +118,7 @@ Passport 外层业务码 `-101`、`-111`、`86095` 分类为会话失效，其�
 
 核验时续期检查为 `refresh=false`，主动轮换不证明自然到期 / `refresh=true` 窗口。确认后立即与 30 秒两次检查中，旧 Cookie 仍可登录，因此不能假定确认立即使旧 Cookie 失效，也不能推断旧 RT 仍可刷新或其他浏览器会话受到何种影响。
 
-跨平台 Keyring、退出重启及未完成轮换恢复、自然到期窗口和第三方使用条件的专项核验见 [待办](待办.md#未分配版本的核验与修正)。接口与业务输入限制可能随上游变化，不把社区示例当作永久平台规则。
+跨平台 Keyring、退出重启及未完成轮换恢复、自然到期窗口和第三方使用条件的专项核验见 [待办](待办.md#1-可靠性与实机验证)。接口与业务输入限制可能随上游变化，不把社区示例当作永久平台规则。
 
 2026-10-14 只读核验了[官方直播间网页](https://live.bilibili.com/21452505)所加载的公开脚本（网页标注构建日期 `2026.10.09`），长度依据如下：
 
@@ -140,4 +140,4 @@ Passport 外层业务码 `-101`、`-111`、`86095` 分类为会话失效，其�
 - [扫码票据变更的第三方报告](https://github.com/public-clis/bilibili-cli/pull/27)及其[固定提交实现](https://github.com/ZeroMarker/bilibili-cli/blob/6962d5b/bili_cli/auth.py)
 - [B 站用户使用协议](https://www.bilibili.com/blackboard/protocal/licence.html)
 
-API-collect 系列引用资料的许可声明为 CC BY-NC 4.0；bilibili-cli 使用 [Apache-2.0](https://github.com/public-clis/bilibili-cli/blob/main/LICENSE)。固定提交与第三方报告仅作为兼容性线索，不代表本项目实测或官方保证。未排期的浏览器插件同步及其准入条件统一见 [Roadmap](ROADMAP.md#3-暂未分配版本的长期方向)。
+API-collect 系列引用资料的许可声明为 CC BY-NC 4.0；bilibili-cli 使用 [Apache-2.0](https://github.com/public-clis/bilibili-cli/blob/main/LICENSE)。固定提交与第三方报告仅作为兼容性线索，不代表本项目实测或官方保证。未进入实施范围的浏览器插件同步及其准入条件统一见 [Roadmap](ROADMAP.md#3-长期方向)。
