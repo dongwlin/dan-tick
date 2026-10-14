@@ -63,7 +63,7 @@ async function controlWindow(action: 'minimise' | 'maximise' | 'close') {
         type="button"
         class="window-control hover:!bg-[#bc3f38] hover:!text-white active:!bg-[#bc3f38]"
         aria-label="关闭窗口"
-        title="关闭窗口（默认隐藏到后台，再次启动可恢复）"
+        title="关闭窗口"
         @click="controlWindow('close')"
       >
         <X class="size-3.5" aria-hidden="true" />
