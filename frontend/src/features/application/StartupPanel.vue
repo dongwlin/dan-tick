@@ -34,9 +34,9 @@ async function changeAutostart(enabled: boolean) {
   dismiss()
   try {
     await setAutostart.mutateAsync(enabled)
-    notify(enabled ? '已开启开机自启动。' : '已关闭开机自启动。', 'success')
+    notify(enabled ? '已开启开机自启。' : '已关闭开机自启。', 'success')
   } catch {
-    notify('更改开机自启动未成功确认，请查看当前状态或重新读取。', 'error')
+    notify('更改开机自启未成功确认，请查看当前状态或重新读取。', 'error')
   }
 }
 
@@ -46,13 +46,11 @@ async function changeStartupVisibility(enabled: boolean) {
   try {
     await setVisibility.mutateAsync(enabled ? 'hide' : 'show')
     notify(
-      enabled
-        ? '已开启启动后隐藏窗口，下次启动生效。'
-        : '已关闭启动后隐藏窗口，下次启动显示主窗口。',
+      enabled ? '已开启静默启动，下次启动生效。' : '已关闭静默启动，下次启动显示主窗口。',
       'success',
     )
   } catch {
-    notify('更改启动后隐藏窗口未成功确认，请重新读取当前设置。', 'error')
+    notify('更改静默启动未成功确认，请重新读取当前设置。', 'error')
   }
 }
 
@@ -70,8 +68,8 @@ function refreshStatus() {
       <UiAsyncSection
         :pending="status.isPending.value || (status.isError.value && status.isFetching.value)"
         :error="status.error.value"
-        loading-text="正在读取开机自启动状态…"
-        error-text="无法读取开机自启动状态，请重新读取后再试。"
+        loading-text="正在读取开机自启状态…"
+        error-text="无法读取开机自启状态，请重新读取后再试。"
         retry-label="重新读取"
         dense
         @retry="refreshStatus"
@@ -107,10 +105,10 @@ function refreshStatus() {
             role="status"
             class="pb-3 text-xs text-text-secondary"
           >
-            正在更新开机自启动状态…
+            正在更新开机自启状态…
           </p>
           <UiAlert v-if="!status.data.value?.supported" tone="warning" role="note">
-            当前系统不支持开机自启动。
+            当前系统不支持开机自启。
           </UiAlert>
           <UiAlert v-else-if="status.data.value?.needsRepair" tone="warning" role="note">
             <p>已有启动项需要修复，重新开启即可更新；也可以清理启动项。</p>
@@ -131,8 +129,8 @@ function refreshStatus() {
           visibility.isPending.value || (visibility.isError.value && visibility.isFetching.value)
         "
         :error="visibility.error.value"
-        loading-text="正在读取启动后隐藏窗口设置…"
-        error-text="无法读取启动后隐藏窗口设置，请重新读取后再试。"
+        loading-text="正在读取静默启动设置…"
+        error-text="无法读取静默启动设置，请重新读取后再试。"
         retry-label="重新读取"
         dense
         @retry="refreshStatus"
@@ -168,7 +166,7 @@ function refreshStatus() {
             role="status"
             class="pb-3 text-xs text-text-secondary"
           >
-            正在更新启动后隐藏窗口设置…
+            正在更新静默启动设置…
           </p>
         </div>
       </UiAsyncSection>

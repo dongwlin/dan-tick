@@ -65,7 +65,7 @@ it('enables and disables autostart using the confirmed system state', async () =
   expect(SetAutostartEnabled).toHaveBeenCalledWith(true)
   await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
   expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
-    '已开启开机自启动',
+    '已开启开机自启',
   )
 
   toggle.focus()
@@ -73,7 +73,7 @@ it('enables and disables autostart using the confirmed system state', async () =
   expect(SetAutostartEnabled).toHaveBeenLastCalledWith(false)
   await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
   expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
-    '已关闭开机自启动',
+    '已关闭开机自启',
   )
 })
 
@@ -102,7 +102,7 @@ it('rereads the system after a failed confirmation and shows a change that alrea
   resolveRead({ ...defaultStatus, enabled: true })
   await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
   expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
-    '更改开机自启动未成功确认',
+    '更改开机自启未成功确认',
   )
   expect(toggle.hasAttribute('disabled')).toBe(false)
   expect(document.body.textContent).not.toContain('private registry path')
@@ -118,7 +118,7 @@ it('requires a successful reread when both saving and its state verification fai
   show()
 
   await user.click(await screen.findByRole('switch', { name: '开机自启' }))
-  expect(await screen.findByText('无法读取开机自启动状态，请重新读取后再试。')).toBeTruthy()
+  expect(await screen.findByText('无法读取开机自启状态，请重新读取后再试。')).toBeTruthy()
   expect(screen.queryByRole('switch', { name: '开机自启' })).toBeNull()
   expect(document.body.textContent).not.toContain('private file path')
   expect(document.body.textContent).not.toContain('private write detail')
@@ -136,7 +136,7 @@ it('keeps autostart unavailable on unsupported systems', async () => {
 
   const toggle = await screen.findByRole('switch', { name: '开机自启' })
   expect(toggle.hasAttribute('disabled')).toBe(true)
-  expect(screen.getByText('当前系统不支持开机自启动。')).toBeTruthy()
+  expect(screen.getByText('当前系统不支持开机自启。')).toBeTruthy()
   await user.click(toggle)
   expect(SetAutostartEnabled).not.toHaveBeenCalled()
 })
@@ -174,7 +174,7 @@ it('shows safe read failures and retries through the backend', async () => {
   vi.mocked(GetAutostartStatus).mockRejectedValueOnce(new Error('private executable path'))
   show()
 
-  expect(await screen.findByText('无法读取开机自启动状态，请重新读取后再试。')).toBeTruthy()
+  expect(await screen.findByText('无法读取开机自启状态，请重新读取后再试。')).toBeTruthy()
   expect(screen.queryByRole('switch', { name: '开机自启' })).toBeNull()
   expect(document.body.textContent).not.toContain('private executable path')
   await user.click(screen.getByRole('button', { name: '重新读取' }))
@@ -204,7 +204,7 @@ it('prevents repeated writes while a registration change is pending', async () =
   expect(toggle.getAttribute('aria-checked')).toBe('false')
   const clean = screen.getByRole('button', { name: '清理启动项' })
   expect(clean.hasAttribute('disabled')).toBe(true)
-  expect(screen.getByText('正在更新开机自启动状态…')).toBeTruthy()
+  expect(screen.getByText('正在更新开机自启状态…')).toBeTruthy()
   await user.click(toggle)
   await user.click(clean)
   expect(SetAutostartEnabled).toHaveBeenCalledTimes(1)
@@ -245,7 +245,7 @@ it('hides the window on the next launch and restores it afterwards', async () =>
   expect(SetStartupVisibility).toHaveBeenCalledWith('hide')
   await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
   expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
-    '已开启启动后隐藏窗口，下次启动生效。',
+    '已开启静默启动，下次启动生效。',
   )
 
   toggle.focus()
@@ -253,7 +253,7 @@ it('hides the window on the next launch and restores it afterwards', async () =>
   expect(SetStartupVisibility).toHaveBeenLastCalledWith('show')
   await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
   expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
-    '已关闭启动后隐藏窗口，下次启动显示主窗口。',
+    '已关闭静默启动，下次启动显示主窗口。',
   )
 })
 
@@ -266,7 +266,7 @@ it('rereads the stored preference after a failed write and reports it safely', a
   show()
 
   await user.click(await screen.findByRole('switch', { name: '静默启动' }))
-  expect(await screen.findByText('无法读取启动后隐藏窗口设置，请重新读取后再试。')).toBeTruthy()
+  expect(await screen.findByText('无法读取静默启动设置，请重新读取后再试。')).toBeTruthy()
   expect(screen.queryByRole('switch', { name: '静默启动' })).toBeNull()
   expect(document.body.textContent).not.toContain('private preference path')
   expect(document.body.textContent).not.toContain('private write detail')
@@ -282,7 +282,7 @@ it('keeps the hidden launch available when autostart cannot be read', async () =
   vi.mocked(GetAutostartStatus).mockRejectedValueOnce(new Error('private registry path'))
   show()
 
-  expect(await screen.findByText('无法读取开机自启动状态，请重新读取后再试。')).toBeTruthy()
+  expect(await screen.findByText('无法读取开机自启状态，请重新读取后再试。')).toBeTruthy()
   const toggle = await screen.findByRole('switch', { name: '静默启动' })
   expect(toggle.hasAttribute('disabled')).toBe(false)
   await user.click(toggle)
