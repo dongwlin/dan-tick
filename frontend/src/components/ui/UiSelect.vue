@@ -50,10 +50,10 @@ defineOptions({ inheritAttrs: false })
 // The trigger text comes from `options` instead of the primitive's own tracking:
 // that tracking only learns an option's text once its item has been mounted, so
 // a stored value would read as the placeholder until the list was opened once.
-const displayLabel = computed(
-  () =>
-    props.options.find((option) => option.value === props.modelValue)?.label ?? props.placeholder,
+const selectedOption = computed(() =>
+  props.options.find((option) => option.value === props.modelValue),
 )
+const displayLabel = computed(() => selectedOption.value?.label ?? props.placeholder)
 </script>
 
 <template>
@@ -70,7 +70,7 @@ const displayLabel = computed(
     >
       <SelectValue
         class="min-w-0 truncate"
-        :class="displayLabel === props.placeholder ? 'text-text-tertiary' : undefined"
+        :class="selectedOption ? undefined : 'text-text-tertiary'"
       >
         {{ displayLabel }}
       </SelectValue>
@@ -98,7 +98,7 @@ const displayLabel = computed(
             :key="option.value"
             :value="option.value"
             :disabled="option.disabled"
-            class="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-text-primary select-none data-highlighted:bg-surface-solid-hover data-disabled:cursor-not-allowed data-disabled:opacity-60"
+            class="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-text-primary select-none data-highlighted:bg-soft-accent-bg data-[state=checked]:text-accent-text data-disabled:cursor-not-allowed data-disabled:opacity-60"
           >
             <SelectItemText class="flex-1">{{ option.label }}</SelectItemText>
             <SelectItemIndicator class="shrink-0 text-accent-text">
