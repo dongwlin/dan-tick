@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -24,11 +25,36 @@ func TestApplicationBuildInfoBindingExposesCompiledMetadataWithoutBusinessDepend
 	require.JSONEq(t, `{"version":"v1.2.3","buildTime":"2026-10-13T08:12:00Z","commit":"a1b2c3d4e5f67890"}`, string(encoded))
 }
 
+func TestApplicationBindingMethodsDoNotExposeFunctionParameters(t *testing.T) {
+	serviceType := reflect.TypeFor[*ApplicationService]()
+	for methodIndex := range serviceType.NumMethod() {
+		method := serviceType.Method(methodIndex)
+		for paramIndex := 1; paramIndex < method.Type.NumIn(); paramIndex++ {
+			require.NotEqual(t, reflect.Func, method.Type.In(paramIndex).Kind(),
+				"Binding method %s exposes a callback that encoding/json cannot transport", method.Name)
+		}
+	}
+}
+
+func TestApplicationSchedulingListenerCanBeRemoved(t *testing.T) {
+	_, manager, db := configurationTest(t)
+	service := NewApplicationService(db, manager, nil)
+	var changes int
+	service.onSchedulingChanged(func() { changes++ })
+	require.NoError(t, service.SetSchedulingEnabled(context.Background(), false))
+	require.Equal(t, 1, changes)
+	service.onSchedulingChanged(nil)
+	require.NoError(t, service.SetSchedulingEnabled(context.Background(), true))
+	require.Equal(t, 1, changes)
+}
+
 func TestApplicationSettingsAndOverviewUsePersistedState(t *testing.T) {
 	ctx := context.Background()
 	config, manager, db := configurationTest(t)
 	var events []string
 	app := NewApplicationService(db, manager, func(event string) { events = append(events, event) })
+	var schedulingChanges int
+	app.onSchedulingChanged(func() { schedulingChanges++ })
 	values, err := app.GetPreferences(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "Asia/Shanghai", values.DefaultTimezone)
@@ -59,6 +85,7 @@ func TestApplicationSettingsAndOverviewUsePersistedState(t *testing.T) {
 	require.Equal(t, "snapshot title", overview.LatestFailure.TaskName)
 	require.Len(t, overview.Recent, 1)
 	require.NoError(t, app.SetSchedulingEnabled(ctx, false))
+	require.Equal(t, 1, schedulingChanges, "the tray follows a committed scheduling change")
 	values, err = NewApplicationService(db, manager, nil).GetPreferences(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "UTC", values.DefaultTimezone)

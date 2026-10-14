@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/dongwlin/dan-tick/internal/buildinfo"
 	"github.com/dongwlin/dan-tick/internal/history"
@@ -22,10 +23,35 @@ type ApplicationService struct {
 	settings *settings.Service
 	manager  *scheduler.Manager
 	changed  func(string)
+	// schedulingChanged runs after the auto-scheduling preference commits, so
+	// the tray menu can follow a state change that started in the frontend. It
+	// may be registered while a binding call is already running.
+	schedulingChanged atomic.Pointer[func()]
 }
 
 func NewApplicationService(db *bun.DB, manager *scheduler.Manager, changed func(string)) *ApplicationService {
 	return &ApplicationService{db: db, settings: settings.NewService(db), manager: manager, changed: changed}
+}
+
+// onSchedulingChanged is Go-only wiring for the tray, not a Binding method.
+// Passing nil removes the listener when the tray closes.
+func (s *ApplicationService) onSchedulingChanged(listener func()) {
+	if listener == nil {
+		s.schedulingChanged.Store(nil)
+		return
+	}
+	s.schedulingChanged.Store(&listener)
+}
+
+// schedulingEnabled reads the persisted preference. The tray menu derives its
+// single scheduling entry from it instead of remembering the last submitted
+// value.
+func (s *ApplicationService) schedulingEnabled(ctx context.Context) (bool, error) {
+	enabled, err := settings.SchedulingEnabled(ctx, s.db)
+	if err != nil {
+		return false, protect(err)
+	}
+	return enabled, nil
 }
 
 func (s *ApplicationService) GetBuildInfo() buildinfo.Info {
@@ -59,6 +85,7 @@ func (s *ApplicationService) SetSchedulingEnabled(ctx context.Context, enabled b
 	// to refetch instead of presenting the optimistic value as authoritative.
 	if err == nil || isScheduleSync(err) {
 		s.notify()
+		s.notifySchedulingChanged()
 	}
 	return protect(err)
 }
@@ -66,6 +93,12 @@ func (s *ApplicationService) SetSchedulingEnabled(ctx context.Context, enabled b
 func (s *ApplicationService) notify() {
 	if s.changed != nil {
 		s.changed(EventApplicationChanged)
+	}
+}
+
+func (s *ApplicationService) notifySchedulingChanged() {
+	if listener := s.schedulingChanged.Load(); listener != nil {
+		(*listener)()
 	}
 }
 

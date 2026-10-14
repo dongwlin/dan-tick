@@ -2,11 +2,13 @@ package desktop
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type trayDialog struct {
@@ -24,6 +26,37 @@ func testTrayActions(t *testing.T, service *ApplicationService) (*trayActions, <
 		})
 	t.Cleanup(actions.close)
 	return actions, dialogs
+}
+
+// testTrayMenu builds the real tray menu with the service as the preference
+// reader, so a test inspects the entries the platform would show.
+func testTrayMenu(t *testing.T, service *ApplicationService) (*trayStatusItem, *application.MenuItem, *application.MenuItem) {
+	t.Helper()
+	status := newTrayStatusItem(service.schedulingEnabled)
+	actions := newTrayActions(service, func(fn func()) { fn() }, func() {}, func() {},
+		func(string, string, bool) { t.Error("scheduling menu action displayed a dialog") })
+	t.Cleanup(actions.close)
+	newTrayMenu(actions, status)
+	require.NotNil(t, status.pause)
+	require.NotNil(t, status.resume)
+	return status, status.pause, status.resume
+}
+
+func applyTrayStatus(t *testing.T, status *trayStatusItem) {
+	t.Helper()
+	apply := status.refresh(context.Background())
+	require.NotNil(t, apply)
+	apply()
+}
+
+// visibleTrayItem returns the single scheduling entry the menu shows.
+func visibleTrayItem(t *testing.T, pause, resume *application.MenuItem) *application.MenuItem {
+	t.Helper()
+	require.NotEqual(t, pause.Hidden(), resume.Hidden(), "auto scheduling must show exactly one entry")
+	if pause.Hidden() {
+		return resume
+	}
+	return pause
 }
 
 func receiveTrayDialog(t *testing.T, dialogs <-chan trayDialog) trayDialog {
@@ -92,6 +125,151 @@ func TestTraySchedulingActionsUsePersistedStateInRequestOrder(t *testing.T) {
 	actions.showStatus()
 	dialog = receiveTrayDialog(t, dialogs)
 	require.Contains(t, dialog.message, "自动调度：已开启")
+}
+
+func TestTraySchedulingMenuShowsOnlyTheApplicableEntry(t *testing.T) {
+	ctx := context.Background()
+	_, manager, db := configurationTest(t)
+	service := NewApplicationService(db, manager, nil)
+	status, pause, resume := testTrayMenu(t, service)
+
+	// Auto scheduling starts enabled, so the menu offers to pause it.
+	applyTrayStatus(t, status)
+	require.False(t, pause.Hidden())
+	require.True(t, resume.Hidden())
+	require.Equal(t, "暂停自动调度", visibleTrayItem(t, pause, resume).Label())
+
+	require.NoError(t, service.SetSchedulingEnabled(ctx, false))
+	applyTrayStatus(t, status)
+	require.True(t, pause.Hidden())
+	require.False(t, resume.Hidden())
+	require.Equal(t, "恢复自动调度", visibleTrayItem(t, pause, resume).Label())
+
+	// Rapid alternating requests settle on the state the last one persisted.
+	require.NoError(t, service.SetSchedulingEnabled(ctx, true))
+	require.NoError(t, service.SetSchedulingEnabled(ctx, false))
+	applyTrayStatus(t, status)
+	require.Equal(t, "恢复自动调度", visibleTrayItem(t, pause, resume).Label())
+}
+
+func TestTraySchedulingMenuKeepsTheLastEntryWhenTheStateReadFails(t *testing.T) {
+	ctx := context.Background()
+	_, manager, db := configurationTest(t)
+	service := NewApplicationService(db, manager, nil)
+	require.NoError(t, service.SetSchedulingEnabled(ctx, false))
+	status, pause, resume := testTrayMenu(t, service)
+	applyTrayStatus(t, status)
+	// Paused scheduling offers to resume it.
+	require.Equal(t, "恢复自动调度", visibleTrayItem(t, pause, resume).Label())
+
+	// A read that cannot answer must not move the entry; the last applied state
+	// is the one most likely to still hold.
+	status.load = func(context.Context) (bool, error) { return false, errors.New("unreadable state") }
+	require.Nil(t, status.refresh(ctx))
+	require.True(t, pause.Hidden())
+	require.False(t, resume.Hidden())
+	require.Equal(t, "恢复自动调度", visibleTrayItem(t, pause, resume).Label())
+
+	// A readable state restores the entry, including after the failed request.
+	status.load = service.schedulingEnabled
+	require.NoError(t, service.SetSchedulingEnabled(ctx, true))
+	applyTrayStatus(t, status)
+	require.Equal(t, "暂停自动调度", visibleTrayItem(t, pause, resume).Label())
+}
+
+func TestTraySchedulingMenuKeepsOneDefaultEntryWhenTheFirstReadFails(t *testing.T) {
+	status := newTrayStatusItem(func(context.Context) (bool, error) {
+		return false, errors.New("unreadable state")
+	})
+	actions := newTrayActions(nil, func(fn func()) { fn() }, func() {}, func() {},
+		func(string, string, bool) { t.Error("scheduling menu action displayed a dialog") })
+	t.Cleanup(actions.close)
+	newTrayMenu(actions, status)
+	// The default must already apply before the first read, including when the
+	// real preference loader cannot answer at startup.
+	require.Equal(t, "暂停自动调度", visibleTrayItem(t, status.pause, status.resume).Label())
+	require.Nil(t, status.refresh(context.Background()))
+	require.Equal(t, "暂停自动调度", visibleTrayItem(t, status.pause, status.resume).Label())
+}
+
+func TestTraySchedulingMenuStartsFromThePersistedPause(t *testing.T) {
+	_, manager, db := configurationTest(t)
+	service := NewApplicationService(db, manager, nil)
+	require.NoError(t, service.SetSchedulingEnabled(context.Background(), false))
+	status, pause, resume := testTrayMenu(t, service)
+	applyTrayStatus(t, status)
+	require.Equal(t, "恢复自动调度", visibleTrayItem(t, pause, resume).Label())
+}
+
+func TestTraySchedulingMenuUpdatesOnUIAndDropsUpdatesAfterClose(t *testing.T) {
+	ctx := context.Background()
+	_, manager, db := configurationTest(t)
+	service := NewApplicationService(db, manager, nil)
+	queued := make(chan func(), 4)
+	actions := newTrayActions(service, func(fn func()) { queued <- fn }, func() {}, func() {},
+		func(string, string, bool) { t.Error("scheduling update displayed a dialog") })
+	status := newTrayStatusItem(service.schedulingEnabled)
+	newTrayMenu(actions, status)
+	tray := &Tray{actions: actions, status: status}
+	service.onSchedulingChanged(tray.RefreshScheduling)
+	t.Cleanup(tray.Close)
+	nextUpdate := func() func() {
+		t.Helper()
+		select {
+		case update := <-queued:
+			return update
+		case <-time.After(2 * time.Second):
+			t.Fatal("tray did not dispatch a menu update")
+			return nil
+		}
+	}
+
+	// A committed frontend change must wait for the UI dispatch before
+	// touching menu state; the read runs on the background worker queue.
+	require.NoError(t, service.SetSchedulingEnabled(ctx, false))
+	update := nextUpdate()
+	require.Equal(t, "暂停自动调度", visibleTrayItem(t, status.pause, status.resume).Label())
+	update()
+	require.Equal(t, "恢复自动调度", visibleTrayItem(t, status.pause, status.resume).Label())
+
+	// Shutdown must finish without waiting for a queued UI callback, and the
+	// callback must then be inert. The removed listener accepts no more work.
+	require.NoError(t, service.SetSchedulingEnabled(ctx, true))
+	update = nextUpdate()
+	tray.Close()
+	update()
+	require.Equal(t, "恢复自动调度", visibleTrayItem(t, status.pause, status.resume).Label())
+	tray.RefreshScheduling()
+	require.NoError(t, service.SetSchedulingEnabled(ctx, false))
+	require.Empty(t, queued)
+}
+
+func TestTrayCloseCancelsSchedulingStateRead(t *testing.T) {
+	_, manager, db := configurationTest(t)
+	service := NewApplicationService(db, manager, nil)
+	queued := make(chan func(), 1)
+	reading := make(chan context.Context, 1)
+	status := newTrayStatusItem(func(ctx context.Context) (bool, error) {
+		reading <- ctx
+		<-ctx.Done()
+		return false, ctx.Err()
+	})
+	actions := newTrayActions(service, func(fn func()) { queued <- fn }, func() {}, func() {},
+		func(string, string, bool) { t.Error("canceled read displayed a dialog") })
+	newTrayMenu(actions, status)
+	tray := &Tray{actions: actions, status: status}
+	service.onSchedulingChanged(tray.RefreshScheduling)
+	t.Cleanup(tray.Close)
+	tray.RefreshScheduling()
+	var readCtx context.Context
+	select {
+	case readCtx = <-reading:
+	case <-time.After(2 * time.Second):
+		t.Fatal("tray did not start reading the scheduling preference")
+	}
+	tray.Close()
+	require.ErrorIs(t, readCtx.Err(), context.Canceled)
+	require.Empty(t, queued)
 }
 
 func TestTraySchedulingFailureDisplaysSafeError(t *testing.T) {

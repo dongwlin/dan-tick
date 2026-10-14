@@ -25,6 +25,7 @@ var trayLinuxIcon []byte
 // services. Wails owns the native tray and destroys it during application exit.
 type Tray struct {
 	actions *trayActions
+	status  *trayStatusItem
 }
 
 func NewTray(app *application.App, window application.Window, service *ApplicationService, lifecycle *WindowLifecycle) *Tray {
@@ -44,7 +45,14 @@ func NewTray(app *application.App, window application.Window, service *Applicati
 		dialog.AddButton("确定").SetAsDefault().SetAsCancel()
 		dialog.Show()
 	})
-	tray := app.SystemTray.New().SetMenu(newTrayMenu(actions))
+	status := newTrayStatusItem(service.schedulingEnabled)
+	menu := newTrayMenu(actions, status)
+	// Before the native menu exists, apply the initial preference synchronously
+	// so a paused application also starts with the resume entry after restart.
+	if apply := status.refresh(actions.ctx); apply != nil {
+		apply()
+	}
+	tray := app.SystemTray.New().SetMenu(menu)
 	tray.SetLabel("dan-tick")
 	if runtime.GOOS == "windows" {
 		tray.SetIcon(trayLightIcon).SetDarkModeIcon(trayDarkIcon)
@@ -57,21 +65,36 @@ func NewTray(app *application.App, window application.Window, service *Applicati
 		tray.SetIcon(trayLinuxIcon)
 		tray.OnClick(actions.openWindowOnActivate)
 	}
-	return &Tray{actions: actions}
+	result := &Tray{actions: actions, status: status}
+	service.onSchedulingChanged(result.RefreshScheduling)
+	return result
 }
 
-func newTrayMenu(actions *trayActions) *application.Menu {
+func newTrayMenu(actions *trayActions, status *trayStatusItem) *application.Menu {
 	menu := application.NewMenu()
 	menu.Add("显示").OnClick(func(*application.Context) { actions.openWindow() })
 	menu.Add("查看运行状态").OnClick(func(*application.Context) { actions.showStatus() })
 	menu.AddSeparator()
-	// Both operations remain available and idempotent. Status is read on
-	// demand rather than cached in native menu state or refreshed by a timer.
-	menu.Add("暂停自动调度").OnClick(func(*application.Context) { actions.setSchedulingEnabled(false) })
-	menu.Add("恢复自动调度").OnClick(func(*application.Context) { actions.setSchedulingEnabled(true) })
+	// Auto scheduling contributes one entry, not two: pausing and resuming are
+	// mutually exclusive, so exactly one of them is visible. The visible label
+	// names the request the entry submits, and the entry only moves once that
+	// request commits.
+	status.pause = menu.Add("暂停自动调度")
+	status.pause.OnClick(func(*application.Context) { actions.setSchedulingEnabled(false) })
+	// Keep one entry visible even if the very first preference read fails.
+	status.resume = menu.Add("恢复自动调度").SetHidden(true)
+	status.resume.OnClick(func(*application.Context) { actions.setSchedulingEnabled(true) })
 	menu.AddSeparator()
 	menu.Add("退出应用").OnClick(func(*application.Context) { actions.requestQuit() })
 	return menu
+}
+
+// RefreshScheduling reads the preference on the tray worker queue and dispatches
+// native menu updates to the UI thread. Closing drops pending reads and updates.
+func (t *Tray) RefreshScheduling() {
+	if t != nil {
+		t.actions.run(t.status.refresh)
+	}
 }
 
 // RestoreWindow is shared by single-instance activation and tray actions. A
@@ -80,6 +103,33 @@ func RestoreWindow(window application.Window) {
 	window.Show()
 	window.UnMinimise()
 	window.Focus()
+}
+
+// trayStatusItem owns the single auto-scheduling menu entry. Pause and resume
+// are the same entry in two states, so one of the two items is always hidden.
+type trayStatusItem struct {
+	pause  *application.MenuItem
+	resume *application.MenuItem
+
+	load func(context.Context) (bool, error)
+}
+
+func newTrayStatusItem(load func(context.Context) (bool, error)) *trayStatusItem {
+	return &trayStatusItem{load: load}
+}
+
+// refresh reads the persisted preference without touching native menu state.
+// Its result runs on the UI thread; a failed read preserves the visible entry.
+func (s *trayStatusItem) refresh(ctx context.Context) func() {
+	enabled, err := s.load(ctx)
+	if err != nil {
+		return nil
+	}
+	return func() {
+		// Enabled scheduling offers to pause it; paused scheduling offers to resume.
+		s.pause.SetHidden(!enabled)
+		s.resume.SetHidden(enabled)
+	}
 }
 
 // trayClick names the Wails callback that reached the tray click handler.
@@ -142,10 +192,11 @@ func classifyTrayClick(frames []runtime.Frame) trayClick {
 }
 
 // Close stops accepting tray work and waits only for background operations.
-// Native dialogs are dispatched asynchronously so the UI shutdown hook never
+// Native updates are dispatched asynchronously so the UI shutdown hook never
 // waits for a worker that is itself waiting for the UI thread.
 func (t *Tray) Close() {
 	if t != nil {
+		t.actions.service.onSchedulingChanged(nil)
 		t.actions.close()
 	}
 }
