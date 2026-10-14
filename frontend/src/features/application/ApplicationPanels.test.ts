@@ -106,7 +106,7 @@ it('updates scheduling through Go and preserves authoritative state after failur
   expect(card.children).toHaveLength(initialChildCount)
 })
 
-it('keeps the scheduling switch on after a failed update and supports keyboard activation', async () => {
+it('flips the scheduling switch optimistically and restores the stored value after a failed update', async () => {
   const user = userEvent.setup()
   let rejectChange: (reason: Error) => void = () => {}
   vi.mocked(SetSchedulingEnabled).mockImplementationOnce(
@@ -122,6 +122,9 @@ it('keeps the scheduling switch on after a failed update and supports keyboard a
   await user.keyboard(' ')
 
   expect(SetSchedulingEnabled).toHaveBeenCalledWith(false)
+  // Optimistic: the requested value shows while the write runs, and the switch
+  // stays locked so no second write can race it.
+  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
   await waitFor(() => expect(toggle.hasAttribute('disabled')).toBe(true))
   await user.click(toggle)
   expect(SetSchedulingEnabled).toHaveBeenCalledTimes(1)
@@ -132,7 +135,8 @@ it('keeps the scheduling switch on after a failed update and supports keyboard a
   expect(
     within(screen.getByRole('region', { name: '调度设置' })).queryByText(/更改调度状态未成功确认/),
   ).toBeNull()
-  expect(toggle.getAttribute('aria-checked')).toBe('true')
+  // The reread restores what the backend actually holds.
+  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
   expect(toggle.hasAttribute('disabled')).toBe(false)
   expect(document.body.textContent).not.toContain('private failure')
 })

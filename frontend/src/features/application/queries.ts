@@ -20,7 +20,10 @@ import {
   GetStartupVisibility,
   SetStartupVisibility,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice'
-import type { AutostartStatus } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
+import type {
+  AutostartStatus,
+  Preferences,
+} from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/models'
 
 export const applicationKeys = {
   all: ['application'] as const,
@@ -98,6 +101,12 @@ export function useSetSchedulingEnabled() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (value: boolean) => SetSchedulingEnabled(value),
+    // Optimistic: the switch shows the requested value until the re-read lands.
+    onMutate: (value) => {
+      client.setQueryData<Preferences | undefined>(applicationKeys.preferences, (current) =>
+        current ? { ...current, schedulingEnabled: value } : current,
+      )
+    },
     onSettled: () => client.invalidateQueries({ queryKey: applicationKeys.all }),
   })
 }
