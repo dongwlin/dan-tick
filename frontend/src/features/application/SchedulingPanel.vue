@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
 import { fieldClass } from '@/components/ui/uiStyles'
+import UiSelect from '@/components/ui/UiSelect.vue'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAsyncSection from '@/components/ui/UiAsyncSection.vue'
 import { useToast } from '@/composables/useToast'
@@ -88,18 +89,15 @@ async function toggleScheduling(enabled: boolean) {
           <label for="default-timezone" class="text-sm font-medium">
             <strong>默认时区</strong>
           </label>
-          <select
+          <UiSelect
             id="default-timezone"
             v-model="localTimezone"
-            :class="[fieldClass, 'w-auto min-w-56 max-w-72']"
+            :options="options"
+            :class="[fieldClass, 'w-auto min-w-56 max-w-72 disabled:cursor-pointer']"
             :disabled="setTimezone.isPending.value"
             :aria-busy="setTimezone.isPending.value"
-            @change="changeTimezone(localTimezone)"
-          >
-            <option v-for="option in options" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
+            @update:model-value="changeTimezone"
+          />
         </div>
       </div>
     </UiAsyncSection>
