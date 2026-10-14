@@ -80,7 +80,7 @@ function refreshStatus() {
           <SwitchRoot
             id="autostart-switch"
             class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="开机自启动"
+            aria-label="开机自启"
             aria-describedby="autostart-description"
             :model-value="(status.data.value?.enabled && !status.data.value.needsRepair) ?? false"
             :disabled="autostartDisabled"
@@ -88,7 +88,7 @@ function refreshStatus() {
             @update:model-value="changeAutostart"
           >
             <span class="flex min-w-0 flex-col gap-1">
-              <strong class="text-sm">开机自启动</strong>
+              <strong class="text-sm">开机自启</strong>
               <span id="autostart-description" class="text-xs text-text-tertiary">
                 登录桌面会话后自动启动 dan-tick
               </span>
@@ -141,7 +141,7 @@ function refreshStatus() {
           <SwitchRoot
             id="startup-visibility-switch"
             class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="启动后隐藏窗口"
+            aria-label="静默启动"
             aria-describedby="startup-visibility-description"
             :model-value="hideOnStartup"
             :disabled="visibilityDisabled"
@@ -149,7 +149,7 @@ function refreshStatus() {
             @update:model-value="changeStartupVisibility"
           >
             <span class="flex min-w-0 flex-col gap-1">
-              <strong class="text-sm">启动后隐藏窗口</strong>
+              <strong class="text-sm">静默启动</strong>
               <span id="startup-visibility-description" class="text-xs text-text-tertiary">
                 启动后不显示主窗口，仅保留系统托盘入口
               </span>
