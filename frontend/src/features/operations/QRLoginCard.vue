@@ -128,7 +128,7 @@ function preventClosingWhenLocked(event: Event) {
             <button
               v-if="state === 'account_mismatch'"
               type="button"
-              :class="[primaryButton, 'min-h-11']"
+              :class="[primaryButton, 'min-h-11', 'min-w-32']"
               :disabled="busy || disabled"
               :aria-busy="busy"
               @click="emit('confirm')"

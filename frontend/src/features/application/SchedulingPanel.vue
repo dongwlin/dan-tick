@@ -102,7 +102,7 @@ async function toggleScheduling(enabled: boolean) {
           </label>
           <button
             type="submit"
-            :class="secondaryButton"
+            :class="[secondaryButton, 'min-w-32']"
             :disabled="setTimezone.isPending.value || !timezone.trim()"
             :aria-busy="setTimezone.isPending.value"
           >

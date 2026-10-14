@@ -88,7 +88,7 @@ async function run(action: 'logs' | 'data' | 'export') {
     <UiAlert v-if="status.isError.value" tone="warning" class="mb-3"> 无法读取日志状态。 </UiAlert>
     <button
       type="button"
-      :class="secondaryButton"
+      :class="[secondaryButton, 'min-w-42']"
       :disabled="exportAction.isPending.value"
       :aria-busy="exportAction.isPending.value"
       @click="run('export')"
