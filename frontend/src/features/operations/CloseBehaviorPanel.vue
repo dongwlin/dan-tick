@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
-import { Check } from 'lucide-vue-next'
 import { useToast } from '@/composables/useToast'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
+import UiSelect from '@/components/ui/UiSelect.vue'
+import { fieldClass } from '@/components/ui/uiStyles'
 import {
   GetCloseBehavior,
   SetCloseBehavior,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice'
+
+// The stored values are the backend contract; the labels are the wording this
+// row shows for them.
+const options: { value: string; label: string }[] = [
+  { value: 'hide', label: '最小化到系统托盘' },
+  { value: 'quit', label: '退出应用程序' },
+]
 
 const queryClient = useQueryClient()
 const queryKey = ['desktop', 'close-behavior'] as const
@@ -31,59 +38,30 @@ const update = useMutation({
   onSettled: () => queryClient.invalidateQueries({ queryKey }),
 })
 
-function onChange(value: unknown) {
-  if (value === 'hide' || value === 'quit') {
-    dismiss()
-    update.mutate(value, {
-      onError: () => notify('更改窗口行为未成功确认，请确认当前选择后重试。', 'error'),
-    })
-  }
+function onChange(value: string) {
+  if ((value !== 'hide' && value !== 'quit') || value === behavior.value) return
+  dismiss()
+  update.mutate(value, {
+    onError: () => notify('更改窗口行为未成功确认，请确认当前选择后重试。', 'error'),
+  })
 }
 </script>
 
 <template>
   <UiPanel aria-labelledby="close-behavior-heading">
-    <h2 id="close-behavior-heading" class="mb-2 text-base font-semibold">窗口与后台运行</h2>
-    <RadioGroupRoot
-      :model-value="behavior"
-      :disabled="isFetching || update.isPending.value"
-      :aria-busy="isFetching || update.isPending.value"
-      orientation="vertical"
-      aria-label="关闭窗口行为"
-      class="flex flex-col gap-3"
-      @update:model-value="onChange"
-    >
-      <RadioGroupItem
-        value="hide"
-        class="group flex min-h-11 items-center gap-3 rounded-[10px] border border-border-strong bg-surface-solid px-4 py-2.5 text-left text-text-primary hover:bg-surface-solid-hover data-[state=checked]:border-soft-accent-border data-[state=checked]:bg-soft-accent-bg"
-        :class="{ 'cursor-pointer': isFetching || update.isPending.value }"
-      >
-        <span
-          class="flex size-4 items-center justify-center rounded-full border border-border-strong group-data-[state=checked]:border-accent-solid"
-          aria-hidden="true"
-        >
-          <RadioGroupIndicator class="flex size-3 items-center justify-center text-accent-text">
-            <Check class="size-3" :stroke-width="2.5" aria-hidden="true" />
-          </RadioGroupIndicator>
-        </span>
-        <span>关闭时隐藏窗口，继续运行任务（默认）</span>
-      </RadioGroupItem>
-      <RadioGroupItem
-        value="quit"
-        class="group flex min-h-11 items-center gap-3 rounded-[10px] border border-border-strong bg-surface-solid px-4 py-2.5 text-left text-text-primary hover:bg-surface-solid-hover data-[state=checked]:border-soft-accent-border data-[state=checked]:bg-soft-accent-bg"
-        :class="{ 'cursor-pointer': isFetching || update.isPending.value }"
-      >
-        <span
-          class="flex size-4 items-center justify-center rounded-full border border-border-strong group-data-[state=checked]:border-accent-solid"
-          aria-hidden="true"
-        >
-          <RadioGroupIndicator class="flex size-3 items-center justify-center text-accent-text">
-            <Check class="size-3" :stroke-width="2.5" aria-hidden="true" />
-          </RadioGroupIndicator>
-        </span>
-        <span>关闭时退出应用，停止后台调度</span>
-      </RadioGroupItem>
-    </RadioGroupRoot>
+    <h2 id="close-behavior-heading" class="mb-2 text-base font-semibold">窗口行为</h2>
+    <div class="flex min-h-15 flex-wrap items-start justify-between gap-x-5 gap-y-3">
+      <label for="close-behavior" class="text-sm font-medium"><strong>关闭窗口时</strong></label>
+      <UiSelect
+        id="close-behavior"
+        :model-value="behavior"
+        :options="options"
+        :class="[fieldClass, 'w-auto min-w-48 max-w-72 disabled:cursor-pointer']"
+        :disabled="isFetching || update.isPending.value"
+        :aria-busy="isFetching || update.isPending.value"
+        @update:model-value="onChange"
+      />
+    </div>
     <UiAlert v-if="isError" tone="warning" class="mt-3">
       读取窗口偏好失败。
       <button type="button" class="underline" @click="refetch()">重试</button>

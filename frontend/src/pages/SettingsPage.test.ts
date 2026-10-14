@@ -63,7 +63,7 @@ it('renders settings cards without shadows', () => {
     '账号资料',
     'B站账号凭证',
     '测试发送',
-    '窗口与后台运行',
+    '窗口行为',
     '启动设置',
     '调度设置',
     '界面主题',
@@ -81,7 +81,7 @@ it('places the startup card after window behavior and before scheduling', () => 
   })
 
   const startup = screen.getByRole('region', { name: '启动设置' })
-  expect(screen.getByRole('region', { name: '窗口与后台运行' }).nextElementSibling).toBe(startup)
+  expect(screen.getByRole('region', { name: '窗口行为' }).nextElementSibling).toBe(startup)
   expect(startup.nextElementSibling).toBe(screen.getByRole('region', { name: '调度设置' }))
 })
 
