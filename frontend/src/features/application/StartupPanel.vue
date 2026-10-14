@@ -100,21 +100,15 @@ async function changeStartupVisibility(enabled: boolean) {
     <div class="divide-y divide-border-hairline">
       <SwitchRoot
         id="autostart-switch"
-        class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden"
+        class="group flex min-h-15 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden"
         :class="{ 'cursor-pointer': busy && !autostartUnavailable }"
         aria-label="开机自启"
-        aria-describedby="autostart-description"
         :model-value="(status.data.value?.enabled && !status.data.value.needsRepair) ?? false"
         :disabled="autostartDisabled"
         :aria-busy="setAutostart.isPending.value"
         @update:model-value="changeAutostart"
       >
-        <span class="flex min-w-0 flex-col gap-1">
-          <strong class="text-sm">开机自启</strong>
-          <span id="autostart-description" class="text-xs text-text-tertiary">
-            登录桌面会话后自动启动 dan-tick
-          </span>
-        </span>
+        <strong class="text-sm">开机自启</strong>
         <span
           aria-hidden="true"
           class="flex h-[19px] w-[31px] shrink-0 items-center rounded-full border border-border-strong bg-surface-muted px-[2px] group-data-[state=checked]:border-accent-solid group-data-[state=checked]:bg-accent-solid group-hover:bg-surface-solid-hover group-data-[state=checked]:group-hover:bg-accent-solid group-data-[state=checked]:group-hover:brightness-95 group-active:brightness-90 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-focus-ring motion-safe:transition-colors motion-safe:duration-200"
@@ -127,21 +121,15 @@ async function changeStartupVisibility(enabled: boolean) {
       </SwitchRoot>
       <SwitchRoot
         id="startup-visibility-switch"
-        class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden"
+        class="group flex min-h-15 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden"
         :class="{ 'cursor-pointer': busy && !visibilityUnavailable }"
         aria-label="静默启动"
-        aria-describedby="startup-visibility-description"
         :model-value="hideOnStartup"
         :disabled="visibilityDisabled"
         :aria-busy="setVisibility.isPending.value"
         @update:model-value="changeStartupVisibility"
       >
-        <span class="flex min-w-0 flex-col gap-1">
-          <strong class="text-sm">静默启动</strong>
-          <span id="startup-visibility-description" class="text-xs text-text-tertiary">
-            启动后不显示主窗口，仅保留系统托盘入口
-          </span>
-        </span>
+        <strong class="text-sm">静默启动</strong>
         <span
           aria-hidden="true"
           class="flex h-[19px] w-[31px] shrink-0 items-center rounded-full border border-border-strong bg-surface-muted px-[2px] group-data-[state=checked]:border-accent-solid group-data-[state=checked]:bg-accent-solid group-hover:bg-surface-solid-hover group-data-[state=checked]:group-hover:bg-accent-solid group-data-[state=checked]:group-hover:brightness-95 group-active:brightness-90 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-focus-ring motion-safe:transition-colors motion-safe:duration-200"

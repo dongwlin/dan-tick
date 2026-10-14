@@ -63,7 +63,6 @@ it('loads an existing enabled registration from the backend', async () => {
 
   const toggle = await findReadySwitch('开机自启')
   expect(toggle.getAttribute('aria-checked')).toBe('true')
-  expect(screen.getByText('登录桌面会话后自动启动 dan-tick')).toBeTruthy()
   expect(SetAutostartEnabled).not.toHaveBeenCalled()
 })
 
@@ -270,7 +269,6 @@ it('shows the main window on launch by default', async () => {
 
   const toggle = await findReadySwitch('静默启动')
   expect(toggle.getAttribute('aria-checked')).toBe('false')
-  expect(screen.getByText('启动后不显示主窗口，仅保留系统托盘入口')).toBeTruthy()
   expect(SetStartupVisibility).not.toHaveBeenCalled()
 })
 
@@ -340,6 +338,9 @@ it('renders the startup card with the switches only, without inline actions or h
   expect(within(card).queryByRole('button')).toBeNull()
   expect(screen.queryByRole('button', { name: '刷新状态' })).toBeNull()
   expect(screen.queryByText(/下一次启动 dan-tick 时生效/)).toBeNull()
+  // Each switch row keeps its label alone, so no hint line sets the row height.
+  expect(screen.queryByText(/登录桌面会话后自动启动/)).toBeNull()
+  expect(screen.queryByText(/仅保留系统托盘入口/)).toBeNull()
 })
 
 it('keeps the card contents stable while feedback is reported through the toast', async () => {
