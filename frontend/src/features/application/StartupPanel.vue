@@ -170,7 +170,6 @@ function refreshStatus() {
           >
             正在更新启动后隐藏窗口设置…
           </p>
-          <p class="pb-3 text-xs text-text-tertiary">保存后在下一次启动 dan-tick 时生效。</p>
         </div>
       </UiAsyncSection>
     </div>

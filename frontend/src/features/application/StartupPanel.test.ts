@@ -223,7 +223,6 @@ it('shows the main window on launch by default', async () => {
   const toggle = await screen.findByRole('switch', { name: '启动后隐藏窗口' })
   expect(toggle.getAttribute('aria-checked')).toBe('false')
   expect(screen.getByText('启动后不显示主窗口，仅保留系统托盘入口')).toBeTruthy()
-  expect(screen.getByText('保存后在下一次启动 dan-tick 时生效。')).toBeTruthy()
   expect(SetStartupVisibility).not.toHaveBeenCalled()
 })
 
