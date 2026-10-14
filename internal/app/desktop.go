@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/dongwlin/dan-tick/internal/autostart"
 	"github.com/dongwlin/dan-tick/internal/buildinfo"
 	"github.com/dongwlin/dan-tick/internal/desktop"
 	"github.com/dongwlin/dan-tick/internal/diagnostic"
@@ -140,6 +141,10 @@ func runDesktop(assets fs.FS, logger *diagnostic.Logger) error {
 		MarshalError: desktop.MarshalError,
 	}))
 	applicationService := desktop.NewApplicationService(db, runtime.Scheduler, func(event string) { desktopApp.Event.Emit(event) })
+	desktopApp.RegisterService(application.NewServiceWithOptions(
+		desktop.NewAutostartService(autostart.NewManager(), func(event string) { desktopApp.Event.Emit(event) }),
+		application.ServiceOptions{MarshalError: desktop.MarshalError},
+	))
 	desktopApp.RegisterService(application.NewServiceWithOptions(
 		applicationService,
 		application.ServiceOptions{MarshalError: desktop.MarshalError},

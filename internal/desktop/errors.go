@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/dongwlin/dan-tick/internal/account"
+	"github.com/dongwlin/dan-tick/internal/autostart"
 	"github.com/dongwlin/dan-tick/internal/credential"
 	"github.com/dongwlin/dan-tick/internal/danmaku"
 	"github.com/dongwlin/dan-tick/internal/executor"
@@ -38,6 +39,10 @@ func protect(err error) error {
 func classify(err error) safeError {
 	reply := safeError{Code: "internal", Message: "操作失败，请重试或查看诊断日志"}
 	switch {
+	case errors.Is(err, autostart.ErrUnsupported):
+		reply = safeError{"autostart_unsupported", "当前平台不支持开机自启动"}
+	case errors.Is(err, autostart.ErrUnavailable):
+		reply = safeError{"autostart_unavailable", "无法读取或更新系统启动项，请检查启动项权限后重试"}
 	case errors.Is(err, credential.ErrReauthenticationRequired), errors.Is(err, account.ErrRefreshUncertain):
 		reply = safeError{"reauthentication_required", "登录会话无法安全续期，请重新扫码登录"}
 	case errors.Is(err, account.ErrPassportExpired):
