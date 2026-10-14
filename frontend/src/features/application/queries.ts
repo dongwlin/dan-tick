@@ -16,6 +16,10 @@ import {
   GetAutostartStatus,
   SetAutostartEnabled,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/autostartservice'
+import {
+  GetStartupVisibility,
+  SetStartupVisibility,
+} from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice'
 
 export const applicationKeys = {
   all: ['application'] as const,
@@ -24,6 +28,7 @@ export const applicationKeys = {
   diagnostics: ['application', 'diagnostics'] as const,
   buildInfo: ['application', 'build-info'] as const,
   autostart: ['application', 'autostart'] as const,
+  startupVisibility: ['application', 'startup-visibility'] as const,
 }
 
 export function useAutostartStatus() {
@@ -38,6 +43,21 @@ export function useSetAutostartEnabled() {
     // A failed confirmation can follow a successful system change. Read the
     // registered state again before allowing another attempt.
     onError: () => client.invalidateQueries({ queryKey: applicationKeys.autostart }),
+  })
+}
+
+export function useStartupVisibility() {
+  return useQuery({ queryKey: applicationKeys.startupVisibility, queryFn: GetStartupVisibility })
+}
+
+export function useSetStartupVisibility() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (value: string) => SetStartupVisibility(value),
+    onSuccess: (_, value) => client.setQueryData(applicationKeys.startupVisibility, value),
+    // The write can succeed before its response fails. Read the stored value
+    // again so the switch never shows a state the backend does not hold.
+    onError: () => client.invalidateQueries({ queryKey: applicationKeys.startupVisibility }),
   })
 }
 

@@ -7,20 +7,28 @@ import {
   GetAutostartStatus,
   SetAutostartEnabled,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/autostartservice'
+import {
+  GetStartupVisibility,
+  SetStartupVisibility,
+} from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice'
 import { createAppQueryClient } from '@/app/queryClient'
 import { mountToastHost } from '@/test/toastHost'
-import AutostartPanel from './AutostartPanel.vue'
+import StartupPanel from './StartupPanel.vue'
 
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/autostartservice', () => ({
   GetAutostartStatus: vi.fn(),
   SetAutostartEnabled: vi.fn(),
+}))
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice', () => ({
+  GetStartupVisibility: vi.fn(),
+  SetStartupVisibility: vi.fn(),
 }))
 
 const defaultStatus = { enabled: false, supported: true, needsRepair: false }
 
 function show() {
   mountToastHost()
-  return render(AutostartPanel, {
+  return render(StartupPanel, {
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
 }
@@ -32,6 +40,10 @@ beforeEach(() => {
     .mockImplementation(
       (enabled) => new CancellablePromise((resolve) => resolve({ ...defaultStatus, enabled })),
     )
+  vi.mocked(GetStartupVisibility).mockReset().mockResolvedValue('show')
+  vi.mocked(SetStartupVisibility)
+    .mockReset()
+    .mockImplementation(() => new CancellablePromise((resolve) => resolve(undefined)))
 })
 
 it('loads an existing enabled registration and refreshes changes made outside the app', async () => {
@@ -112,7 +124,7 @@ it('requires a successful reread when both saving and its state verification fai
 
   await user.click(await screen.findByRole('switch', { name: '启用开机自启动' }))
   expect(await screen.findByText('无法读取开机自启动状态，请重新读取后再试。')).toBeTruthy()
-  expect(screen.queryByRole('switch')).toBeNull()
+  expect(screen.queryByRole('switch', { name: '启用开机自启动' })).toBeNull()
   expect(document.body.textContent).not.toContain('private file path')
   expect(document.body.textContent).not.toContain('private write detail')
 
@@ -157,7 +169,9 @@ it('can remove an outdated registration without enabling autostart', async () =>
   await user.click(await screen.findByRole('button', { name: '清理启动项' }))
   expect(SetAutostartEnabled).toHaveBeenCalledWith(false)
   await waitFor(() => expect(screen.queryByText(/已有启动项需要修复/)).toBeNull())
-  expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('false')
+  expect(screen.getByRole('switch', { name: '启用开机自启动' }).getAttribute('aria-checked')).toBe(
+    'false',
+  )
 })
 
 it('shows safe read failures and retries through the backend', async () => {
@@ -165,9 +179,8 @@ it('shows safe read failures and retries through the backend', async () => {
   vi.mocked(GetAutostartStatus).mockRejectedValueOnce(new Error('private executable path'))
   show()
 
-  expect(screen.getByRole('status').textContent).toContain('正在读取开机自启动状态')
-  expect(screen.queryByRole('switch')).toBeNull()
   expect(await screen.findByText('无法读取开机自启动状态，请重新读取后再试。')).toBeTruthy()
+  expect(screen.queryByRole('switch', { name: '启用开机自启动' })).toBeNull()
   expect(document.body.textContent).not.toContain('private executable path')
   await user.click(screen.getByRole('button', { name: '重新读取' }))
 
@@ -210,4 +223,87 @@ it('prevents repeated writes and refreshing while a registration change is pendi
     expect(toggle.getAttribute('aria-checked')).toBe('true')
     expect(toggle.hasAttribute('disabled')).toBe(false)
   })
+})
+
+it('shows the main window on launch by default', async () => {
+  show()
+
+  const toggle = await screen.findByRole('switch', { name: '启动后隐藏窗口' })
+  expect(toggle.getAttribute('aria-checked')).toBe('false')
+  expect(screen.getByText('启动后不显示主窗口，仅保留系统托盘入口')).toBeTruthy()
+  expect(screen.getByText('保存后在下一次启动 dan-tick 时生效。')).toBeTruthy()
+  expect(SetStartupVisibility).not.toHaveBeenCalled()
+})
+
+it('keeps a stored hidden launch through the settings binding', async () => {
+  vi.mocked(GetStartupVisibility).mockResolvedValueOnce('hide')
+  show()
+
+  const toggle = await screen.findByRole('switch', { name: '启动后隐藏窗口' })
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
+  expect(SetStartupVisibility).not.toHaveBeenCalled()
+})
+
+it('hides the window on the next launch and restores it afterwards', async () => {
+  const user = userEvent.setup()
+  show()
+
+  const toggle = await screen.findByRole('switch', { name: '启动后隐藏窗口' })
+  expect(toggle.getAttribute('aria-checked')).toBe('false')
+  await user.click(toggle)
+  expect(SetStartupVisibility).toHaveBeenCalledWith('hide')
+  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
+  expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
+    '已开启启动后隐藏窗口，下次启动生效。',
+  )
+
+  toggle.focus()
+  await user.keyboard(' ')
+  expect(SetStartupVisibility).toHaveBeenLastCalledWith('show')
+  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
+  expect((await screen.findByRole('status', { name: '操作成功通知' })).textContent).toContain(
+    '已关闭启动后隐藏窗口，下次启动显示主窗口。',
+  )
+})
+
+it('rereads the stored preference after a failed write and reports it safely', async () => {
+  const user = userEvent.setup()
+  vi.mocked(GetStartupVisibility)
+    .mockResolvedValueOnce('show')
+    .mockRejectedValueOnce(new Error('private preference path'))
+  vi.mocked(SetStartupVisibility).mockRejectedValueOnce(new Error('private write detail'))
+  show()
+
+  await user.click(await screen.findByRole('switch', { name: '启动后隐藏窗口' }))
+  expect(await screen.findByText('无法读取启动后隐藏窗口设置，请重新读取后再试。')).toBeTruthy()
+  expect(screen.queryByRole('switch', { name: '启动后隐藏窗口' })).toBeNull()
+  expect(document.body.textContent).not.toContain('private preference path')
+  expect(document.body.textContent).not.toContain('private write detail')
+
+  vi.mocked(GetStartupVisibility).mockResolvedValueOnce('hide')
+  await user.click(screen.getByRole('button', { name: '重新读取' }))
+  const toggle = await screen.findByRole('switch', { name: '启动后隐藏窗口' })
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
+})
+
+it('keeps the hidden launch available when autostart cannot be read', async () => {
+  const user = userEvent.setup()
+  vi.mocked(GetAutostartStatus).mockRejectedValueOnce(new Error('private registry path'))
+  show()
+
+  expect(await screen.findByText('无法读取开机自启动状态，请重新读取后再试。')).toBeTruthy()
+  const toggle = await screen.findByRole('switch', { name: '启动后隐藏窗口' })
+  expect(toggle.hasAttribute('disabled')).toBe(false)
+  await user.click(toggle)
+  expect(SetStartupVisibility).toHaveBeenCalledWith('hide')
+})
+
+it('rereads both startup settings through the panel refresh action', async () => {
+  const user = userEvent.setup()
+  show()
+
+  await screen.findByRole('switch', { name: '启用开机自启动' })
+  await user.click(screen.getByRole('button', { name: '刷新状态' }))
+  await waitFor(() => expect(GetAutostartStatus).toHaveBeenCalledTimes(2))
+  expect(GetStartupVisibility).toHaveBeenCalledTimes(2)
 })

@@ -25,6 +25,8 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/configurationse
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice', () => ({
   GetCloseBehavior: vi.fn().mockResolvedValue('hide'),
   SetCloseBehavior: vi.fn().mockResolvedValue(undefined),
+  GetStartupVisibility: vi.fn().mockResolvedValue('show'),
+  SetStartupVisibility: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/autostartservice', () => ({
   GetAutostartStatus: vi
@@ -62,7 +64,7 @@ it('renders settings cards without shadows', () => {
     'B站账号凭证',
     '测试发送',
     '窗口与后台运行',
-    '开机自启动',
+    '启动设置',
     '调度设置',
     '界面主题',
     '数据与日志',
@@ -73,14 +75,26 @@ it('renders settings cards without shadows', () => {
   expect(screen.getByRole('heading', { name: '设置' }).closest('header')).not.toBeNull()
 })
 
-it('places autostart after window behavior and before scheduling', () => {
+it('places the startup card after window behavior and before scheduling', () => {
   render(SettingsPage, {
     global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
 
-  const autostart = screen.getByRole('region', { name: '开机自启动' })
-  expect(screen.getByRole('region', { name: '窗口与后台运行' }).nextElementSibling).toBe(autostart)
-  expect(autostart.nextElementSibling).toBe(screen.getByRole('region', { name: '调度设置' }))
+  const startup = screen.getByRole('region', { name: '启动设置' })
+  expect(screen.getByRole('region', { name: '窗口与后台运行' }).nextElementSibling).toBe(startup)
+  expect(startup.nextElementSibling).toBe(screen.getByRole('region', { name: '调度设置' }))
+})
+
+it('groups autostart and hidden launch under one startup card in that order', async () => {
+  render(SettingsPage, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+
+  const startup = screen.getByRole('region', { name: '启动设置' })
+  expect(within(startup).getByRole('heading', { name: '启动设置' })).toBeTruthy()
+  const hidden = await within(startup).findByRole('switch', { name: '启动后隐藏窗口' })
+  const autostart = within(startup).getByRole('switch', { name: '启用开机自启动' })
+  expect(autostart.compareDocumentPosition(hidden) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 
 it('places the about section after diagnostics with the existing brand mark', () => {

@@ -10,7 +10,7 @@ import AccountProfileCard from '@/features/operations/AccountProfileCard.vue'
 import TestSendPanel from '@/features/operations/TestSendPanel.vue'
 import CloseBehaviorPanel from '@/features/operations/CloseBehaviorPanel.vue'
 import SchedulingPanel from '@/features/application/SchedulingPanel.vue'
-import AutostartPanel from '@/features/application/AutostartPanel.vue'
+import StartupPanel from '@/features/application/StartupPanel.vue'
 import DiagnosticsPanel from '@/features/application/DiagnosticsPanel.vue'
 import AboutPanel from '@/features/application/AboutPanel.vue'
 import { useBuildInfo } from '@/features/application/queries'
@@ -39,7 +39,7 @@ function updateTheme(value: unknown): void {
         <AccountPanel />
         <TestSendPanel />
         <CloseBehaviorPanel />
-        <AutostartPanel />
+        <StartupPanel />
         <SchedulingPanel />
         <UiPanel aria-labelledby="theme-heading">
           <h2 id="theme-heading" class="mb-4 text-base font-semibold">界面主题</h2>
