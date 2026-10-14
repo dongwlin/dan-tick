@@ -36,6 +36,28 @@ function requiredElement<T extends Element>(element: T | null): T {
   return element
 }
 
+type User = ReturnType<typeof userEvent.setup>
+
+/** The room read has to settle before the picker offers anything to pick. */
+async function findReadyRoom() {
+  const trigger = await screen.findByRole('combobox', { name: '目标直播间' })
+  await waitFor(() => expect(trigger.hasAttribute('disabled')).toBe(false))
+  return trigger
+}
+
+/** Opens the select of a labelled field and picks the option with that text. */
+async function pickOption(user: User, field: string, option: string) {
+  await user.click(screen.getByRole('combobox', { name: field }))
+  const listbox = await screen.findByRole('listbox')
+  await user.click(await within(listbox).findByRole('option', { name: option }))
+}
+
+function timezoneLabel(value: string) {
+  const option = timezoneOptions.find((candidate) => candidate.value === value)
+  if (!option) throw new Error(`Expected ${value} among the offered timezones`)
+  return option.label
+}
+
 it('validates task conditions, retains edits on failure and submits typed binding input', async () => {
   vi.mocked(ListRooms).mockResolvedValue([
     {
@@ -90,7 +112,7 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   ]) {
     expect(screen.queryByText(description)).toBeNull()
   }
-  await screen.findByRole('option', { name: '测试直播间 · 98765' })
+  await findReadyRoom()
   const messageCard = requiredElement(
     screen.getByRole('heading', { name: '弹幕内容' }).closest('section'),
   )
@@ -117,7 +139,7 @@ it('validates task conditions, retains edits on failure and submits typed bindin
   expect(messageCard.querySelector('p')).toBeNull()
   expect(screen.queryByText('执行计划使用明确时区，保存后由后端计算下次执行时间。')).toBeNull()
   await user.type(screen.getByRole('textbox', { name: '任务名称' }), '自动问候')
-  await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '1')
+  await pickOption(user, '目标直播间', '测试直播间 · 98765')
   await user.type(screen.getByRole('textbox', { name: '发送队列' }), '你好\n晚上好')
   await user.click(screen.getByRole('button', { name: '创建任务' }))
   expect(await screen.findByText('单次任务只能填写一条弹幕')).toBeTruthy()
@@ -188,7 +210,7 @@ it('shows validation summary in a toast while keeping field errors and focusing 
       plugins: [createAppRouter(), [VueQueryPlugin, { queryClient: createAppQueryClient() }]],
     },
   })
-  await screen.findByRole('option', { name: '测试直播间 · 98765' })
+  await findReadyRoom()
   const nameError = requiredElement(document.getElementById('task-name-error'))
   const roomError = requiredElement(document.getElementById('task-roomId-error'))
   const messageError = requiredElement(document.getElementById('task-messages-error'))
@@ -255,10 +277,10 @@ it.each(['single', 'loop'])(
         plugins: [createAppRouter(), [VueQueryPlugin, { queryClient: createAppQueryClient() }]],
       },
     })
-    await screen.findByRole('option', { name: '测试直播间 · 98765' })
+    await findReadyRoom()
     await user.type(screen.getByRole('textbox', { name: '任务名称' }), '弹幕校验')
-    await user.selectOptions(screen.getByRole('combobox', { name: '目标直播间' }), '1')
-    await user.selectOptions(screen.getByRole('combobox', { name: '任务类型' }), kind)
+    await pickOption(user, '目标直播间', '测试直播间 · 98765')
+    await pickOption(user, '任务类型', kind === 'loop' ? '循环发送' : '单次发送')
     const messages = screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' })
     const validFirst = kind === 'loop' ? `  ${'中'.repeat(10)}  \n\n` : ''
     const invalidDraft = `${validFirst}  ${'a'.repeat(21)}  `
@@ -366,6 +388,13 @@ it('loads and edits a weekly loop task without losing message order', async () =
   expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: '发送队列' }).value).toBe(
     '第一条\n第二条',
   )
+  // A stored task reads its values without the user opening a list first.
+  await findReadyRoom()
+  expect(screen.getByRole('combobox', { name: '目标直播间' }).textContent).toContain(
+    '测试直播间 · 98765',
+  )
+  expect(screen.getByRole('combobox', { name: '任务类型' }).textContent).toContain('循环发送')
+  expect(screen.getByRole('combobox', { name: '调度方式' }).textContent).toContain('每周')
   const monday = screen.getByRole('checkbox', { name: '周一' })
   const tuesday = screen.getByRole('checkbox', { name: '周二' })
   expect(monday.getAttribute('aria-checked')).toBe('true')
@@ -411,15 +440,18 @@ it('uses the persisted IANA default for new tasks without dirtying the form', as
   })
   vi.mocked(ListRooms).mockResolvedValue([])
   window.history.replaceState(null, '', '/#/tasks/new')
+  const user = userEvent.setup()
   const router = createAppRouter()
   render(App, {
     global: { plugins: [router, [VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
   })
-  const select = await screen.findByRole<HTMLSelectElement>('combobox', { name: '时区' })
-  await waitFor(() => expect(select.value).toBe('Europe/Berlin'))
+  const trigger = await screen.findByRole('combobox', { name: '时区' })
+  await waitFor(() => expect(trigger.textContent).toContain(timezoneLabel('Europe/Berlin')))
+
   // The persisted zone is offered as one of the curated options.
-  expect(select.selectedOptions[0]?.textContent).toContain('Europe/Berlin')
-  expect(select.options.length).toBe(timezoneOptions.length)
+  await user.click(trigger)
+  const listbox = await screen.findByRole('listbox')
+  expect(within(listbox).getAllByRole('option')).toHaveLength(timezoneOptions.length)
 })
 
 it('picks the task timezone from a select and saves the chosen zone', async () => {
@@ -463,12 +495,12 @@ it('picks the task timezone from a select and saves the chosen zone', async () =
   })
 
   await user.type(await screen.findByRole('textbox', { name: '任务名称' }), '深夜问候')
-  await user.selectOptions(await screen.findByRole('combobox', { name: '目标直播间' }), '1')
+  await pickOption(user, '目标直播间', '测试直播间 · 98765')
   await user.type(screen.getByRole('textbox', { name: '发送队列' }), '晚上好')
-  const select = screen.getByRole<HTMLSelectElement>('combobox', { name: '时区' })
-  expect(select.value).toBe('Asia/Shanghai')
-  await user.selectOptions(select, 'America/New_York')
-  expect(select.value).toBe('America/New_York')
+  const trigger = screen.getByRole('combobox', { name: '时区' })
+  expect(trigger.textContent).toContain(timezoneLabel('Asia/Shanghai'))
+  await pickOption(user, '时区', timezoneLabel('America/New_York'))
+  expect(trigger.textContent).toContain(timezoneLabel('America/New_York'))
 
   await user.click(screen.getByRole('button', { name: '创建任务' }))
   await waitFor(() => expect(window.location.hash).toBe('#/tasks'))

@@ -16,6 +16,7 @@ import { usePreferences } from '@/features/application/queries'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import UiField from '@/components/ui/UiField.vue'
+import UiSelect from '@/components/ui/UiSelect.vue'
 import { fieldClass } from '@/components/ui/uiStyles'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
@@ -49,6 +50,24 @@ const weekdays = [
   { name: '周六', bit: 5 },
   { name: '周日', bit: 6 },
 ]
+
+const kindOptions = [
+  { value: 'single', label: '单次发送' },
+  { value: 'loop', label: '循环发送' },
+] as const
+
+const scheduleKindOptions = [
+  { value: 'daily', label: '每天' },
+  { value: 'weekly', label: '每周' },
+  { value: 'once', label: '一次性' },
+] as const
+
+const roomOptions = computed(() =>
+  (rooms.data.value ?? []).map((room) => ({
+    value: String(room.id),
+    label: `${room.remark || room.title || room.platformRoomId} · ${room.platformRoomId}`,
+  })),
+)
 
 const schema = z
   .object({
@@ -301,27 +320,18 @@ const submit = handleSubmit(
               label="目标直播间"
               :error="errors.roomId"
             >
-              <select
+              <UiSelect
                 v-if="rooms.isPending.value || (!rooms.isError.value && rooms.data.value?.length)"
                 :id="id"
                 v-model="roomId"
                 v-bind="roomAttrs"
-                :class="fieldClass"
+                :options="roomOptions"
+                :placeholder="rooms.isPending.value ? '正在读取直播间…' : '请选择直播间'"
+                :class="[fieldClass, 'disabled:cursor-pointer']"
                 :aria-invalid="ariaInvalid"
                 :aria-describedby="describedBy"
                 :disabled="rooms.isPending.value"
-              >
-                <option value="">
-                  {{ rooms.isPending.value ? '正在读取直播间…' : '请选择直播间' }}
-                </option>
-                <option
-                  v-for="room in rooms.data.value ?? []"
-                  :key="room.id"
-                  :value="String(room.id)"
-                >
-                  {{ room.remark || room.title || room.platformRoomId }} · {{ room.platformRoomId }}
-                </option>
-              </select>
+              />
               <button
                 v-else-if="rooms.isError.value"
                 :id="id"
@@ -341,17 +351,15 @@ const submit = handleSubmit(
               >
             </UiField>
             <UiField id="task-kind" v-slot="{ id, ariaInvalid, describedBy }" label="任务类型">
-              <select
+              <UiSelect
                 :id="id"
                 v-model="kind"
                 v-bind="kindAttrs"
+                :options="kindOptions"
                 :class="fieldClass"
                 :aria-invalid="ariaInvalid"
                 :aria-describedby="describedBy"
-              >
-                <option value="single">单次发送</option>
-                <option value="loop">循环发送</option>
-              </select>
+              />
             </UiField>
           </div>
           <div class="mt-4 flex items-center gap-2 text-sm">
@@ -453,18 +461,15 @@ const submit = handleSubmit(
               v-slot="{ id, ariaInvalid, describedBy }"
               label="调度方式"
             >
-              <select
+              <UiSelect
                 :id="id"
                 v-model="scheduleKind"
                 v-bind="scheduleAttrs"
+                :options="scheduleKindOptions"
                 :class="fieldClass"
                 :aria-invalid="ariaInvalid"
                 :aria-describedby="describedBy"
-              >
-                <option value="daily">每天</option>
-                <option value="weekly">每周</option>
-                <option value="once">一次性</option>
-              </select>
+              />
             </UiField>
             <UiField
               id="task-localTime"
@@ -506,22 +511,15 @@ const submit = handleSubmit(
               label="时区"
               :error="errors.timezone"
             >
-              <select
+              <UiSelect
                 :id="id"
                 v-model="timezone"
                 v-bind="timezoneAttrs"
+                :options="timezonePickerOptions(timezone)"
                 :class="fieldClass"
                 :aria-invalid="ariaInvalid"
                 :aria-describedby="describedBy"
-              >
-                <option
-                  v-for="option in timezonePickerOptions(timezone)"
-                  :key="option.value"
-                  :value="option.value"
-                >
-                  {{ option.label }}
-                </option>
-              </select>
+              />
             </UiField>
           </div>
           <UiField
