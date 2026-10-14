@@ -288,3 +288,11 @@ it('keeps the hidden launch available when autostart cannot be read', async () =
   await user.click(toggle)
   expect(SetStartupVisibility).toHaveBeenCalledWith('hide')
 })
+
+it('renders the startup card without a manual refresh action or an effective-time hint', async () => {
+  show()
+
+  await screen.findByRole('switch', { name: '开机自启动' })
+  expect(screen.queryByRole('button', { name: '刷新状态' })).toBeNull()
+  expect(screen.queryByText(/下一次启动 dan-tick 时生效/)).toBeNull()
+})
