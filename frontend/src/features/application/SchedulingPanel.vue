@@ -60,7 +60,8 @@ async function toggleScheduling(enabled: boolean) {
       <div class="divide-y divide-border-hairline">
         <SwitchRoot
           id="scheduling-switch"
-          class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden disabled:cursor-not-allowed"
+          class="group flex min-h-20 w-full items-center justify-between gap-5 py-3 text-left focus-visible:outline-hidden"
+          :class="{ 'cursor-pointer': setScheduling.isPending.value }"
           aria-label="启用自动调度"
           aria-describedby="scheduling-description"
           :model-value="preferences.data.value?.schedulingEnabled ?? false"
