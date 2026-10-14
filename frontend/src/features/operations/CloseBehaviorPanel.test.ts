@@ -1,6 +1,7 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { render, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
+import { CancellablePromise } from '@wailsio/runtime'
 import { expect, it, vi } from 'vitest'
 import {
   GetCloseBehavior,
@@ -15,11 +16,17 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice',
   SetCloseBehavior: vi.fn(),
 }))
 
-it('reads native close behavior, updates it and reports persistence failures', async () => {
+it('reads native close behavior, updates it optimistically and rereads after a failure', async () => {
   const user = userEvent.setup()
+  let rejectWrite: (reason: Error) => void = () => {}
   vi.mocked(GetCloseBehavior).mockResolvedValue('hide')
   vi.mocked(SetCloseBehavior)
-    .mockRejectedValueOnce(new Error('private failure'))
+    .mockImplementationOnce(
+      () =>
+        new CancellablePromise<void>((_resolve, reject) => {
+          rejectWrite = reject
+        }),
+    )
     .mockResolvedValue(undefined)
   mountToastHost()
   render(CloseBehaviorPanel, {
@@ -37,13 +44,18 @@ it('reads native close behavior, updates it and reports persistence failures', a
   await waitFor(() => expect(hide.getAttribute('aria-checked')).toBe('true'))
 
   await user.click(quit)
+  // Optimistic: the chosen option shows while the write runs.
+  expect(quit.getAttribute('aria-checked')).toBe('true')
+  rejectWrite(new Error('private failure'))
   expect((await screen.findByRole('alert', { name: '操作失败通知' })).textContent).toContain(
-    '保存窗口偏好失败，设置未更改。',
+    '更改窗口行为未成功确认，请确认当前选择后重试。',
   )
   expect(section.children).toHaveLength(initialChildCount)
-  expect(within(section).queryByText('保存窗口偏好失败，设置未更改。')).toBeNull()
-  expect(hide.getAttribute('aria-checked')).toBe('true')
+  expect(within(section).queryByText(/更改窗口行为未成功确认/)).toBeNull()
+  // The reread restores what the backend actually holds.
+  await waitFor(() => expect(hide.getAttribute('aria-checked')).toBe('true'))
   expect(quit.getAttribute('aria-checked')).toBe('false')
+  expect(GetCloseBehavior).toHaveBeenCalledTimes(2)
 
   vi.mocked(GetCloseBehavior).mockResolvedValue('quit')
   await user.click(quit)

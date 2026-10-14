@@ -2,7 +2,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
 import { Check } from 'lucide-vue-next'
-import { shallowRef, watch } from 'vue'
 import { useToast } from '@/composables/useToast'
 import UiPanel from '@/components/ui/UiPanel.vue'
 import UiAlert from '@/components/ui/UiAlert.vue'
@@ -15,36 +14,29 @@ const queryClient = useQueryClient()
 const queryKey = ['desktop', 'close-behavior'] as const
 const {
   data: behavior,
-  isPending,
+  isFetching,
   isError,
   refetch,
 } = useQuery({
   queryKey,
   queryFn: GetCloseBehavior,
 })
-const selected = shallowRef<string | undefined>()
 const { notify, dismiss } = useToast()
-watch(
-  behavior,
-  (value) => {
-    selected.value = value
-  },
-  { immediate: true },
-)
 const update = useMutation({
   mutationFn: (value: string) => SetCloseBehavior(value),
-  onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-  onError: () => {
-    selected.value = behavior.value
-    notify('保存窗口偏好失败，设置未更改。', 'error')
-  },
+  // Optimistic: the chosen option shows while the write runs, and the reread
+  // afterwards reports what the backend really holds — a write can succeed
+  // before its response fails.
+  onMutate: (value) => queryClient.setQueryData(queryKey, value),
+  onSettled: () => queryClient.invalidateQueries({ queryKey }),
 })
 
 function onChange(value: unknown) {
   if (value === 'hide' || value === 'quit') {
     dismiss()
-    selected.value = value
-    update.mutate(value)
+    update.mutate(value, {
+      onError: () => notify('更改窗口行为未成功确认，请确认当前选择后重试。', 'error'),
+    })
   }
 }
 </script>
@@ -53,9 +45,9 @@ function onChange(value: unknown) {
   <UiPanel aria-labelledby="close-behavior-heading">
     <h2 id="close-behavior-heading" class="mb-2 text-base font-semibold">窗口与后台运行</h2>
     <RadioGroupRoot
-      :model-value="selected"
-      :disabled="isPending || update.isPending.value"
-      :aria-busy="isPending || update.isPending.value"
+      :model-value="behavior"
+      :disabled="isFetching || update.isPending.value"
+      :aria-busy="isFetching || update.isPending.value"
       orientation="vertical"
       aria-label="关闭窗口行为"
       class="flex flex-col gap-3"
@@ -64,7 +56,7 @@ function onChange(value: unknown) {
       <RadioGroupItem
         value="hide"
         class="group flex min-h-11 items-center gap-3 rounded-[10px] border border-border-strong bg-surface-solid px-4 py-2.5 text-left text-text-primary hover:bg-surface-solid-hover data-[state=checked]:border-soft-accent-border data-[state=checked]:bg-soft-accent-bg"
-        :class="{ 'cursor-pointer': isPending || update.isPending.value }"
+        :class="{ 'cursor-pointer': isFetching || update.isPending.value }"
       >
         <span
           class="flex size-4 items-center justify-center rounded-full border border-border-strong group-data-[state=checked]:border-accent-solid"
@@ -79,7 +71,7 @@ function onChange(value: unknown) {
       <RadioGroupItem
         value="quit"
         class="group flex min-h-11 items-center gap-3 rounded-[10px] border border-border-strong bg-surface-solid px-4 py-2.5 text-left text-text-primary hover:bg-surface-solid-hover data-[state=checked]:border-soft-accent-border data-[state=checked]:bg-soft-accent-bg"
-        :class="{ 'cursor-pointer': isPending || update.isPending.value }"
+        :class="{ 'cursor-pointer': isFetching || update.isPending.value }"
       >
         <span
           class="flex size-4 items-center justify-center rounded-full border border-border-strong group-data-[state=checked]:border-accent-solid"
