@@ -12,6 +12,10 @@ import {
   OpenDataDirectory,
   OpenLogDirectory,
 } from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/diagnosticsservice'
+import {
+  GetAutostartStatus,
+  SetAutostartEnabled,
+} from '@bindings/github.com/dongwlin/dan-tick/internal/desktop/autostartservice'
 
 export const applicationKeys = {
   all: ['application'] as const,
@@ -19,6 +23,22 @@ export const applicationKeys = {
   overview: ['application', 'overview'] as const,
   diagnostics: ['application', 'diagnostics'] as const,
   buildInfo: ['application', 'build-info'] as const,
+  autostart: ['application', 'autostart'] as const,
+}
+
+export function useAutostartStatus() {
+  return useQuery({ queryKey: applicationKeys.autostart, queryFn: GetAutostartStatus })
+}
+
+export function useSetAutostartEnabled() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (enabled: boolean) => SetAutostartEnabled(enabled),
+    onSuccess: (status) => client.setQueryData(applicationKeys.autostart, status),
+    // A failed confirmation can follow a successful system change. Read the
+    // registered state again before allowing another attempt.
+    onError: () => client.invalidateQueries({ queryKey: applicationKeys.autostart }),
+  })
 }
 
 export function useBuildInfo() {

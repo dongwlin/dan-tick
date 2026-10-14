@@ -26,6 +26,12 @@ vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/windowservice',
   GetCloseBehavior: vi.fn().mockResolvedValue('hide'),
   SetCloseBehavior: vi.fn().mockResolvedValue(undefined),
 }))
+vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/autostartservice', () => ({
+  GetAutostartStatus: vi
+    .fn()
+    .mockResolvedValue({ enabled: false, supported: true, needsRepair: false }),
+  SetAutostartEnabled: vi.fn(),
+}))
 vi.mock('@bindings/github.com/dongwlin/dan-tick/internal/desktop/applicationservice', () => ({
   GetBuildInfo: vi.fn().mockResolvedValue({ version: 'dev', buildTime: '', commit: '' }),
   GetPreferences: vi
@@ -56,6 +62,7 @@ it('renders settings cards without shadows', () => {
     'B站账号凭证',
     '测试发送',
     '窗口与后台运行',
+    '开机自启动',
     '调度设置',
     '界面主题',
     '数据与日志',
@@ -64,6 +71,16 @@ it('renders settings cards without shadows', () => {
     expect(screen.getByRole('region', { name }).classList.contains('shadow-sm')).toBe(false)
   }
   expect(screen.getByRole('heading', { name: '设置' }).closest('header')).not.toBeNull()
+})
+
+it('places autostart after window behavior and before scheduling', () => {
+  render(SettingsPage, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: createAppQueryClient() }]] },
+  })
+
+  const autostart = screen.getByRole('region', { name: '开机自启动' })
+  expect(screen.getByRole('region', { name: '窗口与后台运行' }).nextElementSibling).toBe(autostart)
+  expect(autostart.nextElementSibling).toBe(screen.getByRole('region', { name: '调度设置' }))
 })
 
 it('places the about section after diagnostics with the existing brand mark', () => {
