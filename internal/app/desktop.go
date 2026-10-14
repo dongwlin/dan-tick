@@ -210,6 +210,13 @@ func runDesktop(assets fs.FS, logger *diagnostic.Logger) error {
 		windowMu.Lock()
 		windowReady = true
 		windowMu.Unlock()
+		// A window created visible is already in front of the user, so the
+		// close request has to follow the stored close behavior. Only a window
+		// that starts hidden stays unshown until the tray or a second launch
+		// restores it.
+		if !windowLifecycle.ShouldStartHidden() {
+			windowLifecycle.MarkShown()
+		}
 	})
 
 	// Run the application. This blocks until the application has been exited.
